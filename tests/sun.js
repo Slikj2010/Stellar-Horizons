@@ -1,0 +1,26 @@
+// Sun Observation rules check. Usage: node tests/sun.js <site_dir>
+const path = require('path'), dir = process.argv[2];
+const D = require(path.join(dir, 'data.js')), E = require(path.join(dir, 'rules.js'))(D, require(path.join(dir, 'units.json')));
+const G = E.newGame('na'); let bad = 0;
+const ok = (c, m) => { if (!c) { bad++; console.log('FAIL', m); } else console.log('ok  ', m); };
+const re = G.ships.find(s => s.cls === 'RE'), cv = G.ships.find(s => s.cls === 'CV');
+const mk = (kind, loc) => Object.assign(JSON.parse(JSON.stringify(re)), { id: 'x' + kind + loc, kind, loc, launched: true, fixed: /^(orbit|surf)/.test(loc), probe: null });
+G.phase = 'explore';
+let o = E.exploreOptions(G, mk('Orbiter', 'orbit:mer'));
+ok(o.some(x => x.w === 'sun' && x.pen === 0), 'orbiter at Mercury explores the Sun with no penalty');
+ok(o.some(x => x.w === 'mer'), 'orbiter at Mercury still explores Mercury');
+ok(E.exploreOptions(G, mk('Orbiter', 'orbit:sun')).some(x => x.w === 'sun'), 'orbiter at the Sun explores it');
+ok(!E.exploreOptions(G, mk('Rover', 'surf:mer')).some(x => x.w === 'sun'), 'rover on Mercury cannot explore the Sun');
+const fb = E.exploreOptions(G, mk('Flyby', 'box:mer:2')).find(x => x.w === 'sun');
+ok(fb && fb.pen === 2, 'flyby in Mercury box 2 explores the Sun at -2');
+ok(E.exploreOptions(G, mk('Telescope', 'orbit:ear')).some(x => x.w === 'sun'), 'telescope can explore the Sun');
+G.phase = 'move';
+const rov = mk('Rover', 'fly:mer'); rov.fixed = false;
+ok(!E.moves(G, rov).some(m => /sun/.test(m.dest)), 'rover cannot move to the Sun');
+const orb = mk('Orbiter', 'fly:mer'); orb.fixed = false;
+ok(E.moves(G, orb).some(m => m.dest === 'orbit:sun'), 'orbiter can enter Sun orbit');
+ok(E.cvAllowed(G, cv, 'orbit:sun'), 'CV cannot go to the Sun');
+const base = E.malfBase(G);
+['box:mer:4', 'fly:mer', 'orbit:mer', 'orbit:sun'].forEach(l => ok(E.malfRate(G, mk('Flyby', l)) === base + 10, 'severe radiation (+10%) at ' + l));
+ok(E.cvAllowed(G, cv, 'box:mer:3'), 'CV blocked in Mercury transfer box without radiation shielding');
+console.log(bad ? bad + ' FAILED' : 'ALL OK'); process.exit(bad ? 1 : 0);

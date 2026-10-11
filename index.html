@@ -646,6 +646,9 @@ function ringBlocked(w, a) {
     return inside; };
   let b = Object.values(GEO.sys).some(S => Object.values(S.boxPoly || {}).some(hitPoly) || hitPoly(S.flybyPoly));
   const L = RING_LABEL[w]; if (L && angDist(a, L[0]) < L[1]) b = true;
+  // other worlds' printed circles and every EXPLORE box
+  if (!b) b = Object.entries(GEO.worlds).some(([k, g]) => k !== w && g.poly && g.circ && Math.hypot(x - ringOf(k).c[0], y - ringOf(k).c[1]) < g.circ + rad);
+  if (!b && FX.exp) b = Object.values(FX.exp).some(e => { const m = GEO.maps[e.map]; return Math.hypot(x - (m[0] + e.cx * .4), y - (m[1] + e.cy * .4)) < e.s * .4 * .75 + rad; });
   return BLOCK[key] = b;
 }
 function freeAngle(want, taken, sep, w) {

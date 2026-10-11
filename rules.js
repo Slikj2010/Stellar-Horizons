@@ -27,6 +27,7 @@ const locName = loc => {
 const worldsIn = s => Object.keys(W).filter(k => W[k].sys === s);
 const hasSurf = w => !W[w].tags.includes('station') || w === 'jup' || w === 'ura';
 const isGas = w => W[w].tags.includes('gas');
+const isSun = w => W[w].tags.includes('sunobs');
 
 // ---------- small helpers ----------
 const log = (G, t, c) => { G.log.unshift({ y: G.y, t, c: c || '' }); if (G.log.length > 400) G.log.length = 400; };
@@ -556,6 +557,7 @@ function cvAllowed(G, s, loc) {
   if (p.w) {
     const w = W[p.w];
     if (w.tags.includes('tele')) return 'only telescopes can explore there';
+    if (w.tags.includes('sunobs')) return 'crew vehicles cannot explore the Sun';
     if (w.tags.includes('rad') && !has(G, 'ars')) return 'severe radiation needs Active Radiation Shielding';
     if (isGas(p.w) && p.t === 'surf') return 'crew vehicles cannot enter a gas giant';
     if (p.t === 'surf' && w.tags.includes('severeAtm') && !has(G, 'psh')) return 'severe atmosphere needs Pressure Shell';
@@ -593,7 +595,7 @@ function moves(G, s) {
           worldsIn(sy).forEach(w => {
             if (W[w].tags.includes('tele') || W[w].tags.includes('earth') || w === 'ear') return;
             if (s.kind === 'Orbiter') add('orbit:' + w, { lv: lvOpts[0] });
-            if (s.kind === 'Rover' && !isGas(w)) add('surf:' + w, { lv: lvOpts[0] });
+            if (s.kind === 'Rover' && !isGas(w) && !isSun(w)) add('surf:' + w, { lv: lvOpts[0] });
           });
           if (s.kind === 'Flyby') add('fly:' + sy, { lv: lvOpts[0] });
           return;
@@ -609,7 +611,7 @@ function moves(G, s) {
       worldsIn(p.s).forEach(w => {
         if (W[w].tags.includes('tele')) return;
         if (s.kind === 'Orbiter') add('orbit:' + w, { final: true });
-        if (s.kind === 'Rover' && !isGas(w)) add('surf:' + w, { final: true });
+        if (s.kind === 'Rover' && !isGas(w) && !isSun(w)) add('surf:' + w, { final: true });
       });
     }
     return out;
@@ -631,7 +633,7 @@ function cvTargets(G, s, here) {
   const out = [];
   const push = (dest, extra) => { const why = cvAllowed(G, s, dest); out.push({ dest, why, ...extra }); };
   worldsIn(here).forEach(w => {
-    if (W[w].tags.includes('tele') || W[w].tags.includes('alpha') && false) return;
+    if (W[w].tags.includes('tele') || isSun(w)) return;
     push('orbit:' + w);
     if (!W[w].tags.includes('station')) push('surf:' + w);
   });
@@ -861,7 +863,9 @@ function exploreOptions(G, s) {
     if (!s.fixed) return out;
     const w = worldOf(s.loc);
     add(w, 'explore'); if (s.probe) add(w, 'probe');
-    if (s.kind === 'Orbiter' && SYS[W[w].sys].hub === w) worldsIn(W[w].sys).forEach(x => { if (x !== w && !W[x].tags.includes('tele')) add(x, 'explore', 1); });
+    if (s.kind === 'Orbiter' && SYS[W[w].sys].hub === w) worldsIn(W[w].sys).forEach(x => { if (x !== w && !W[x].tags.includes('tele')) add(x, 'explore', isSun(x) ? 0 : 1); });
+    // rovers cannot explore the Sun, even from Mercury
+    if (s.kind === 'Rover') return out.filter(o => !isSun(o.w));
     return out;
   }
   // CV
@@ -1155,7 +1159,7 @@ function score(G) {
 function finish(G, why) { G.over = true; G.endYear = G.y; const sc = score(G); log(G, `${why} Final score ${sc.total}: ${sc.rating}.`, 'h'); }
 
 return {
-  R, D, P, sysOf, worldOf, locName, worldsIn, RES, FIELDS, FN, PHASES, ESTEPS, PHASE_NAME, ESTEP_NAME, newGame, advance, answer,
+  R, D, P, sysOf, worldOf, locName, worldsIn, RES, FIELDS, FN, PHASES, ESTEPS, PHASE_NAME, ESTEP_NAME, newGame, cvAllowed, advance, answer,
   moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, shipCargo,
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,
   canFoundBase, foundBase, unload, load, buyCargo, sellCargo, upgradeOptions, buildFacility, buildSettlement, repairFacility, terraform, trade, tradeLimitOwn,

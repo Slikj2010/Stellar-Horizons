@@ -21,10 +21,12 @@ D.SYS = {
 D.SYS_ORDER = ['mer', 'ven', 'ear', 'mar', 'bel', 'jup', 'sat', 'ura', 'nep', 'kui', 'sca', 'alp'];
 
 // Worlds. f field, v start exploration, life %, base cost (0 = no bases), intrinsic production, tags, range [lo,hi] for random placement
-// tags: rocky icy volcanic gas minimal severeAtm rad venus reentry station(base is a space station) surf(has separate surface) nocv norover tele(only telescopes)
+// tags: sunobs(Sun Observation: orbit only, no CVs/rovers) rocky icy volcanic gas minimal severeAtm rad venus reentry station(base is a space station) surf(has separate surface) nocv norover tele(only telescopes)
 const W = (n, sys, f, v, life, base, prod, tags, rng) => ({ n, sys, f, v, life, base, prod, tags: tags.split(' ').filter(Boolean), rng });
 D.W = {
   mer: W('Mercury', 'mer', 'Eng', 6, 2, 6, { ORE: 4 }, 'rocky rad surf', [1, 4]),
+  // Sun Observation: treated as an orbit, no CV or rover exploration, severe radiation, no bases or cards
+  sun: W('Sun Observation', 'mer', 'Phy', 5, 0, 0, {}, 'sunobs rad', null),
   ven: W('Venus', 'ven', 'Phy', 6, 1, 6, { FUEL: 3, ORE: 2 }, 'rocky volcanic severeAtm venus surf', [5, 7]),
   ear: W('Earth orbit', 'ear', 'Bio', 3, 0, 2, {}, 'station earth reentry', null),
   moo: W('Moon', 'ear', 'Eng', 4, 2, 3, { ORE: 1 }, 'rocky surf', [12, 19]),
@@ -91,7 +93,7 @@ D.CARDS = [
 ].map(([n, ORE, FUEL, SUP, rf, rv, el, bonus, lifeB]) => ({ n, prod: { ORE, FUEL, SUP }, rf, rv, el, bonus, lifeB: lifeB || 0, img: n === 'Subterranean Water' ? 'Subterrain Water' : n === 'Volcanoes' ? 'Valcanoes' : n }));
 D.cardOk = (card, w) => {
   const t = w.tags;
-  if (t.includes('tele') || t.includes('alpha') || t.includes('earth')) return false;
+  if (t.includes('tele') || t.includes('alpha') || t.includes('earth') || t.includes('sunobs')) return false;
   switch (card.el) {
     case 'rockyOrIcy': return t.includes('rocky') || t.includes('icy');
     case 'notVenus': return !t.includes('venus');
