@@ -22,6 +22,8 @@ ok(E.scrapSite(G, cv) && E.scrapSite(G, cv).where === pb.id, 'a CV at its new ba
 // LV scrap
 G.lv.earth[2] = 1; cash = G.cash; ok(!E.scrapLV(G, 'earth', 2) && G.lv.earth[2] === 0 && G.cash > cash - 1, 'LV-2 scrapped on Earth');
 const G2 = E.newGame('na'); G2.lv.earth[2] = 1; ok(typeof E.scrapLV(G2, 'earth', 2) === 'string', 'LV scrapping needs the optional rule');
+ok(E.estock(G).ORE + E.estock(G).FUEL > 0, 'LV materials scrapped on Earth go onto the faction board: ' + JSON.stringify(E.estock(G)));
+{ const H = E.newGame('ru'); H.phase = 'build'; H.estock = { ORE: 3, SUP: 0, FUEL: 1 }; const c0 = H.cash; const o = E.buildOptions(H, 'earth').find(x => !x.why && x.kind !== 'CV'); E.buildUnit(H, o.key, 'earth'); const need = o.cost.ORE + o.cost.SUP + o.cost.FUEL, fromBoard = Math.min(3, o.cost.ORE) + Math.min(1, o.cost.FUEL); ok(c0 - H.cash === need - fromBoard, 'building on Earth uses the faction board first, then cash (' + (c0 - H.cash) + ' of ' + need + ')'); }
 // two-sided counters
 const N = E.newGame('na'); N.tech.uhlv = 1; N.tech.cv = 1; const set = a => N.lv.earth = { 1: a[0], 2: a[1], 3: a[2], 4: a[3] };
 set([0, 0, 1, 0]); ok(!E.lvCanAdd(N, 3), 'North America has only one LV-3');

@@ -817,7 +817,7 @@ function chooseAndMove(s, dest, opts, dropPt) {
   const probes = !s.launched && s.cls === 'RE' && ['Flyby', 'Orbiter', 'Rover'].includes(s.kind) ? (G.probes[s.loc] || []) : [];
   const o0 = opts[0], rate = Math.max(0, E.engRate(G, s));
   const body = `<p>${esc(s.name)} moves from ${esc(E.locName(s.loc))} to <b>${esc(E.locName(dest))}</b>${o0.eta ? `, a ${o0.eta}-turn transfer` : ', arriving this turn'}${o0.final ? '. This is its final move' : ''}.</p>
-    ${lvs.length ? `<p class="dim">Launch vehicle:</p><div class="row">${lvs.map((o, i) => `<label class="chip" style="padding:4px 9px;cursor:pointer"><input type="radio" name="mvlv" value="${o.lv.n}" ${i ? '' : 'checked'}> LV-${o.lv.n} ${o.lv.stock ? 'from stock' : `(buy $${o.lv.buy}B)`}${o.eta && lvs.length > 1 ? `, ${o.eta} turn${o.eta > 1 ? 's' : ''}` : ''}</label>`).join('')}</div>` : ''}
+    ${lvs.length ? `<p class="dim">Launch vehicle:</p><div class="row">${lvs.map((o, i) => `<label class="chip" style="padding:4px 9px;cursor:pointer"><input type="radio" name="mvlv" value="${o.lv.n}" ${i ? '' : 'checked'}> LV-${o.lv.n} ${o.lv.stock ? 'from stock' : `(new: ${esc(o.lv.txt)})`}${o.eta && lvs.length > 1 ? `, ${o.eta} turn${o.eta > 1 ? 's' : ''}` : ''}</label>`).join('')}</div>` : ''}
     ${probes.length ? `<label class="dim"><input type="checkbox" id="mvprobe" checked> Carry probe ${esc(probes[0])}</label>` : ''}
     <p class="dim">Engine failure ${rate < 1 ? 'under 1%, no roll' : rate + '%'}${lvs.length ? (E.has(G, 'reuse') ? '; the LV is recovered on a roll above 25 and can launch again next turn' : '; the LV is used up') : ''}. Each unit moves once per turn.</p>`;
   ui = { k: 'gen', title: `Move ${s.name}?`, body, go: 'Move', fn: () => {
@@ -903,7 +903,7 @@ function renderBar() {
   const mk = f => G.mk[f].reduce((a, b) => a + b, 0);
   setTimeout(() => { const b = $('pzbtn'); if (b) b.onclick = showPause; });
   $('bar').innerHTML = `<button class="b pz" id="pzbtn" aria-label="Pause menu">❚❚ Menu</button><span class="yr">${G.over ? G.endYear : G.y}</span><span class="ph">${G.over ? 'Campaign over' : E.PHASE_NAME[G.phase] + (G.estep ? ' · ' + E.ESTEP_NAME[G.estep] : '')}</span>
-  <span class="st">${esc(D.FAC[G.f].n)}</span><span class="st">Cash <b>$${G.cash}B</b></span><span class="st">Politics <b>${G.polm}</b></span><span class="st">Victory <b>${G.vm}</b></span>
+  <span class="st">${esc(D.FAC[G.f].n)}</span><span class="st">Cash <b>$${G.cash}B</b></span>${E.sum(E.estock(G)) ? `<span class="st" title="Resources on your faction board, used first when building on Earth">Board ${resHTML(E.estock(G))}</span>` : ''}<span class="st">Politics <b>${G.polm}</b></span><span class="st">Victory <b>${G.vm}</b></span>
   ${E.FIELDS.map(f => `<span class="st f-${f}">${E.FN[f]} <b>${G.bank[f]}</b>${mk(f) ? ` <span class="dim">+${mk(f)} in markers</span>` : ''}</span>`).join('')}
   <span class="grow"></span><span class="st">Score <b>${sc.total}</b></span>`;
 }
@@ -930,7 +930,7 @@ function panelEcon() {
     <table><tr><th>Faction</th><th>Relation</th><th>Attempts</th><th></th></tr>${Object.keys(G.rel).map(k => `<tr><td>${esc(D.FAC[k].n)}</td><td>${D.REL[G.rel[k]]}</td><td class="mono">${(G.dipl || {})[k] || 0}</td><td><button class="b" data-dip="${k}" data-d="1">+</button> <button class="b" data-dip="${k}" data-d="-1">−</button></td></tr>`).join('')}</table><p class="dim">Planned cost: ${cost} of ${G.polm} markers.</p>`;
   }
   if (s === 'production') return `<p>Production is collected; see the log. Set what each base produces next decade:</p>${G.bases.map(b => `<div class="item"><span></span><div class="t"><b>${esc(b.name)}</b><small>${esc(D.W[b.w].n)}</small></div><select data-out="${b.id}">${['ORE', 'SUP', 'FUEL', 'tech'].map(t => { const o = E.baseOutput(G, b, t); return `<option value="${t}" ${b.out === t ? 'selected' : ''}>${t === 'tech' ? 'Tech' : t} ${o ? '(' + o.n + ')' : '(none)'}</option>`; }).join('')}</select></div>`).join('') || '<p class="dim">You have no bases yet.</p>'}`;
-  if (s === 'transport') return G.transferLeft ? `<p>You can move ${G.transferLeft} resources between Earth and your bases (Trade Routes). Buying on Earth costs $1B each; resources sent to Earth sell at 2 for $1B.</p>${transferForm()}` : `<p class="dim">No transfers available (you need Trade Routes).</p>`;
+  if (s === 'transport') return G.transferLeft ? `<p>You can move ${G.transferLeft} resources between Earth and your bases (Trade Routes). Resources sent from Earth come off the faction board first, the rest bought at $1B each; resources sent to Earth go onto the faction board.</p>${transferForm()}` : `<p class="dim">No transfers available (you need Trade Routes).</p>`;
   if (s === 'placement') return `<p>NPF bases, asteroids, pirates and trade markers were placed; see the log and the board.</p>`;
   if (s === 'tech') return `<p class="dim">Develop technologies from your bank in the Tech tab. Before leaving this step, convert politics markers: unconverted markers are discarded, then banked points are halved.</p>
     <div class="row"><button class="b" data-a="tabtech">Open the tech chart</button></div>
@@ -949,11 +949,11 @@ function shipLine(s, right) {
 }
 function panelBuild() {
   const opts = E.buildOptions(G, 'earth');
-  let h = `<p class="dim">Units cost Ore, SUP and Fuel bought on Earth at $1B each. Launch vehicles are separate: LV-n costs 1 Ore plus n Fuel. Stock on Earth: ${lvTxt()}. Probes waiting: ${(G.probes.earth || []).join(', ') || 'none'}.</p>`;
+  let h = `<p class="dim">Units cost Ore, SUP and Fuel. On Earth the resources on your faction board are used first (now ${resHTML(E.estock(G))}), and the rest is bought at $1B each. Launch vehicles are separate: LV-n costs 1 Ore plus n Fuel. LVs on Earth: ${lvTxt()}. Probes waiting: ${(G.probes.earth || []).join(', ') || 'none'}.</p>`;
   h += `<div class="row">${[1, 2, 3, 4].map(z => `<button class="b" data-lv="${z}">Build LV-${z} ${RS('ORE', 1)} ${RS('FUEL', z)}</button>`).join('')}</div>`;
   h += `<p class="dim">Counters: ${esc(E.lvPoolTxt(G))}.</p>`;
   if (E.scrapRule(G)) { const sc = [['earth', 'Earth'], ...G.bases.map(b => [b.id, b.name])].flatMap(([w, n]) => [1, 2, 3, 4].filter(z => G.lv[w] && G.lv[w][z]).map(z => `<button class="b" data-lvscrap="${z}" data-where="${w}">Scrap LV-${z} at ${esc(n)}</button>`)); if (sc.length) h += `<div class="row">${sc.join('')}</div>`; }
-  h += `<h3>Earth shipyard</h3>` + opts.map(o => `<div class="item">${cssCounter(o.kind + '|' + o.u.n, 40)}<div class="t"><b>${esc(o.u.n)}</b><small>${o.kind} · search ${o.u.ev}${o.u.spec ? ', spectrometer' : ''}${o.u.lab ? ', mobile lab' : ''}${o.u.cargo ? ' · cargo ' + o.u.cargo + (o.u.prod ? ' (production)' : '') : ''}${o.u.cb ? ' · combat ' + o.u.cb : ''} · ${resHTML(o.cost)} = $${E.sum(o.cost)}B${o.why ? ' · ' + esc(o.why) : ''}</small></div><div class="row"><button class="b" data-build="${esc(o.key)}" ${o.why || G.cash < E.sum(o.cost) ? 'disabled' : ''}>Build</button>${o.cv && !o.why ? `<button class="b" data-buildr="${esc(o.key)}" title="Reserved: 1 SUP and 1 Fuel cheaper">Reserved</button>` : ''}</div></div>`).join('');
+  h += `<h3>Earth shipyard</h3>` + opts.map(o => `<div class="item">${cssCounter(o.kind + '|' + o.u.n, 40)}<div class="t"><b>${esc(o.u.n)}</b><small>${o.kind} · search ${o.u.ev}${o.u.spec ? ', spectrometer' : ''}${o.u.lab ? ', mobile lab' : ''}${o.u.cargo ? ' · cargo ' + o.u.cargo + (o.u.prod ? ' (production)' : '') : ''}${o.u.cb ? ' · combat ' + o.u.cb : ''} · ${resHTML(o.cost)} = ${esc(E.earthCostTxt(G, o.cost))}${o.why ? ' · ' + esc(o.why) : ''}</small></div><div class="row"><button class="b" data-build="${esc(o.key)}" ${o.why || G.cash < E.earthCash(G, o.cost) ? 'disabled' : ''}>Build</button>${o.cv && !o.why ? `<button class="b" data-buildr="${esc(o.key)}" title="Reserved: 1 SUP and 1 Fuel cheaper">Reserved</button>` : ''}</div></div>`).join('');
   const cvs = G.ships.filter(s => s.cls === 'CV');
   if (cvs.length) h += `<h3>Crew vehicles</h3>` + cvs.map(s => shipLine(s, (s.res ? `<button class="b" data-unres="${s.id}">Unreserve</button>` : `<button class="b" data-reserve="${s.id}">Reserve</button>`) + (s.dmg ? `<button class="b" data-repair="${s.id}">Repair</button>` : '') + (s.loc === 'earth' && s.cap ? `<button class="b" data-sel="${s.id}">Load cargo</button>` : ''))).join('');
   G.bases.filter(b => b.fac.sup).forEach(b => { h += `<h3>${esc(b.name)} shipyard</h3><p class="dim">Stock ${resHTML(b.stock)}</p><div class="row">${[1, 2, 3, 4].map(z => `<button class="b" data-lvb="${z}" data-base="${b.id}">LV-${z}</button>`).join('')}</div>`; });
@@ -997,18 +997,18 @@ function panelShip(s) {
   if (E.sum(s.cargo)) h += `<p>Cargo: ${resHTML(s.cargo)}</p>`;
   if (s.cls === 'CV' || s.kind !== 'Probe') h += `<p class="dim">Engine failure ${Math.max(0, E.engRate(G, s))}%${s.cls === 'RE' ? ' · malfunction ' + E.malfRate(G, s) + '%' : ' · recall ' + E.recall(G) + '%'}</p>`;
   if (G.phase === 'move' && G.turn.moved[s.id]) h += `<p class="dim">${esc(s.name)} has already moved this turn.</p>`;
-  if (G.phase === 'move') { const m = E.moves(G, s); const uniq = [...new Map(m.map(x => [x.dest, x])).values()]; h += m.length ? `<h3>Move to</h3>` + uniq.map(x => `<div class="row"><button class="b" data-mvto="${esc(x.dest)}">${esc(x.label)}</button><span class="dim">${x.eta ? x.eta + ' turns' : 'this turn'}${x.lv ? ' · LV-' + x.lv.n + (x.lv.buy ? ' (buy $' + x.lv.buy + 'B)' : ' from stock') : ''}${x.final ? ' · final move' : ''}</span></div>`).join('') : ''; }
+  if (G.phase === 'move') { const m = E.moves(G, s); const uniq = [...new Map(m.map(x => [x.dest, x])).values()]; h += m.length ? `<h3>Move to</h3>` + uniq.map(x => `<div class="row"><button class="b" data-mvto="${esc(x.dest)}">${esc(x.label)}</button><span class="dim">${x.eta ? x.eta + ' turns' : 'this turn'}${x.lv ? ' · LV-' + x.lv.n + (x.lv.buy ? ' (new: ' + esc(x.lv.txt) + ')' : ' from stock') : ''}${x.final ? ' · final move' : ''}</span></div>`).join('') : ''; }
   if (G.phase === 'explore') {
     const o = E.exploreOptions(G, s);
     if (o.length) h += `<h3>Explore</h3>` + o.map((x, i) => `<div class="row"><button class="b" data-ex="${i}">${x.kind === 'probe' ? 'Probe ' : x.kind === 'produce' ? 'Produce ' + x.res + ' at ' : x.kind === 'harvest' ? 'Harvest asteroid' : ''}${x.w ? esc(D.W[x.w].n) : ''}</button><span class="dim">${x.kind === 'produce' ? 'production value ' + x.value : x.kind === 'harvest' ? '' : `${fieldTag(x.w)} · world ${G.w[x.w].v} · explore value <b class="mono" style="color:var(--ink)">${x.value}</b>${x.pen ? ' (−' + x.pen + ' distance)' : ''}`}</span></div>`).join('');
     if (s.kind === 'Flyby' && E.P(s.loc).t === 'fly' && o.length) h += `<div class="row"><button class="b" data-fskip="${s.id}">Transfer outward without exploring</button></div>`;
   }
-  if (G.phase === 'build' && s.loc === 'earth' && s.cap) h += `<h3>Buy cargo on Earth ($1B each)</h3><div class="row">${['ORE', 'SUP', 'FUEL'].map(r => `<button class="b" data-buyc="${r}">+1 ${RS(r, '')}</button>`).join('')}<button class="b" data-buyc5="SUP">Fill with SUP</button>${E.sum(s.cargo) ? `<button class="b" data-sellc="1">Sell cargo</button>` : ''}</div>`;
+  if (G.phase === 'build' && s.loc === 'earth' && s.cap) h += `<h3>Load cargo on Earth (faction board first, then $1B each)</h3><div class="row">${['ORE', 'SUP', 'FUEL'].map(r => `<button class="b" data-buyc="${r}">+1 ${RS(r, '')}</button>`).join('')}<button class="b" data-buyc5="SUP">Fill with SUP</button>${E.sum(s.cargo) ? `<button class="b" data-sellc="1">Unload to the faction board</button>` : ''}</div>`;
   const b = E.atOwnBase(G, s);
   if (b && s.cap) h += `<h3>At ${esc(b.name)}</h3><div class="row"><button class="b" data-unload="${s.id}" ${E.sum(s.cargo) ? '' : 'disabled'}>Unload all</button>${['ORE', 'SUP', 'FUEL'].map(r => `<button class="b" data-loadr="${r}" ${b.stock[r] ? '' : 'disabled'}>Load ${r}</button>`).join('')}</div>`;
   if (G.phase === 'trade' && E.canFoundBase(G, s)) { const c = E.canFoundBase(G, s); h += `<div class="row"><button class="b pri" data-found="${s.id}" ${s.cargo.SUP < c.cost ? 'disabled' : ''}>Found a base here (${c.cost} SUP)</button></div>`; }
   { const site = !(s.cls === 'CV' && s.dmg) && E.scrapSite(G, s), at = site ? (site.where === 'earth' ? 'Earth' : G.bases.find(x => x.id === site.where).name) : '';
-    h += `<div class="row" style="margin-top:14px"><button class="b" data-scrap="${s.id}">Destroy</button><span class="dim">${site ? `Scrapped at ${esc(at)}: half its materials come back${site.where === 'earth' ? ' (sold for cash)' : ' to the base'}.` : s.cls === 'RE' && !E.scrapRule(G) ? 'Destroyed with nothing recovered (scrapping explorers is an optional rule in Settings).' : 'Not at one of your bases: destroyed with nothing recovered.'}</span></div>`; }
+    h += `<div class="row" style="margin-top:14px"><button class="b" data-scrap="${s.id}">Destroy</button><span class="dim">${site ? `Scrapped at ${esc(at)}: half its materials come back${site.where === 'earth' ? ' onto your faction board' : ' to the base'}.` : s.cls === 'RE' && !E.scrapRule(G) ? 'Destroyed with nothing recovered (scrapping explorers is an optional rule in Settings).' : 'Not at one of your bases: destroyed with nothing recovered.'}</span></div>`; }
   return h;
 }
 function panelBase(b) {
@@ -1041,6 +1041,7 @@ function panelFac() {
   <h3>Foreign relations</h3><table>${Object.keys(G.rel).map(k => `<tr><td>${esc(D.FAC[k].n)}</td><td>${D.REL[G.rel[k]]}</td></tr>`).join('')}</table>
   <h3>Policies</h3><p class="dim">${D.POL.filter(p => E.polLv(G, p.k)).map(p => D.POL_LV[E.polLv(G, p.k) - 1] + p.n).join(', ') || 'none'}</p>
   <h3>Crew range ${E.range(G) >= 99 ? 'unlimited' : E.range(G)} · transfers ×${E.mult(G)} · recall ${E.recall(G)}% · malfunction ${E.malfBase(G)}% · engine ${E.engBase(G)}%</h3>
+  <h3>Resources on the faction board</h3><p class="dim">${resHTML(E.estock(G))}. Used first when building, launching or loading on Earth; the rest is bought at $1B each. Nothing is sold for cash.</p>
   <h3>Launch vehicles on Earth</h3><p class="dim">${lvTxt()}</p><p class="dim">Two-sided counters: ${esc(E.lvPoolTxt(G))}.</p>`;
 }
 function panelTech() {
@@ -1132,7 +1133,7 @@ function exploreConfirm() {
   <div class="row"><button class="b pri" data-ui="go">Explore</button><button class="b" data-ui="cancel">Cancel</button></div>`;
 }
 function ask(title, body, fn, go) { ui = { k: 'gen', title, body, fn, go: go || 'Confirm' }; renderAsk(); }
-const costLine = (cost, where) => where === 'earth' || !where ? `Costs ${resHTML(cost)}, bought on Earth for <b>$${E.sum(cost)}B</b> (you have $${G.cash}B).` : `Costs ${resHTML(cost)} from ${esc(where.name)}'s stock (it has ${resHTML(where.stock)}).`;
+const costLine = (cost, where) => where === 'earth' || !where ? `Costs ${resHTML(cost)}: <b>${esc(E.earthCostTxt(G, cost))}</b> (faction board ${resHTML(E.estock(G))}, cash $${G.cash}B).` : `Costs ${resHTML(cost)} from ${esc(where.name)}'s stock (it has ${resHTML(where.stock)}).`;
 function dieFace(n, ok, cls) { return `<span class="die ${ok ? 'ok' : 'bad'} ${cls || ''}" title="${cls || 'd10'}">${n}</span>`; }
 function exploreResult() {
   const L = G.lastRoll;
@@ -1194,7 +1195,7 @@ function wire() {
   on('[data-dev]', b => { const t = D.TECHK[b.dataset.dev], c = E.techCost(G, t); ask(`Develop ${t.n}?`, `<p>${esc(t.d)}.</p><p>Costs <b>${c} ${E.FN[t.f]} points</b> (you have ${G.bank[t.f]}).</p><p class="dim">${esc(E.techCostTxt(G, t))}.</p>`, () => E.develop(G, t.k), 'Develop'); });
   const lvAsk = (z, where) => { const bs = where === 'earth' ? null : G.bases.find(x => x.id === where); ask(`Build LV-${z}${bs ? ' at ' + bs.name : ''}?`, `<p>${costLine({ ORE: 1, FUEL: z }, bs)}</p><p class="dim">Two-sided counters: ${esc(E.lvPoolTxt(G))}.</p>`, () => E.buildLV(G, z, where), 'Build'); };
   on('[data-lv]', b => lvAsk(+b.dataset.lv, 'earth'));
-  on('[data-lvscrap]', b => { const z = +b.dataset.lvscrap, w = b.dataset.where; ask(`Scrap LV-${z}?`, `<p>Half its materials come back${w === 'earth' ? ', sold for cash' : ' to the base'}, and its two-sided counter is free again.</p>`, () => E.scrapLV(G, w, z), 'Scrap'); });
+  on('[data-lvscrap]', b => { const z = +b.dataset.lvscrap, w = b.dataset.where; ask(`Scrap LV-${z}?`, `<p>Half its materials come back${w === 'earth' ? ' onto your faction board' : ' to the base'}, and its two-sided counter is free again.</p>`, () => E.scrapLV(G, w, z), 'Scrap'); });
   on('[data-lvb]', b => lvAsk(+b.dataset.lvb, b.dataset.base));
   const unitAsk = (key, reserved) => { const o = E.buildOptions(G, 'earth').find(x => x.key === key); const cost = { ...o.cost }; if (reserved) { cost.SUP = Math.max(0, cost.SUP - 1); cost.FUEL = Math.max(0, cost.FUEL - 1); }
     ask(`Build ${o.kind} ${o.u.n}${reserved ? ' (reserved)' : ''}?`, `<div class="row">${cssCounter(key.split('|')[1] ? o.kind + '|' + o.u.n : '', 64)}<p class="dim" style="margin:0">Search ${o.u.ev}${o.u.spec ? ', spectrometer' : ''}${o.u.lab ? ', mobile lab' : ''}${o.u.cargo ? ' · cargo ' + o.u.cargo : ''}${o.u.cb ? ' · combat ' + o.u.cb : ''}</p></div><p>${costLine(cost, 'earth')}</p>${reserved ? '<p class="dim">Built on its reserved side: 1 SUP and 1 Fuel cheaper, and the first unreserve is included.</p>' : ''}${o.kind !== 'Probe' ? '<p class="dim">It still needs a launch vehicle to leave Earth.</p>' : ''}`, () => E.buildUnit(G, key, 'earth', reserved), 'Build'); };
@@ -1202,7 +1203,7 @@ function wire() {
   on('[data-buildr]', b => unitAsk(b.dataset.buildr, true));
   on('[data-unres]', b => { const s = G.ships.find(x => x.id == b.dataset.unres); ask(`Unreserve ${s.name}?`, `<p>Costs <b>$2B</b> on Earth, or 1 SUP and 1 Fuel at a base.</p>`, () => E.unreserve(G, s), 'Unreserve'); });
   on('[data-reserve]', b => act(() => E.setReserve(G, G.ships.find(s => s.id == b.dataset.reserve))));
-  on('[data-repair]', b => { const s = G.ships.find(x => x.id == b.dataset.repair); ask(`Repair ${s.name}?`, `<p>${s.dmg} damage. Repairs cost 1 Ore per marker ($1B each on Earth); the facility limits how many per turn.</p>`, () => E.repair(G, s), 'Repair'); });
+  on('[data-repair]', b => { const s = G.ships.find(x => x.id == b.dataset.repair); ask(`Repair ${s.name}?`, `<p>${s.dmg} damage. Repairs cost 1 Ore per marker (on Earth from the faction board, or $1B each); the facility limits how many per turn.</p>`, () => E.repair(G, s), 'Repair'); });
   on('[data-sel]', b => { sel = { t: 'ship', id: +b.dataset.sel }; tab = 'sel'; render(); });
   on('[data-selb]', b => { sel = { t: 'base', id: b.dataset.selb }; tab = 'sel'; render(); });
   on('[data-mvto]', b => { const s = ship(); chooseAndMove(s, b.dataset.mvto, E.moves(G, s).filter(m => m.dest === b.dataset.mvto)); });
@@ -1212,8 +1213,8 @@ function wire() {
     if (o.kind === 'produce') ask(`Produce ${o.res} at ${D.W[o.w].n}?`, `<p>${esc(s.name)} produces 1 ${o.res} automatically. Then roll a d10${E.has(G, 'ref') ? ' (−1 for Space Refining)' : ''}: ${o.value % 10 || o.value} or less adds 1 more, and a 1 adds another.</p><p class="dim">Production value ${o.value}. Cargo room ${room}. Then a recall check (${E.recall(G)}%).</p>`, () => E.explore(G, s, o), 'Produce');
     else ask('Harvest the asteroid?', `<p>${esc(s.name)} rolls a d10 on the asteroid harvest table: 1–3 SUP, 4–6 Fuel, 7–10 Ore (3 to 6 units), and earns 1 victory marker.</p><p class="dim">Cargo room ${room}. Then a recall check (${E.recall(G)}%).</p>`, () => E.explore(G, s, o), 'Harvest'); });
   on('[data-fskip]', b => act(() => E.flybySkip(G, ship())));
-  on('[data-buyc]', b => { const s = ship(), r = b.dataset.buyc; ask(`Buy 1 ${r} for ${s.name}?`, `<p>${RS(r, 1)} costs <b>$1B</b> on Earth (you have $${G.cash}B). It goes into ${esc(s.name)}'s hold.</p>`, () => E.buyCargo(G, s, r, 1), 'Buy'); });
-  on('[data-buyc5]', b => { const s = ship(), n = Math.min(G.cash, s.cap * E.cargoMul(G) - E.sum(s.cargo)); ask(`Fill ${s.name} with SUP?`, `<p>${RS('SUP', n)} for <b>$${n}B</b> (you have $${G.cash}B).</p>`, () => E.buyCargo(G, s, 'SUP', 99), 'Buy'); });
+  on('[data-buyc]', b => { const s = ship(), r = b.dataset.buyc; ask(`Load 1 ${r} into ${s.name}?`, `<p>${RS(r, 1)}: <b>${esc(E.earthCostTxt(G, { [r]: 1 }))}</b> (you have $${G.cash}B). It goes into ${esc(s.name)}'s hold.</p>`, () => E.buyCargo(G, s, r, 1), 'Load'); });
+  on('[data-buyc5]', b => { const s = ship(), n = Math.min(G.cash + E.estock(G).SUP, s.cap * E.cargoMul(G) - E.sum(s.cargo)); ask(`Fill ${s.name} with SUP?`, `<p>${RS('SUP', n)}: <b>${esc(E.earthCostTxt(G, { SUP: n }))}</b> (you have $${G.cash}B).</p>`, () => E.buyCargo(G, s, 'SUP', n), 'Load'); });
   on('[data-sellc]', () => { const s = ship(); const got = ['ORE', 'SUP', 'FUEL'].reduce((a, r) => a + Math.floor(s.cargo[r] / 2), 0); ask(`Sell ${s.name}'s cargo?`, `<p>Earth buys 2 of a type for $1B: ${resHTML(s.cargo)} sells for <b>$${got}B</b>. Odd leftovers stay aboard.</p>`, () => E.sellCargo(G, s), 'Sell'); });
   on('[data-unload]', () => act(() => E.unload(G, ship(), E.atOwnBase(G, ship()))));
   on('[data-loadr]', b => act(() => E.load(G, ship(), E.atOwnBase(G, ship()), b.dataset.loadr, 99)));
@@ -1230,7 +1231,7 @@ function wire() {
   on('[data-cb]', b => act(() => E.combatAct(G, E.combatOptions(G)[+b.dataset.cb])));
   on('[data-pub]', b => act(() => E.answer(G, b.dataset.pub)));
   on('[data-a="cargo"]', () => { const load = { ORE: +$('cf-ORE').value || 0, SUP: +$('cf-SUP').value || 0, FUEL: +$('cf-FUEL').value || 0 }, bs = G.bases.find(x => x.id === $('cf-base').value), lv = E.launchLVs(G, 'earth', 1)[0];
-    ask(`Cargo flight to ${bs.name}?`, `<p>${resHTML(load)} bought on Earth for <b>$${E.sum(load)}B</b>${lv ? `, on LV-${lv.n} ${lv.stock ? 'from stock' : `(new, $${lv.buy}B)`}` : ''}.</p><p class="dim">Engine failure ${E.engBase(G)}% loses the cargo.</p>`, () => E.shipCargo(G, bs.id, load), 'Launch'); });
+    ask(`Cargo flight to ${bs.name}?`, `<p>${resHTML(load)}${lv ? ` on LV-${lv.n} ${lv.stock ? 'from stock' : '(new)'}` : ''}: <b>${esc(E.earthCostTxt(G, lv && lv.buy ? { ORE: (load.ORE || 0) + 1, SUP: load.SUP || 0, FUEL: (load.FUEL || 0) + lv.n } : load))}</b>.</p><p class="dim">Engine failure ${E.engBase(G)}% loses the cargo.</p>`, () => E.shipCargo(G, bs.id, load), 'Launch'); });
 }
 boot().catch(e => { document.body.insertAdjacentHTML('beforeend', `<p style="position:fixed;left:16px;bottom:16px;color:#ef6b5b">The game failed to load: ${esc(e.message)}</p>`); console.error(e); });
 </script>

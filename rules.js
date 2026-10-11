@@ -80,7 +80,7 @@ function newGame(f, opts) {
     tech: {}, pol: {}, rel: {}, w: {}, fly: {}, cache: 0, ships: [], bases: [], lv: { earth: { 1: 0, 2: 0, 3: 0, 4: 0 } }, probes: { earth: [] },
     mis: { pool: [], mine: null, common: null, kept: [], done: 0 }, log: [], nid: 1, rr: opts.rerolls === false ? 0 : 2, ask: [], alpha: { cv: false, re: false },
     turn: { moved: {}, acted: {}, built: {}, terraBuys: {} }, freight: 0, over: false, endYear: null, debt: 0, half: {},
-    opts: { optionalEvents: false, ...opts },
+    opts: { optionalEvents: false, ...opts }, estock: { ORE: 0, SUP: 0, FUEL: 0 },
   };
   F.st.forEach(k => G.tech[k] = 1);
   F.pol.forEach(k => G.pol[k] = 1);
@@ -289,7 +289,7 @@ function production(G) {
     if (o.type === 'tech') { G.bank[o.field] += o.n; log(G, `${b.name} (${W[b.w].n}) produces ${o.n} ${FN[o.field]} points.`, 'g'); }
     else { b.stock[o.type] += o.n; log(G, `${b.name} (${W[b.w].n}) produces ${o.n} ${o.type}.`, 'g'); }
   });
-  if (G.cash < 0) log(G, `Your cash is negative ($${G.cash}B). Scrap ships or bases, or sell resources, to recover.`, 'x');
+  if (G.cash < 0) log(G, `Your cash is negative ($${G.cash}B). Scrap ships or bases to recover.`, 'x');
   G.half = {};
 }
 const setRow = n => { let r = null; D.SETT.forEach(x => { if (n >= x[0]) r = x; }); return r; };
@@ -325,12 +325,12 @@ function transferRes(G, from, to, type, n) {
   if (n > G.transferLeft) return `You can transfer ${G.transferLeft} more this decade.`;
   const src = from === 'earth' ? null : G.bases.find(b => b.id === from), dst = to === 'earth' ? null : G.bases.find(b => b.id === to);
   if (src && src.stock[type] < n) return `${src.name} has only ${src.stock[type]} ${type}.`;
-  if (!src && G.cash < n) return `Buying ${n} ${type} on Earth costs $${n}B.`;
+  if (!src && G.cash < earthCash(G, { [type]: n })) return `Sending ${n} ${type} from Earth costs ${earthCostTxt(G, { [type]: n })}.`;
   for (const b of [src, dst]) if (b && G.fly[W[b.w].sys].pir.length) return `A pirate in the ${SYS[W[b.w].sys].n} flyby box blocks transfers there.`;
-  if (src) src.stock[type] -= n; else G.cash -= n;
-  if (dst) dst.stock[type] += n; else G.cash += Math.floor(n / 2);
+  if (src) src.stock[type] -= n; else payEarth(G, { [type]: n });
+  if (dst) dst.stock[type] += n; else estock(G)[type] += n;
   G.transferLeft -= n;
-  log(G, `Transferred ${n} ${type} from ${src ? src.name : 'Earth'} to ${dst ? dst.name : 'Earth (sold)'}.`);
+  log(G, `Transferred ${n} ${type} from ${src ? src.name : 'Earth'} to ${dst ? dst.name : 'Earth (faction board)'}.`);
   return null;
 }
 function placement(G) {
@@ -445,8 +445,18 @@ function buildOptions(G, where) {
   });
   return out;
 }
-const payable = (G, where, cost) => where === 'earth' ? G.cash >= sum(cost) : enough(G.bases.find(b => b.id === where).stock, cost);
-const pay = (G, where, cost) => { if (where === 'earth') G.cash -= sum(cost); else addRes(G.bases.find(b => b.id === where).stock, cost, -1); };
+// Earth: resources on the faction board are used first, the rest is bought at $1B each. Bases only use their own resources.
+const estock = G => G.estock || (G.estock = { ORE: 0, SUP: 0, FUEL: 0 });
+const earthCash = (G, cost) => RES.reduce((a, r) => a + Math.max(0, (cost[r] || 0) - estock(G)[r]), 0);
+function payEarth(G, cost) {
+  const used = {}, st = estock(G); let cash = 0;
+  RES.forEach(r => { const need = cost[r] || 0, u = Math.min(need, st[r]); used[r] = u; st[r] -= u; cash += need - u; });
+  G.cash -= cash; return { used, cash };
+}
+const unpayEarth = (G, paid) => { addRes(estock(G), paid.used); G.cash += paid.cash; };
+const earthCostTxt = (G, cost) => { const st = estock(G), fromSt = RES.filter(r => Math.min(cost[r] || 0, st[r]) > 0).map(r => `${Math.min(cost[r], st[r])} ${r}`), cash = earthCash(G, cost); return [fromSt.length ? fromSt.join(' + ') + ' from the faction board' : '', cash ? `$${cash}B` : ''].filter(Boolean).join(' + ') || 'free'; };
+const payable = (G, where, cost) => where === 'earth' ? G.cash >= earthCash(G, cost) : enough(G.bases.find(b => b.id === where).stock, cost);
+const pay = (G, where, cost) => { if (where === 'earth') payEarth(G, cost); else addRes(G.bases.find(b => b.id === where).stock, cost, -1); };
 function buildUnit(G, key, where, reserved) {
   if (G.phase !== 'build') return 'Ships are built in the build & service phase.';
   const opt = buildOptions(G, where).find(o => o.key === key);
@@ -457,12 +467,13 @@ function buildUnit(G, key, where, reserved) {
   const [lre, lcv] = lims(G);
   if (opt.cv && nCV(G) >= lcv + 4) return 'You are already 4 crew vehicles over your support limit.';
   if (!opt.cv && opt.kind !== 'Probe' && nonProbeRE(G) >= lre + 4) return 'You are already 4 robotic explorers over your support limit.';
-  if (!payable(G, where, cost)) return `${opt.u.n} costs ${where === 'earth' ? '$' + sum(cost) + 'B' : resTxt(cost)}.`;
+  if (!payable(G, where, cost)) return `${opt.u.n} costs ${where === 'earth' ? earthCostTxt(G, cost) : resTxt(cost)}.`;
+  const paidTxt = where === 'earth' ? earthCostTxt(G, cost) : resTxt(cost);
   pay(G, where, cost);
   const loc = where === 'earth' ? 'earth' : baseLoc(G.bases.find(b => b.id === where));
   if (opt.kind === 'Probe') { (G.probes[loc] = G.probes[loc] || []).push(opt.u.n); }
   else { const s = makeShip(G, opt.u.n); s.loc = loc; s.res = !!reserved && opt.cv; s.built = G.y; }
-  log(G, `Built ${opt.kind} ${opt.u.n}${reserved && opt.cv ? ' (reserved)' : ''} at ${where === 'earth' ? 'Earth' : G.bases.find(b => b.id === where).name} for ${where === 'earth' ? '$' + sum(cost) + 'B' : resTxt(cost)}.`, 'g');
+  log(G, `Built ${opt.kind} ${opt.u.n}${reserved && opt.cv ? ' (reserved)' : ''} at ${where === 'earth' ? 'Earth' : G.bases.find(b => b.id === where).name} for ${paidTxt}.`, 'g');
   return null;
 }
 // two-sided LV counters. A faction has c13 LV-1/LV-3 counters, c24 LV-2/LV-4 counters, and (North America) c14 LV-1/LV-4.
@@ -505,7 +516,7 @@ function buildLV(G, n, where) {
   const base = where === 'earth' ? null : G.bases.find(b => b.id === where);
   if (base && base.fac.sup - (base.dmg.sup ? 1 : 0) < (n <= 2 ? 1 : 2)) return `LV-${n} needs a ${n <= 2 ? 'small' : 'large'} Supply Station.`;
   const cost = { ORE: 1, FUEL: n };
-  if (!payable(G, where, cost)) return `LV-${n} costs ${where === 'earth' ? '$' + (1 + n) + 'B' : resTxt(cost)}.`;
+  if (!payable(G, where, cost)) return `LV-${n} costs ${where === 'earth' ? earthCostTxt(G, cost) : resTxt(cost)}.`;
   pay(G, where, cost);
   const key = where === 'earth' ? 'earth' : where;
   G.lv[key] = G.lv[key] || { 1: 0, 2: 0, 3: 0, 4: 0 }; G.lv[key][n]++;
@@ -525,7 +536,7 @@ function unreserve(G, s) {
   if (!site) return `${s.name} must be at Earth or one of your bases with a Supply Station or Spaceport.`;
   if (site.level < unreserveLevel(s.sz)) return `${s.name} needs a ${['', 'small Supply Station', 'large Supply Station', 'small Spaceport', 'large Spaceport'][unreserveLevel(s.sz)]}.`;
   const cost = { SUP: 1, FUEL: 1 };
-  if (!payable(G, site.where, cost)) return site.where === 'earth' ? 'Unreserving costs $2B.' : 'Unreserving costs 1 SUP and 1 FUEL.';
+  if (!payable(G, site.where, cost)) return site.where === 'earth' ? `Unreserving costs ${earthCostTxt(G, cost)}.` : 'Unreserving costs 1 SUP and 1 FUEL.';
   pay(G, site.where, cost); s.res = false;
   log(G, `${s.name} returns to active service.`, 'g');
   return null;
@@ -538,7 +549,7 @@ function repair(G, s) {
   const cap = [0, 1, 2, 3, 99][site.level];
   const n = Math.min(s.dmg, cap);
   const cost = { ORE: n };
-  if (!payable(G, site.where, cost)) return `Repairing ${n} damage costs ${site.where === 'earth' ? '$' + n + 'B' : n + ' ORE'}.`;
+  if (!payable(G, site.where, cost)) return `Repairing ${n} damage costs ${site.where === 'earth' ? earthCostTxt(G, cost) : n + ' ORE'}.`;
   pay(G, site.where, cost); s.dmg -= n;
   log(G, `Repaired ${n} damage on ${s.name}.`);
   return null;
@@ -565,7 +576,7 @@ function scrapSite(G, s) {
 }
 function refundHalf(G, where, cost) {
   const back = {}; RES.forEach(r => back[r] = Math.round((cost[r] || 0) / 2));
-  if (where === 'earth') { const cash = Math.floor(sum(back) / 2); G.cash += cash; return `materials sold for $${cash}B`; }
+  if (where === 'earth') { addRes(estock(G), back); return `recovered ${resTxt(back)} to the faction board`; }
   addRes(G.bases.find(b => b.id === where).stock, back); return `recovered ${resTxt(back)}`;
 }
 function scrap(G, s) {
@@ -587,7 +598,7 @@ function scrapLV(G, where, z) {
   log(G, `LV-${z} scrapped at ${where === 'earth' ? 'Earth' : G.bases.find(b => b.id === where).name}; ${refundHalf(G, where, { ORE: 1, FUEL: z })}. Its counter is free again.`);
   return null;
 }
-const cargoDump = (G, s) => { const b = atOwnBase(G, s); return b ? b.stock : {}; };
+const cargoDump = (G, s) => { if (s.loc === 'earth') return estock(G); const b = atOwnBase(G, s); return b ? b.stock : {}; };
 function removeShip(G, s) { G.ships = G.ships.filter(x => x !== s); }
 function loseCV(G, s, why) {
   removeShip(G, s);
@@ -718,7 +729,7 @@ function launchLVs(G, loc, n) {
   const stock = lvStockAt(G, loc).filter(z => z >= n).map(z => ({ n: z, stock: true }));
   const out = [...stock];
   if (loc === 'earth') {
-    [1, 2, 3, 4].filter(z => z >= n && lvTechOk(G, z) && lvCanAdd(G, z) && !stock.some(x => x.n === z)).forEach(z => out.push({ n: z, buy: 1 + z }));
+    [1, 2, 3, 4].filter(z => z >= n && lvTechOk(G, z) && lvCanAdd(G, z) && !stock.some(x => x.n === z)).forEach(z => out.push({ n: z, buy: true, cost: { ORE: 1, FUEL: z }, cash: earthCash(G, { ORE: 1, FUEL: z }), txt: earthCostTxt(G, { ORE: 1, FUEL: z }) }));
   }
   out.sort((a, b) => (a.stock ? 0 : 1) - (b.stock ? 0 : 1) || a.n - b.n);
   return out;
@@ -736,7 +747,8 @@ function move(G, s, dest, opt) {
   if (!m.length) return `${s.name} cannot move to ${locName(dest)} now.`;
   const mv = (opt.lvSize ? m.find(x => x.lv && x.lv.n === opt.lvSize) : null) || m[0];
   // pay for LV if buying
-  if (mv.lv && mv.lv.buy) { if (G.cash < mv.lv.buy) return `A new LV-${mv.lv.n} costs $${mv.lv.buy}B.`; G.cash -= mv.lv.buy; }
+  let lvPaid = null;
+  if (mv.lv && mv.lv.buy) { if (G.cash < earthCash(G, mv.lv.cost)) return `A new LV-${mv.lv.n} costs ${earthCostTxt(G, mv.lv.cost)}.`; lvPaid = payEarth(G, mv.lv.cost); }
   else if (mv.lv) { const st = s.loc === 'earth' ? G.lv.earth : G.lv[G.bases.find(b => baseLoc(b) === s.loc).id]; st[mv.lv.n]--; }
   // probe
   if (opt.probe && !s.launched && s.cls === 'RE' && ['Flyby', 'Orbiter', 'Rover'].includes(s.kind)) {
@@ -750,7 +762,7 @@ function move(G, s, dest, opt) {
   const pirSys = pf.t === 'fly' ? pf.s : sysOf(from);
   if (leavingFly && G.fly[pirSys].pir.length && !(s.cb - s.dmg > 0) && !opt.pirateDone) {
     G.ask.push({ k: 'pirate', ship: s.id, dest, opt: { ...opt, pirateDone: true }, sys: pirSys, roll: d10(), text: `A pirate in the ${SYS[pirSys].n} flyby box intercepts ${s.name}.` });
-    if (mv.lv && mv.lv.buy) G.cash += mv.lv.buy; else if (mv.lv) { const st = s.loc === 'earth' ? G.lv.earth : G.lv[G.bases.find(b => baseLoc(b) === s.loc).id]; st[mv.lv.n]++; }
+    if (lvPaid) unpayEarth(G, lvPaid); else if (mv.lv) { const st = s.loc === 'earth' ? G.lv.earth : G.lv[G.bases.find(b => baseLoc(b) === s.loc).id]; st[mv.lv.n]++; }
     return null;
   }
   const rate = engRate(G, s);
@@ -783,9 +795,10 @@ function shipCargo(G, baseId, load, lvSize) {
   const lv = opts[0];
   const cap = (lv.n + (G.f === 'sa' ? 1 : 0)) * cargoMul(G);
   const n = sum(load); if (n > cap) return `LV-${lv.n} carries ${cap} resources.`;
-  const cost = n + (lv.buy || 0); if (G.cash < cost) return `This flight costs $${cost}B.`;
+  const cost = { ...load }; if (lv.buy) { cost.ORE = (cost.ORE || 0) + 1; cost.FUEL = (cost.FUEL || 0) + lv.n; }
+  if (G.cash < earthCash(G, cost)) return `This flight costs ${earthCostTxt(G, cost)}.`;
   if (G.fly[W[b.w].sys].pir.length) log(G, `Note: a pirate waits in the ${SYS[W[b.w].sys].n} flyby box.`);
-  G.cash -= cost; if (lv.stock) G.lv.earth[lv.n]--;
+  payEarth(G, cost); if (lv.stock) G.lv.earth[lv.n]--;
   const { r, fail } = engineRoll(G, engBase(G));
   if (fail) { const v = drawMarker(G, 'Eng'); log(G, `The LV-${lv.n} cargo flight to ${b.name} fails (engine roll ${r}); cargo lost. Lessons learned: ${v} Engineering.`, 'x'); return null; }
   addRes(b.stock, load);
@@ -1113,13 +1126,13 @@ function buyCargo(G, s, r, n) { // at Earth: buy resources straight into a ship'
   if (s.loc !== 'earth') return `${s.name} must be on Earth to take on cargo bought there.`;
   const room = s.cap * cargoMul(G) - sum(s.cargo); n = Math.min(n, room);
   if (n <= 0) return `${s.name} has no cargo room.`;
-  if (G.cash < n) return `${n} ${r} costs $${n}B.`;
-  G.cash -= n; s.cargo[r] += n; log(G, `${s.name} loads ${n} ${r} bought on Earth.`); return null;
+  if (G.cash < earthCash(G, { [r]: n })) return `${n} ${r} costs ${earthCostTxt(G, { [r]: n })}.`;
+  const paid = payEarth(G, { [r]: n }); s.cargo[r] += n; log(G, `${s.name} loads ${n} ${r} on Earth (${paid.used[r] ? paid.used[r] + ' from the faction board' : ''}${paid.used[r] && paid.cash ? ', ' : ''}${paid.cash ? '$' + paid.cash + 'B bought' : ''}).`); return null;
 }
-function sellCargo(G, s) { // at Earth: sell 2 of a type for $1B
-  if (s.loc !== 'earth') return 'Ships sell cargo on Earth.';
-  let got = 0; RES.forEach(r => { const pairs = Math.floor(s.cargo[r] / 2); got += pairs; s.cargo[r] -= pairs * 2; });
-  G.cash += got; log(G, `${s.name} sells cargo on Earth for $${got}B.`); return null;
+function sellCargo(G, s) { // at Earth: nothing is sold; cargo goes onto the faction board for later building
+  if (s.loc !== 'earth') return 'Ships unload onto the faction board on Earth.';
+  const t = resTxt(s.cargo); addRes(estock(G), s.cargo); s.cargo = { ORE: 0, SUP: 0, FUEL: 0 };
+  log(G, `${s.name} unloads ${t} onto the faction board.`); return null;
 }
 function unload(G, s, b) { if (!b || atOwnBase(G, s) !== b) return 'The ship must be at that base.'; addRes(b.stock, s.cargo); const t = resTxt(s.cargo); s.cargo = { ORE: 0, SUP: 0, FUEL: 0 }; log(G, `${s.name} unloads ${t} at ${b.name}.`); return null; }
 function load(G, s, b, r, n) { if (!b || atOwnBase(G, s) !== b) return 'The ship must be at that base.'; const room = s.cap * cargoMul(G) - sum(s.cargo); n = Math.min(n, room, b.stock[r]); if (n <= 0) return 'Nothing to load.'; b.stock[r] -= n; s.cargo[r] += n; log(G, `${s.name} loads ${n} ${r} at ${b.name}.`); return null; }
@@ -1237,7 +1250,7 @@ function finish(G, why) { G.over = true; G.endYear = G.y; const sc = score(G); l
 
 return {
   R, D, P, sysOf, worldOf, locName, worldsIn, RES, FIELDS, FN, PHASES, ESTEPS, PHASE_NAME, ESTEP_NAME, newGame, cvAllowed, advance, answer,
-  moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, scrapSite, scrapLV, lvCanAdd, lvPoolTxt, scrapRule, shipCargo,
+  moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, scrapSite, scrapLV, estock, earthCash, earthCostTxt, lvCanAdd, lvPoolTxt, scrapRule, shipCargo,
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,
   canFoundBase, foundBase, unload, load, buyCargo, sellCargo, upgradeOptions, buildFacility, buildSettlement, repairFacility, terraform, trade, tradeLimitOwn,
   setDiplomacy, dipCost, develop, techState, techCost, techCostTxt, techHolders, convertPolitics, buyVictory, redrawMission, tradePoints, choosePolicy, transferRes, baseOutput, bestOutput,
