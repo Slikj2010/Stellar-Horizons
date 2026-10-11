@@ -123,7 +123,7 @@ const D = window.SHD;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let ui = null, E, G = null, GEO, ATL = {}, MK, UNITS, sel = null, tab = 'turn', toastT;
-const CS = 52; // counter size on the board (world px)
+const CS = 62; // counter size on the board (world px)
 const RS = (r, n) => `<span class="rs ${r}" title="${r}">${n}</span>`;
 const resHTML = o => ['ORE', 'SUP', 'FUEL'].filter(r => o[r]).map(r => RS(r, o[r])).join(' ') || '<span class="dim">none</span>';
 
@@ -611,15 +611,60 @@ function hull(poly) { if (HULLS.has(poly)) return HULLS.get(poly); const P = pol
   for (const q of P) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
   for (let i = P.length - 1; i >= 0; i--) { const q = P[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
   const h = lo.slice(0, -1).concat(up.slice(0, -1)); HULLS.set(poly, h); return h; }
-// orbit ring of a world: the printed purple circle (inner ring for worlds with a separate surface, outer world circle otherwise)
+// orbit ring of a world: the printed dotted orbit circle where the map has one, otherwise just outside the world's circle,
+// so counters orbit above the printed name and numbers instead of covering them
+const DOTR = { ear: 152, mar: 136, jup: 312, ura: 232, bel: 136, kui: 142, sca: 149 };
 const RINGS = {};
 function ringOf(w) {
   if (RINGS[w]) return RINGS[w];
   const g = GEO.worlds[w];
-  if (!g.poly) return RINGS[w] = { c: g.orbit || g.exp, r: 60 };
+  if (!g.poly) return RINGS[w] = { c: g.orbit || g.exp, r: 60 + CS / 2 + 6 };
   const hp = hull(g.poly), xs = hp.map(q => q[0]), ys = hp.map(q => q[1]);
   const c = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2], half = (Math.max(...xs) - Math.min(...xs) + Math.max(...ys) - Math.min(...ys)) / 4;
-  return RINGS[w] = { c: w === 'ear' ? c : c, r: half * (g.spoly ? .59 : .79) };
+  const circle = g.circ || half * (g.spoly ? .59 : .79);
+  return RINGS[w] = { c, r: DOTR[w] || circle + CS / 2 + 12 };
+}
+// counters on a ring never overlap: each keeps its chosen angle when free, otherwise slides to the nearest free spot
+const angDist = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+// a spot is legal when the counter stays clear of the printed transfer boxes, flyby boxes and labels that sit outside a world's circle
+const RING_LABEL = { jup: [-Math.PI / 2, .2] };
+const BLOCK = {};
+function ringBlocked(w, a) {
+  const key = w + ':' + Math.round(a * 180 / Math.PI) % 360; if (key in BLOCK) return BLOCK[key];
+  const R = ringOf(w), x = R.c[0] + Math.cos(a) * R.r, y = R.c[1] + Math.sin(a) * R.r, rad = CS / 2 + 2;
+  const hitPoly = q => { if (!q) return false; let inside = false; for (let i = 0, j = q.length - 1; i < q.length; j = i++) { const [xi, yi] = q[i], [xj, yj] = q[j];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+      const dx = xj - xi, dy = yj - yi, t = Math.max(0, Math.min(1, ((x - xi) * dx + (y - yi) * dy) / (dx * dx + dy * dy || 1)));
+      if (Math.hypot(x - xi - t * dx, y - yi - t * dy) < rad) return true; }
+    return inside; };
+  let b = Object.values(GEO.sys).some(S => Object.values(S.boxPoly || {}).some(hitPoly) || hitPoly(S.flybyPoly));
+  const L = RING_LABEL[w]; if (L && angDist(a, L[0]) < L[1]) b = true;
+  return BLOCK[key] = b;
+}
+function freeAngle(want, taken, sep, w) {
+  for (let pass = 0; pass < 2; pass++)
+    for (let k = 0; k < 400; k++) {
+      const d = Math.ceil(k / 2) * sep / 6 * (k % 2 ? 1 : -1), a = want + d;
+      if (taken.every(t => angDist(a, t) >= sep - 1e-6) && (pass || !w || !ringBlocked(w, a))) return a;
+    }
+  return want;
+}
+function ringLayout(w, list) {
+  const R = ringOf(w), sep = 2 * Math.asin(Math.min(1, (CS + 8) / 2 / R.r)), out = new Map(), taken = [];
+  const order = list.filter(s => s.ang != null).concat(list.filter(s => s.ang == null));
+  order.forEach(s => { const a = freeAngle(s.ang != null ? s.ang : -Math.PI / 2, taken, sep, w); taken.push(a); out.set(s, a); });
+  return out;
+}
+function paintOrbitRings() {
+  ctx.save(); ctx.fillStyle = 'rgba(150,132,214,.85)';
+  Object.keys(GEO.worlds).forEach(w => {
+    if (!G.w[w] || !GEO.worlds[w].poly) return;
+    const R = ringOf(w), n = Math.round(2 * Math.PI * R.r / 9);
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) { const a = i / n * 2 * Math.PI, x = R.c[0] + Math.cos(a) * R.r, y = R.c[1] + Math.sin(a) * R.r; ctx.moveTo(x + 1.7, y); ctx.arc(x, y, 1.7, 0, 2 * Math.PI); }
+    ctx.fill();
+  });
+  ctx.restore();
 }
 // transfer box frame: centre of the printed box and its tilt, turned so the counter's top faces away from the system's hub
 const BOXF = {};
@@ -660,6 +705,7 @@ function paint() {
   ctx.setTransform(d * cam.s, 0, 0, d * cam.s, d * cam.x, d * cam.y);
   paintExplore();
   ctx.setTransform(d * cam.s, 0, 0, d * cam.s, d * cam.x, d * cam.y);
+  paintOrbitRings();
   hits = [];
   // worlds
   Object.entries(GEO.worlds).forEach(([k, g]) => {
@@ -683,12 +729,13 @@ function paint() {
   const byLoc = {};
   G.ships.forEach(s => (byLoc[s.loc] = byLoc[s.loc] || []).push(s));
   Object.entries(byLoc).forEach(([loc, list]) => {
-    const p = posOf(loc), cols = Math.min(list.length, 3);
+    const p = posOf(loc), cols = Math.min(list.length, 3), lp0 = E.P(loc);
+    const RL = lp0.t === 'orbit' && GEO.worlds[lp0.w] ? ringLayout(lp0.w, list.filter(x => !(dragS && dragS.s === x))) : null;
     list.forEach((s, i) => {
       if (dragS && dragS.s === s) return;
       let cx = p[0] + ((i % 3) - (cols - 1) / 2) * (CS + 4), cy = p[1] + Math.floor(i / 3) * (CS + 4);
       const lp = E.P(loc);
-      if (lp.t === 'orbit' && GEO.worlds[lp.w]) { const R = ringOf(lp.w), a = s.ang != null ? s.ang : -Math.PI / 2 + (i - (list.length - 1) / 2) * .42; cx = R.c[0] + Math.cos(a) * R.r; cy = R.c[1] + Math.sin(a) * R.r; }
+      if (lp.t === 'orbit' && GEO.worlds[lp.w]) { const R = ringOf(lp.w), a = RL.get(s); cx = R.c[0] + Math.cos(a) * R.r; cy = R.c[1] + Math.sin(a) * R.r; }
       let rot = 0;
       if (lp.t === 'box') { const B = boxFrame(lp.s, lp.n); rot = B.a; const off = (i - (list.length - 1) / 2) * 9; cx = B.c[0] + off * Math.cos(rot) - off * .6 * Math.sin(rot); cy = B.c[1] + off * Math.sin(rot) + off * .6 * Math.cos(rot); }
       else if (lp.t === 'surf' && GEO.worlds[lp.w] && !GEO.worlds[lp.w].spoly) { const R = ringOf(lp.w); cx = R.c[0] + ((i % 3) - (cols - 1) / 2) * (CS + 4); cy = R.c[1] + Math.floor(i / 3) * (CS + 4); }
@@ -696,9 +743,9 @@ function paint() {
       const isSel = sel && sel.t === 'ship' && sel.id === s.id;
       if (ready || isSel) { ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot); ctx.strokeStyle = isSel ? '#f2a93b' : '#4fc3d9'; ctx.lineWidth = 3; ctx.beginPath(); ctx.roundRect(-CS / 2 - 4, -CS / 2 - 4, CS + 8, CS + 8, 6); ctx.stroke(); ctx.restore(); }
       drawRot(ATL[G.f].img, uf(s.res ? s.img + '|back' : s.img), cx, cy, CS, rot);
-      if (s.dmg) txt('▼' + s.dmg, cx + 18, cy - 20, 13, '#ef6b5b');
-      if (s.hold) txt('+' + s.hold, cx + 18, cy + 20, 13, '#f2a93b');
-      if (s.probe) drawTex(ATL[G.f].img, uf('Probe|' + s.probe), cx - 20, cy + 20, 22);
+      if (s.dmg) txt('▼' + s.dmg, cx + 22, cy - 24, 13, '#ef6b5b');
+      if (s.hold) txt('+' + s.hold, cx + 22, cy + 24, 13, '#f2a93b');
+      if (s.probe) drawTex(ATL[G.f].img, uf('Probe|' + s.probe), cx - 24, cy + 24, 24);
       hits.push({ t: 'ship', id: s.id, x: cx, y: cy, r: CS / 2 });
     });
   });
@@ -721,7 +768,7 @@ function chooseAndMove(s, dest, opts, dropPt) {
   ui = { k: 'gen', title: `Move ${s.name}?`, body, go: 'Move', fn: () => {
     const lvEl = document.querySelector('input[name="mvlv"]:checked'), pr = $('mvprobe');
     const res = E.move(G, s, dest, { lvSize: lvEl ? +lvEl.value : undefined, probe: pr && pr.checked ? probes[0] : null });
-    if (s.loc === dest) { const pp = E.P(dest); if (pp.t === 'orbit' && dropPt) { const R = ringOf(pp.w); s.ang = Math.atan2(dropPt.y - R.c[1], dropPt.x - R.c[0]); } else if (pp.t !== 'orbit') delete s.ang; }
+    if (s.loc === dest) { const pp = E.P(dest); if (pp.t === 'orbit' && dropPt) { const R = ringOf(pp.w); s.ang = Math.atan2(dropPt.y - R.c[1], dropPt.x - R.c[0]); const others = G.ships.filter(o => o !== s && o.loc === dest); s.ang = freeAngle(s.ang, [...ringLayout(pp.w, others).values()], 2 * Math.asin(Math.min(1, (CS + 8) / 2 / R.r)), pp.w); } else if (pp.t !== 'orbit') delete s.ang; }
     return res;
   } };
   renderAsk();
