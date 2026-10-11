@@ -1166,11 +1166,15 @@ function sellCargo(G, s) { // at Earth: nothing is sold; cargo goes onto the fac
 }
 function unload(G, s, b) { if (!b || atOwnBase(G, s) !== b) return 'The ship must be at that base.'; addRes(b.stock, s.cargo); const t = resTxt(s.cargo); s.cargo = { ORE: 0, SUP: 0, FUEL: 0 }; log(G, `${s.name} unloads ${t} at ${b.name}.`); return null; }
 function load(G, s, b, r, n) { if (!b || atOwnBase(G, s) !== b) return 'The ship must be at that base.'; const room = s.cap * cargoMul(G) - sum(s.cargo); n = Math.min(n, room, b.stock[r]); if (n <= 0) return 'Nothing to load.'; b.stock[r] -= n; s.cargo[r] += n; log(G, `${s.name} loads ${n} ${r} at ${b.name}.`); return null; }
+// one tier of each building per base per turn: a new base can add a small lab and a settlement in the same turn,
+// but not a small and then a large lab, or two settlements
+const builtThisTurn = (G, b) => { const t = G.turn.built[b.id]; return t && typeof t === 'object' ? t : (G.turn.built[b.id] = {}); };
 function upgradeOptions(G, b) {
   return Object.keys(D.FACIL).map(c => {
     const lv = b.fac[c], next = D.FACIL[c][lv];
     let why = null;
     if (!next) why = 'fully built';
+    else if (builtThisTurn(G, b)[c]) why = 'one tier per turn: upgrade it next turn';
     else if (b.dmg[c]) why = 'repair it first';
     else if (c === 'mine' && b.w === 'ear') why = 'Earth orbit cannot produce resources';
     return { c, lv, next, why };
@@ -1178,20 +1182,19 @@ function upgradeOptions(G, b) {
 }
 function buildFacility(G, b, c) {
   if (G.phase !== 'trade') return 'Facilities are built in the trade & base phase.';
-  if (G.turn.built[b.id]) return `${b.name} already built something this turn.`;
   const o = upgradeOptions(G, b).find(x => x.c === c);
   if (!o || o.why) return o ? o.why : 'Unknown facility.';
   if (!enough(b.stock, o.next.c)) return `${o.next.n} costs ${resTxt(o.next.c)}; ${b.name} has ${resTxt(b.stock)}.`;
-  addRes(b.stock, o.next.c, -1); b.fac[c]++; G.turn.built[b.id] = 1;
+  addRes(b.stock, o.next.c, -1); b.fac[c]++; builtThisTurn(G, b)[c] = 1;
   if (c === 'mine' || c === 'lab') b.out = bestOutput(G, b);
   log(G, `${b.name} builds a ${o.next.n}.`, 'g');
   return null;
 }
 function buildSettlement(G, b) {
   if (G.phase !== 'trade') return 'Settlements are built in the trade & base phase.';
-  if (G.turn.built[b.id]) return `${b.name} already built something this turn.`;
+  if (builtThisTurn(G, b).set) return `${b.name} already added a settlement this turn.`;
   if (!enough(b.stock, D.SETTLE_COST)) return `A settlement costs ${resTxt(D.SETTLE_COST)}.`;
-  addRes(b.stock, D.SETTLE_COST, -1); b.set++; G.turn.built[b.id] = 1;
+  addRes(b.stock, D.SETTLE_COST, -1); b.set++; builtThisTurn(G, b).set = 1;
   log(G, `${b.name} adds a settlement (${b.set} total).`, 'g');
   return null;
 }
@@ -1282,7 +1285,7 @@ return {
   R, D, P, sysOf, worldOf, locName, worldsIn, RES, FIELDS, FN, PHASES, ESTEPS, PHASE_NAME, ESTEP_NAME, newGame, cvAllowed, advance, answer,
   moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, scrapSite, scrapLV, estock, earthCash, earthCostTxt, lvCanAdd, lvPoolTxt, scrapRule, shipCargo,
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,
-  canFoundBase, foundBase, unload, load, buyCargo, sellCargo, upgradeOptions, buildFacility, buildSettlement, repairFacility, terraform, trade, tradeLimitOwn,
+  canFoundBase, foundBase, builtThisTurn, unload, load, buyCargo, sellCargo, upgradeOptions, buildFacility, buildSettlement, repairFacility, terraform, trade, tradeLimitOwn,
   setDiplomacy, dipCost, develop, techState, techCost, techCostTxt, techHolders, convertPolitics, buyVictory, redrawMission, tradePoints, choosePolicy, transferRes, baseOutput, bestOutput,
   lvRecover, lvReturn, score, lims, nonProbeRE, nCV, nBase, range, recall, malfBase, malfRate, engRate, engBase, mult, transfer, misTxt, lvCount, lvStockAt, launchLVs, atOwnBase, baseLoc, cardFor, prodValue, has, polLv, setRow, cargoMul, resTxt, sum,
 };
