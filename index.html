@@ -621,6 +621,17 @@ function ringOf(w) {
   const c = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2], half = (Math.max(...xs) - Math.min(...xs) + Math.max(...ys) - Math.min(...ys)) / 4;
   return RINGS[w] = { c: w === 'ear' ? c : c, r: half * (g.spoly ? .59 : .79) };
 }
+// transfer box frame: centre of the printed box and its tilt, turned so the counter's top faces away from the system's hub
+const BOXF = {};
+function boxFrame(sy, n) {
+  const key = sy + n; if (BOXF[key]) return BOXF[key];
+  const q = GEO.sys[sy].boxPoly[n], fit = GEO.sys[sy].boxFit && GEO.sys[sy].boxFit[n];
+  const c = fit ? [fit[0], fit[1]] : [q.reduce((a, p) => a + p[0], 0) / q.length, q.reduce((a, p) => a + p[1], 0) / q.length];
+  const hub = D.SYS[sy].hub && GEO.worlds[D.SYS[sy].hub] ? ringOf(D.SYS[sy].hub).c : GEO.sys[sy].flyby;
+  const out = Math.atan2(c[1] - hub[1], c[0] - hub[0]) + Math.PI / 2, e = fit ? fit[2] * Math.PI / 180 : Math.atan2(q[1][1] - q[0][1], q[1][0] - q[0][0]);
+  let best = e, bd = 9; for (let k = -4; k <= 4; k++) { const a = e + k * Math.PI / 2, d = Math.abs(Math.atan2(Math.sin(a - out), Math.cos(a - out))); if (d < bd) { bd = d; best = a; } }
+  return BOXF[key] = { c, a: best };
+}
 const polyArea = poly => Math.abs(poly.reduce((a, [x, y], i) => { const [x2, y2] = poly[(i + 1) % poly.length]; return a + x * y2 - x2 * y; }, 0) / 2);
 function inPoly(pt, poly) { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if (((yi > pt.y) !== (yj > pt.y)) && pt.x < (xj - xi) * (pt.y - yi) / (yj - yi) + xi) c = !c; } return c; }
 function nearestTarget(moves, p) {
@@ -678,11 +689,13 @@ function paint() {
       let cx = p[0] + ((i % 3) - (cols - 1) / 2) * (CS + 4), cy = p[1] + Math.floor(i / 3) * (CS + 4);
       const lp = E.P(loc);
       if (lp.t === 'orbit' && GEO.worlds[lp.w]) { const R = ringOf(lp.w), a = s.ang != null ? s.ang : -Math.PI / 2 + (i - (list.length - 1) / 2) * .42; cx = R.c[0] + Math.cos(a) * R.r; cy = R.c[1] + Math.sin(a) * R.r; }
+      let rot = 0;
+      if (lp.t === 'box') { const B = boxFrame(lp.s, lp.n); rot = B.a; const off = (i - (list.length - 1) / 2) * 9; cx = B.c[0] + off * Math.cos(rot) - off * .6 * Math.sin(rot); cy = B.c[1] + off * Math.sin(rot) + off * .6 * Math.cos(rot); }
       else if (lp.t === 'surf' && GEO.worlds[lp.w] && !GEO.worlds[lp.w].spoly) { const R = ringOf(lp.w); cx = R.c[0] + ((i % 3) - (cols - 1) / 2) * (CS + 4); cy = R.c[1] + Math.floor(i / 3) * (CS + 4); }
       const ready = (G.phase === 'move' && E.moves(G, s).length) || (G.phase === 'explore' && E.exploreOptions(G, s).length);
       const isSel = sel && sel.t === 'ship' && sel.id === s.id;
-      if (ready || isSel) { ctx.strokeStyle = isSel ? '#f2a93b' : '#4fc3d9'; ctx.lineWidth = 3; ctx.beginPath(); ctx.roundRect(cx - CS / 2 - 4, cy - CS / 2 - 4, CS + 8, CS + 8, 6); ctx.stroke(); }
-      drawTex(ATL[G.f].img, uf(s.res ? s.img + '|back' : s.img), cx, cy, CS);
+      if (ready || isSel) { ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot); ctx.strokeStyle = isSel ? '#f2a93b' : '#4fc3d9'; ctx.lineWidth = 3; ctx.beginPath(); ctx.roundRect(-CS / 2 - 4, -CS / 2 - 4, CS + 8, CS + 8, 6); ctx.stroke(); ctx.restore(); }
+      drawRot(ATL[G.f].img, uf(s.res ? s.img + '|back' : s.img), cx, cy, CS, rot);
       if (s.dmg) txt('▼' + s.dmg, cx + 18, cy - 20, 13, '#ef6b5b');
       if (s.hold) txt('+' + s.hold, cx + 18, cy + 20, 13, '#f2a93b');
       if (s.probe) drawTex(ATL[G.f].img, uf('Probe|' + s.probe), cx - 20, cy + 20, 22);
