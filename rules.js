@@ -593,8 +593,15 @@ function scrapSite(G, s) {
   }
   return serviceSite(G, s);
 }
+const halfOf = cost => Object.fromEntries(RES.map(r => [r, Math.round((cost[r] || 0) / 2)]));
+// what scrapping this ship would return (null if it would only be destroyed)
+function scrapValue(G, s) {
+  const site = s.cls === 'CV' && s.dmg ? null : scrapSite(G, s); if (!site) return null;
+  const c = { ...s.cost }; if (s.res) { c.SUP = Math.max(0, (c.SUP || 0) - 1); c.FUEL = Math.max(0, (c.FUEL || 0) - 1); }
+  return { site, back: halfOf(c), cargo: { ...(s.cargo || {}) } };
+}
 function refundHalf(G, where, cost) {
-  const back = {}; RES.forEach(r => back[r] = Math.round((cost[r] || 0) / 2));
+  const back = halfOf(cost);
   if (where === 'earth') { addRes(estock(G), back); return `recovered ${resTxt(back)} to the faction board`; }
   addRes(G.bases.find(b => b.id === where).stock, back); return `recovered ${resTxt(back)}`;
 }
@@ -1283,7 +1290,7 @@ function finish(G, why) { G.over = true; G.endYear = G.y; const sc = score(G); l
 
 return {
   R, D, P, sysOf, worldOf, locName, worldsIn, RES, FIELDS, FN, PHASES, ESTEPS, PHASE_NAME, ESTEP_NAME, newGame, cvAllowed, advance, answer,
-  moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, scrapSite, scrapLV, estock, earthCash, earthCostTxt, lvCanAdd, lvPoolTxt, scrapRule, shipCargo,
+  moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, scrapSite, scrapValue, scrapLV, estock, earthCash, earthCostTxt, lvCanAdd, lvPoolTxt, scrapRule, shipCargo,
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,
   canFoundBase, foundBase, builtThisTurn, unload, load, buyCargo, sellCargo, upgradeOptions, buildFacility, buildSettlement, repairFacility, terraform, trade, tradeLimitOwn,
   setDiplomacy, dipCost, develop, techState, techCost, techCostTxt, techHolders, convertPolitics, buyVictory, redrawMission, tradePoints, choosePolicy, transferRes, baseOutput, bestOutput,
