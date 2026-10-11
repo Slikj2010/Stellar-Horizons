@@ -83,7 +83,8 @@ function newGame(f, opts) {
     opts: { optionalEvents: false, ...opts }, estock: { ORE: 0, SUP: 0, FUEL: 0 },
   };
   F.st.forEach(k => G.tech[k] = 1);
-  F.pol.forEach(k => G.pol[k] = 1);
+  G.variant = F.variants ? (F.variants[opts.variant] ? opts.variant : Object.keys(F.variants)[0]) : null;
+  (G.variant ? F.variants[G.variant].pol : F.pol).forEach(k => G.pol[k] = 1);
   G.t0 = Object.keys(G.tech).length;
   D.FAC_ORDER.filter(k => k !== f).forEach(k => G.rel[k] = 3);
   Object.keys(W).forEach(k => G.w[k] = { v: W[k].v, card: null, sol: false, life: false, terra: 0, npf: null, npfTrade: null, blk: false });
@@ -141,16 +142,16 @@ function drawMission(G) {
 
 // ---------- phases ----------
 const PHASES = ['econ', 'build', 'move', 'combat', 'explore', 'trade'];
-const ESTEPS = ['politics', 'diplomacy', 'production', 'transport', 'placement', 'tech', 'growth', 'policy'];
+const ESTEPS = ['politics', 'initiative', 'diplomacy', 'production', 'transport', 'placement', 'tech', 'growth', 'policy'];
 const PHASE_NAME = { econ: 'Economic phase', build: 'Build & service', move: 'Movement', combat: 'Combat', explore: 'Exploration', trade: 'Trade & bases' };
-const ESTEP_NAME = { politics: 'Politics & events', diplomacy: 'Diplomacy', production: 'Production', transport: 'Resource transport', placement: 'Bases, asteroids & pirates', tech: 'Develop technologies', growth: 'Settlement growth', policy: 'Policy' };
+const ESTEP_NAME = { politics: 'Politics & events', initiative: 'Initiative', diplomacy: 'Diplomacy', production: 'Production', transport: 'Resource transport', placement: 'Bases, asteroids & pirates', tech: 'Develop technologies', growth: 'Settlement growth', policy: 'Policy' };
 
 function advance(G) {
   if (G.over || G.ask.length) return false;
   if (G.phase === 'econ') {
     const i = ESTEPS.indexOf(G.estep);
     endEstep(G);
-    if (i < ESTEPS.length - 1) { G.estep = ESTEPS[i + 1]; startEstep(G); return true; }
+    if (i < ESTEPS.length - 1) { G.estep = ESTEPS[i + 1]; if (G.estep === 'initiative' && !G.world) { G.estep = ESTEPS[i + 2]; } startEstep(G); return true; }
     G.estep = null; G.phase = 'build'; startBuild(G); return true;
   }
   const i = PHASES.indexOf(G.phase);
@@ -167,7 +168,7 @@ function advance(G) {
 }
 function endYear(G) {
   // 3.6.3 end check
-  if (G.y >= 2145) {
+  if (G.y >= 2145 && !(G.world && !isLead(G))) {
     const r = d100(), th = G.y - 2144;
     if (G.y >= 2169 || r <= th) { finish(G, G.y >= 2169 ? 'The campaign reaches its final year.' : `End-of-game roll ${r} against ${th}%: the campaign ends.`); return; }
     log(G, `End-of-game roll ${r} against ${th}%: play continues.`);
@@ -353,9 +354,10 @@ function transferRes(G, from, to, type, n) {
 }
 function placement(G) {
   const dec = Math.floor(G.y / 10) * 10;
+  if (G.world && !isLead(G)) { const tm = () => ({ side: pick(['buy', 'sell']), type: pick(RES) }); G.bases.forEach(b => { if (b.set > 0 && !b.trade) b.trade = tm(); }); return; }
   const r = d100(); const wk = Object.keys(W).find(k => W[k].rng && r >= W[k].rng[0] && r <= W[k].rng[1]);
   if (wk && SYS[W[wk].sys].dec && SYS[W[wk].sys].dec <= dec && !G.w[wk].npf && W[wk].base) {
-    const npf = pick(Object.keys(G.rel)); G.w[wk].npf = npf; log(G, `NPF base roll ${r}: ${D.FAC[npf].n} founds a base at ${W[wk].n}.`, 'e');
+    const npf = pick(npfKeys(G)); if (!npf) { log(G, `NPF base roll ${r}: no non-player faction to found it.`); } else { G.w[wk].npf = npf; log(G, `NPF base roll ${r}: ${D.FAC[npf].n} founds a base at ${W[wk].n}.`, 'e'); }
   } else log(G, `NPF base roll ${r}: no new base.`);
   const place = (what) => {
     const r2 = d100(), k = Object.keys(W).find(x => W[x].rng && r2 >= W[x].rng[0] && r2 <= W[x].rng[1]);
@@ -388,7 +390,7 @@ function growth(G) {
 }
 // cost = chart cost, -3 for each other faction that has the technology (the non-player factions keep their starting
 // technologies in solo play), China -4 each instead; North America -2 when it is the first to have it; minimum 5
-const techHolders = (G, t) => Object.keys(D.FAC).filter(f => f !== G.f && (D.FAC[f].st || []).includes(t.k));
+const techHolders = (G, t) => Object.keys(D.FAC).filter(f => f !== G.f && (G.world && G.world.facs[f] ? !!G.world.facs[f].tech[t.k] : (D.FAC[f].st || []).includes(t.k)));
 function techCost(G, t) { const n = techHolders(G, t).length; return Math.max(5, t.c - n * (G.f === 'cn' ? 4 : 3) - (G.f === 'na' && !n ? 2 : 0)); }
 function techCostTxt(G, t) {
   const h = techHolders(G, t), per = G.f === 'cn' ? 4 : 3, parts = [`chart ${t.c}`];
@@ -1288,7 +1290,46 @@ function score(G) {
 }
 function finish(G, why) { G.over = true; G.endYear = G.y; const sc = score(G); log(G, `${why} Final score ${sc.total}: ${sc.rating}.`, 'h'); }
 
+// ================= SEVERAL FACTIONS (human + bots) =================
+// Each faction keeps its own state object (same shape as a solo game); the worlds (exploration values, cards, life,
+// NPF bases) and the flyby boxes (pirates, asteroids) are one shared object. world = { meta: {order, human, bots}, facs }.
+const isLead = G => !G.world || G.world.meta.order[0] === G.f;
+const npfKeys = G => Object.keys(G.rel).filter(k => !(G.world && G.world.facs[k]));
+const allBases = G => G.world ? Object.values(G.world.facs).flatMap(g => g.bases.map(b => ({ ...b, f: g.f }))) : G.bases.map(b => ({ ...b, f: G.f }));
+function attachWorld(facs, meta) {
+  const human = facs[meta.human], world = { meta, facs };
+  Object.values(facs).forEach(g => { g.w = human.w; g.fly = human.fly; Object.defineProperty(g, 'world', { value: world, enumerable: false, configurable: true, writable: true }); });
+  return human;
+}
+function newWorld(opts) { // {human, variant, bots: [{f, variant}], scenario, rerolls, scrapRE}
+  const fs = [opts.human, ...(opts.bots || []).map(b => b.f)];
+  const order = D.FAC_ORDER.filter(f => fs.includes(f)), facs = {};
+  order.forEach(f => { const b = (opts.bots || []).find(x => x.f === f); facs[f] = newGame(f, { ...opts, variant: f === opts.human ? opts.variant : b && b.variant }); if (f !== opts.human) facs[f].bot = true; });
+  const human = attachWorld(facs, { order, human: opts.human, bots: (opts.bots || []).map(b => b.f), done: {} });
+  log(human, `Factions in play (initiative order): ${order.map(f => D.FAC[f].n + (f === opts.human ? ' (you)' : facs[f].variant ? ` (bot, ${D.FAC[f].variants[facs[f].variant].n})` : ' (bot)')).join(', ')}. ${npfKeys(human).length ? 'Non-player factions: ' + npfKeys(human).map(f => D.FAC[f].n).join(', ') + '.' : ''}`, 'h');
+  return human;
+}
+const serialize = G => JSON.stringify(G.world ? { v: 3, world: G.world.meta, facs: G.world.facs } : G);
+function revive(obj) { if (!obj) return null; if (obj.v === 3 && obj.facs) return attachWorld(obj.facs, obj.world); return obj.v === 2 ? obj : null; }
+// initiative (3.1.2): from the last slot up, each faction may spend politics markers (+10% each, at most its slot number)
+// plus its Military Policy bonus (20/40/50%) on a d100; success swaps it with the faction above
+function setInitBid(G, n) { const slot = G.world ? G.world.meta.order.indexOf(G.f) + 1 : 1; G.initBid = Math.max(0, Math.min(n, G.polm, slot)); return null; }
+function resolveInitiative(world) {
+  const o = world.meta.order, H = world.facs[world.meta.human], lines = [];
+  for (let i = o.length - 1; i >= 1; i--) {
+    const g = world.facs[o[i]], bid = Math.max(0, Math.min(g.initBid || 0, g.polm, i + 1)), mil = [0, 20, 40, 50][polLv(g, 'mil')], ch = bid * 10 + mil;
+    g.polm -= bid; g.initBid = 0;
+    if (!ch) continue;
+    const r = d100();
+    if (r <= ch) { [o[i - 1], o[i]] = [o[i], o[i - 1]]; lines.push(`${D.FAC[g.f].n} rolls ${r} against ${ch}% and moves up to slot ${i}.`); }
+    else lines.push(`${D.FAC[g.f].n} rolls ${r} against ${ch}% and keeps slot ${i + 1}.`);
+  }
+  Object.values(world.facs).forEach(g => g.initBid = 0);
+  log(H, `Initiative: ${lines.join(' ') || 'nobody bid.'} Order: ${o.map(f => D.FAC[f].n).join(', ')}.`, 'h');
+}
+
 return {
+  isLead, npfKeys, allBases, newWorld, attachWorld, serialize, revive, setInitBid, resolveInitiative, finish, log, baseCost,
   R, D, P, sysOf, worldOf, locName, worldsIn, RES, FIELDS, FN, PHASES, ESTEPS, PHASE_NAME, ESTEP_NAME, newGame, cvAllowed, advance, answer,
   moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, scrapSite, scrapValue, scrapLV, estock, earthCash, earthCostTxt, lvCanAdd, lvPoolTxt, scrapRule, shipCargo,
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,

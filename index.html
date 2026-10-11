@@ -54,7 +54,7 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
 .tech { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 6px 0; border-top: 1px solid var(--line); }
 .tech small { color: var(--dim); font-size: 12px; grid-column: 1 / -1; }
 .tech.have b { color: var(--ok); } .tech.locked { opacity: .55; }
-#log p { font-size: 13px; margin: 0 0 6px; color: var(--dim); } #log p.g { color: var(--ink); } #log p.x { color: var(--bad); } #log p.e { color: var(--warn); } #log p.h { color: var(--ion); font-family: var(--f-disp); letter-spacing: .06em; margin-top: 12px; }
+#log p { font-size: 13px; margin: 0 0 6px; color: var(--dim); } #log p.g { color: var(--ink); } #log p.x { color: var(--bad); } #log p.e { color: var(--warn); } #log p.bot { color: #b7a6e6; font-size: 12.5px; } #log p.h { color: var(--ion); font-family: var(--f-disp); letter-spacing: .06em; margin-top: 12px; }
 #modal { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(2,4,8,.7); z-index: 20; padding: 16px; }
 #modal .box { max-width: 460px; width: 100%; background: var(--hull); border: 1px solid var(--beacon); border-radius: 6px; padding: 18px; max-height: 85vh; overflow: auto; }
 #pick { position: fixed; inset: 0; overflow: auto; background: radial-gradient(ellipse at 30% 20%, #10213a 0, var(--void) 60%); z-index: 30; padding: 32px 16px; }
@@ -128,7 +128,12 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
 #ttree .tt-top .sp { flex: 1; }
 #ttree .key { display: inline-flex; align-items: center; gap: 5px; color: var(--dim); }
 #ttree .key i { width: 14px; height: 10px; border-radius: 2px; border: 2px solid; display: inline-block; }
-#pick .scen { display: grid; gap: 8px; margin: 14px 0 6px; }
+#pick .scen { display: grid; gap: 8px; margin: 6px 0 6px; }
+#pick .fc.on { outline: 2px solid var(--beacon); outline-offset: 1px; }
+#pick .fc:disabled { opacity: .45; cursor: default; }
+#pick .botrow { margin: 6px 0; align-items: center; } #pick .botrow .sw { display: inline-block; }
+#pick .botrow .sw { width: 14px; height: 14px; border-radius: 3px; }
+#pick h3 { margin-top: 18px; }
 #pick .scen .sc { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--hull); cursor: pointer; }
 #pick .scen .sc:has(input:checked) { border-color: var(--beacon); }
 #pick .scen .sc input { margin-top: 3px; accent-color: var(--beacon); }
@@ -137,6 +142,8 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
 .cargo .sl { display: grid; grid-template-columns: auto 44px 1fr 28px; align-items: center; gap: 8px; margin: 4px 0; font-size: 13px; }
 .cargo input[type=range] { width: 100%; accent-color: #e8892f; }
 .hexc { display: inline-grid; place-items: center; min-width: 26px; height: 22px; padding: 0 4px; font: 700 11px/1 var(--f-mono); color: #fff; background: #d9772a; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); vertical-align: middle; }
+.initord { margin: 6px 0 10px; padding-left: 22px; } .initord li { margin: 2px 0; font-weight: 600; }
+p.order { margin: -2px 0 10px; }
 </style>
 
 <div id="app">
@@ -160,12 +167,13 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
 
 <script src="data.js"></script>
 <script src="rules.js"></script>
+<script src="ai.js"></script>
 <script>
 'use strict';
 const D = window.SHD;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-let ui = null, E, G = null, GEO, ATL = {}, MK, UNITS, sel = null, tab = 'turn', toastT;
+let AI = null, ui = null, E, G = null, GEO, ATL = {}, MK, UNITS, sel = null, tab = 'turn', toastT;
 const CS = 62; // counter size on the board (world px)
 const RS = (r, n) => `<span class="rs ${r}" title="${r}">${n}</span>`;
 // orange hexagon = cargo capacity (gear when it can also produce), as on the counters
@@ -197,14 +205,16 @@ const resHTML = o => ['ORE', 'SUP', 'FUEL'].filter(r => o[r]).map(r => RS(r, o[r
 
 function toast(msg) { if (!msg) return; let t = $('toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; $('stage').appendChild(t); } t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 4200); }
 function act(fn) { const r = fn(); if (typeof r === 'string') toast(r); save(); render(); }
-function save() { try { if (G) localStorage.setItem('sh-save', JSON.stringify(G)); } catch (e) {} }
-function load() { try { const s = localStorage.getItem('sh-save'); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+function save() { try { if (G) localStorage.setItem('sh-save', E.serialize(G)); } catch (e) {} }
+function load() { try { const s = localStorage.getItem('sh-save'); return s ? E.revive(JSON.parse(s)) : null; } catch (e) { return null; } }
+const factionsOf = g => g.world ? Object.keys(g.world.facs) : [g.f];
+async function loadAtlases(g) { await Promise.all(factionsOf(g).map(loadAtlas)); }
 // save slots: 'sh-save' is the autosave; three manual slots
 const SLOTS = ['sh-save', 'sh-slot-1', 'sh-slot-2', 'sh-slot-3'];
 const slotName = k => k === 'sh-save' ? 'Autosave' : 'Slot ' + k.slice(-1);
-function readSlot(k) { try { const s = localStorage.getItem(k); if (!s) return null; const g = JSON.parse(s); return g && g.v === 2 ? g : null; } catch (e) { return null; } }
-function slotInfo(g) { if (!g) return 'Empty'; return `${D.FAC[g.f].n} · ${g.over ? 'finished ' + g.endYear : g.y + ' · ' + E.PHASE_NAME[g.phase]} · ${g.savedAt ? new Date(g.savedAt).toLocaleString() : ''}`; }
-function saveSlot(k) { try { G.savedAt = Date.now(); localStorage.setItem(k, JSON.stringify(G)); save(); return true; } catch (e) { return false; } }
+function readSlot(k) { try { const s = localStorage.getItem(k); if (!s) return null; return E.revive(JSON.parse(s)); } catch (e) { return null; } }
+function slotInfo(g) { if (!g) return 'Empty'; return `${D.FAC[g.f].n}${g.world ? ' + ' + (factionsOf(g).length - 1) + ' bot(s)' : ''} · ${g.over ? 'finished ' + g.endYear : g.y + ' · ' + E.PHASE_NAME[g.phase]} · ${g.savedAt ? new Date(g.savedAt).toLocaleString() : ''}`; }
+function saveSlot(k) { try { G.savedAt = Date.now(); localStorage.setItem(k, E.serialize(G)); save(); return true; } catch (e) { return false; } }
 const SET = (() => { try { return JSON.parse(localStorage.getItem('sh-settings')) || {}; } catch (e) { return {}; } })();
 SET.anim = SET.anim !== false; SET.rerolls = SET.rerolls !== false; SET.scrap = !!SET.scrap;
 function saveSettings() { try { localStorage.setItem('sh-settings', JSON.stringify(SET)); } catch (e) {} }
@@ -216,7 +226,7 @@ async function boot() {
   const j = u => fetch(u).then(r => { if (!r.ok) throw new Error('Could not load ' + u); return r.json(); });
   IMG.life = await loadImg('lifemk.webp');
   [GEO, UNITS, MK, FX.bodies, FX.sun, FX.exp] = await Promise.all([j('geo.json'), j('units.json'), j('markers.json'), j('bodies.json'), j('sun.json'), j('expbox.json')]);
-  E = window.SHE(D, UNITS);
+  E = window.SHE(D, UNITS); AI = window.SHAI(E, D);
   cv = document.createElement('canvas'); $('stage').prepend(cv); ctx = cv.getContext('2d');
   IMG.markers = await loadImg('markers.webp');
   IMG.maps = {};
@@ -354,11 +364,12 @@ function paintExplore() {
 // world box layout (as on the physical board): world card under the World Box, life marker beside it,
 // bases in a row below the card with each base's trade marker beneath it. All in the box's own tilt.
 const STATION_ALT = { as: true, sa: true }; // factions whose alternate base image is the station
-function baseKey(b) {
-  const fr = ATL[G.f].fr, keys = Object.keys(fr).filter(k => k.startsWith('Base|' + b.name.slice(0, 4)));
+function baseKey(b, f) {
+  f = f || G.f;
+  const fr = ATL[f].fr, keys = Object.keys(fr).filter(k => k.startsWith('Base|' + b.name.slice(0, 4)));
   const plain = keys.find(k => !/ (b|rv|bi|orbit)$/i.test(k)) || keys[0], alt = keys.find(k => k !== plain) || plain;
   const station = D.W[b.w].tags.includes('station');
-  return (station !== !!STATION_ALT[G.f]) ? plain : alt;
+  return (station !== !!STATION_ALT[f]) ? plain : alt;
 }
 function drawRot(img, f, x, y, size, a) { if (!f) return; const k = size / Math.max(f[2], f[3]), w = f[2] * k, h = f[3] * k; ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.drawImage(img, f[0], f[1], f[2], f[3], -w / 2, -h / 2, w, h); ctx.restore(); }
 // world card slot (geo.json wcard, found by tools/place_cards.py): lined up under the printed World Box in its tilt,
@@ -379,17 +390,19 @@ function paintWorldBoxes() {
   const { LS, BS, TS, GAP } = WB;
   Object.keys(GEO.worlds).forEach(k => {
     const ws = G.w[k]; if (!ws) return;
-    const bases = G.bases.filter(b => b.w === k);
+    const bases = G.bases.filter(b => b.w === k).map(b => [b, G.f]).concat(otherFacs().flatMap(g => g.bases.filter(b => b.w === k).map(b => [b, g.f])));
     if (!ws.card && !ws.sol && !ws.life && !bases.length) return;
     const F = wcardFrame(k); if (!F) return;
     const { CW, CH, at } = F;
     if (ws.card) { const c = D.CARDS.find(x => x.n === ws.card), [x, y] = at(0, 0); drawRot(IMG.markers, MK['card_' + c.img], x, y, CW, F.a); }
     if (ws.sol || ws.life) { const [x, y] = at(CW / 2 + 10 + LS / 2, 0); drawRot(IMG.life, [ws.life ? 96 : 0, 0, 96, 96], x, y, LS, F.a); }
     const rowY = F.noCard ? 0 : CH / 2 + GAP + BS / 2, unit = BS + 8 + TS + 14;
-    bases.forEach((b, i) => {
+    bases.forEach(([b, bf], i) => {
       const lx = -CW / 2 + BS / 2 + i * unit, [x, y] = at(lx, rowY);
-      drawRot(ATL[G.f].img, uf(baseKey(b)), x, y, BS, F.a);
-      hits.push({ t: 'base', id: b.id, x, y, r: BS / 2 });
+      if (!ATL[bf]) return;
+      drawRot(ATL[bf].img, ATL[bf].fr[baseKey(b, bf)], x, y, BS, F.a);
+      if (bf !== G.f) { ctx.save(); ctx.translate(x, y); ctx.rotate(F.a); ctx.strokeStyle = D.FAC[bf].c; ctx.lineWidth = 3; ctx.strokeRect(-BS / 2 - 2, -BS / 2 - 2, BS + 4, BS + 4); ctx.restore(); hits.push({ t: 'obase', f: bf, id: b.id, x, y, r: BS / 2 }); }
+      else hits.push({ t: 'base', id: b.id, x, y, r: BS / 2 });
       if (b.set) { const [sx, sy] = at(lx + BS / 2 - 8, rowY + BS / 2 + 10); txt(String(b.set), sx, sy, 15, '#f2a93b'); }
       if (sel && sel.t === 'base' && sel.id === b.id) { ctx.save(); ctx.translate(x, y); ctx.rotate(F.a); ctx.strokeStyle = '#f2a93b'; ctx.lineWidth = 3; ctx.strokeRect(-BS / 2 - 3, -BS / 2 - 3, BS + 6, BS + 6); ctx.restore(); }
       if (b.trade && b.set > 0) { const [tx, ty] = at(lx + BS / 2 + 8 + TS / 2, rowY); drawRot(IMG.markers, MK[(b.trade.side === 'buy' ? 'buy_' : 'sell_') + b.trade.type], tx, ty, TS, F.a); }
@@ -433,17 +446,52 @@ function paintSun() {
 function cssCounter(key, size) { const a = ATL[G.f]; const f = a && a.fr[key]; if (!f) return ''; const sc = size / 96; return `<span class="cnt" style="width:${size}px;height:${size}px;background-image:url(atlas_${G.f}.webp);background-size:${1152 * sc}px auto;background-position:-${f[0] * sc}px -${f[1] * sc}px"></span>`; }
 
 function showPicker() {
-  $('pick').hidden = false;
-  $('pick').innerHTML = `<div class="in"><h1>Stellar Horizons</h1><p class="lede">Solo campaign, 2030 to as late as 2169. Lead one of seven space programs: explore the solar system, found bases, grow settlements and race to an interstellar colonizer. Pick a scenario and your faction.</p>
-  <div class="scen" role="radiogroup" aria-label="Scenario">${Object.entries(D.SCEN).map(([k, sc]) => `<label class="sc"><input type="radio" name="scen" value="${k}" ${k === (SET.scen || 'std') ? 'checked' : ''}><span><b>${esc(sc.n)}</b><small>${esc(sc.d)}</small></span></label>`).join('')}</div>
-  <div class="facs">${Object.entries(D.FAC).map(([k, f]) => `<button class="fc" data-f="${k}"><span class="sw" style="background:${f.c}"></span><b>${esc(f.n)}</b><small data-cash="${k}">Start with $${f.cash}B.</small><small>Support limits: ${f.lim[0]} robotic, ${f.lim[1]} crewed, ${f.lim[2]} base.</small><small>${esc(f.ab)}</small></button>`).join('')}</div>
-  <p class="dim" style="margin-top:18px">Your game autosaves in this browser as you play; use the pause menu to save to a slot.</p><button class="b" id="pickback" style="margin-top:8px">Back to main menu</button></div>`;
+  // new game: scenario, your faction (China: Military or Robotic variant), and up to six bots; unused factions stay NPFs
+  const NF = Object.keys(D.FAC), st = { me: SET.me && D.FAC[SET.me] ? SET.me : null, bots: (SET.bots || []).filter(b => D.FAC[b.f]), vme: SET.vme || 'mil' };
   const scen = () => ($('pick').querySelector('[name=scen]:checked') || {}).value || 'std';
-  const cashTxt = () => $('pick').querySelectorAll('[data-cash]').forEach(el => { const f = D.FAC[el.dataset.cash]; el.textContent = scen() === 'fut2060' ? `Start in 2060 with $${f.cash + 40 + 3 * f.st.length}B ($${f.cash}B + $40B + $3B × ${f.st.length} starting technologies).` : `Start with $${f.cash}B.`; });
-  $('pick').querySelectorAll('[name=scen]').forEach(r => r.onchange = () => { SET.scen = scen(); saveSettings(); cashTxt(); });
-  cashTxt();
-  $('pick').querySelectorAll('[data-f]').forEach(b => b.onclick = async () => { await loadAtlas(b.dataset.f); G = E.newGame(b.dataset.f, { rerolls: SET.rerolls, scrapRE: SET.scrap, scenario: scen() }); $('pick').hidden = true; hideMenu(); sel = null; tab = 'turn'; home(); save(); render(); });
-  $('pickback').onclick = () => { $('pick').hidden = true; showMenu(); };
+  const varSel = (id, v) => `<select id="${id}">${Object.entries(D.FAC.cn.variants).map(([k, x]) => `<option value="${k}" ${v === k ? 'selected' : ''}>${esc(x.n)} policy</option>`).join('')}</select>`;
+  function draw() {
+    st.bots = st.bots.filter(b => b.f !== st.me);
+    const taken = new Set([st.me, ...st.bots.map(b => b.f)]);
+    const npfs = NF.filter(f => !taken.has(f));
+    $('pick').innerHTML = `<div class="in"><h1>Stellar Horizons</h1><p class="lede">Campaign from 2030 to as late as 2169. Lead one of seven space programs: explore the solar system, found bases, grow settlements and race to an interstellar colonizer. Pick a scenario, your faction, and any bot opponents.</p>
+    <h3>Scenario</h3><div class="scen" role="radiogroup" aria-label="Scenario">${Object.entries(D.SCEN).map(([k, sc]) => `<label class="sc"><input type="radio" name="scen" value="${k}" ${k === (SET.scen || 'std') ? 'checked' : ''}><span><b>${esc(sc.n)}</b><small>${esc(sc.d)}</small></span></label>`).join('')}</div>
+    <h3>Your faction</h3>
+    <div class="facs">${NF.map(k => { const f = D.FAC[k], bot = st.bots.some(b => b.f === k); return `<button class="fc ${st.me === k ? 'on' : ''}" data-f="${k}" ${bot ? 'disabled title="Played by a bot"' : ''}><span class="sw" style="background:${f.c}"></span><b>${esc(f.n)}${bot ? ' <span class="chip">bot</span>' : ''}</b><small data-cash="${k}">Start with $${f.cash}B.</small><small>Support limits: ${f.lim[0]} robotic, ${f.lim[1]} crewed, ${f.lim[2]} base.</small><small>${esc(f.ab)}</small>${f.variants ? `<small>Choose a Military or Robotic start.</small>` : ''}</button>`; }).join('')}</div>
+    ${st.me === 'cn' ? `<div class="row" style="margin-top:10px"><label>China variant: ${varSel('vme', st.vme)}</label><span class="dim">${esc(D.FAC.cn.variants[st.vme].d)}</span></div>` : ''}
+    <h3>Bots</h3>
+    <div class="row"><label>Number of bots <select id="nbots">${[0, 1, 2, 3, 4, 5, 6].map(n => `<option ${st.bots.length === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label><span class="dim">Bots play their own faction through every phase, in initiative order.</span></div>
+    ${st.bots.map((b, i) => `<div class="row botrow"><span class="sw" style="background:${D.FAC[b.f].c}"></span><label>Bot ${i + 1} <select data-bot="${i}">${NF.filter(f => f === b.f || !taken.has(f)).map(f => `<option value="${f}" ${f === b.f ? 'selected' : ''}>${esc(D.FAC[f].n)}</option>`).join('')}</select></label>${b.f === 'cn' ? varSel('vbot' + i, b.variant || 'mil') : ''}<span class="dim">${esc(botBlurb(b))}</span></div>`).join('')}
+    <p class="dim">${npfs.length ? 'Non-player factions (NPFs): ' + npfs.map(f => D.FAC[f].n).join(', ') + '.' : 'All seven factions are in play; there are no NPFs.'}</p>
+    <div class="row" style="margin-top:14px"><button class="b pri" id="pickgo" ${st.me ? '' : 'disabled'}>${st.me ? `Start as ${esc(D.FAC[st.me].n)}` : 'Pick your faction'}</button><button class="b" id="pickback">Back to main menu</button></div>
+    <p class="dim" style="margin-top:12px">Your game autosaves in this browser as you play; use the pause menu to save to a slot.</p></div>`;
+    const cashTxt = () => $('pick').querySelectorAll('[data-cash]').forEach(el => { const f = D.FAC[el.dataset.cash]; el.textContent = scen() === 'fut2060' ? `Start in 2060 with $${f.cash + 40 + 3 * f.st.length}B ($${f.cash}B + $40B + $3B × ${f.st.length} starting technologies).` : `Start with $${f.cash}B.`; });
+    $('pick').querySelectorAll('[name=scen]').forEach(r => r.onchange = () => { SET.scen = scen(); saveSettings(); cashTxt(); });
+    cashTxt();
+    const keep = () => { SET.me = st.me; SET.bots = st.bots; SET.vme = st.vme; saveSettings(); };
+    $('pick').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { st.me = b.dataset.f; keep(); draw(); });
+    const v = $('vme'); if (v) v.onchange = () => { st.vme = v.value; keep(); draw(); };
+    $('nbots').onchange = e => { const n = +e.target.value; while (st.bots.length > n) st.bots.pop(); while (st.bots.length < n) { const f = NF.find(x => x !== st.me && !st.bots.some(b => b.f === x)); if (!f) break; st.bots.push({ f, variant: 'mil' }); } keep(); draw(); };
+    $('pick').querySelectorAll('[data-bot]').forEach(el => el.onchange = () => { st.bots[+el.dataset.bot].f = el.value; keep(); draw(); });
+    st.bots.forEach((b, i) => { const el = $('vbot' + i); if (el) el.onchange = () => { b.variant = el.value; keep(); draw(); }; });
+    $('pickgo').onclick = async () => {
+      if (!st.me) return;
+      const opts = { rerolls: SET.rerolls, scrapRE: SET.scrap, scenario: scen(), variant: st.me === 'cn' ? st.vme : undefined };
+      await Promise.all([st.me, ...st.bots.map(b => b.f)].map(loadAtlas));
+      G = st.bots.length ? E.newWorld({ ...opts, human: st.me, bots: st.bots.map(b => ({ f: b.f, variant: b.f === 'cn' ? b.variant || 'mil' : undefined })) }) : E.newGame(st.me, opts);
+      if (G.world) AI.begin(G);
+      $('pick').hidden = true; hideMenu(); sel = null; tab = 'turn'; home(); save(); render();
+    };
+    $('pickback').onclick = () => { $('pick').hidden = true; showMenu(); };
+  }
+  $('pick').hidden = false; draw();
+}
+// one-line summary of how each bot plays (shown when choosing bots)
+function botBlurb(b) {
+  return ({ na: 'Versatile: strong robots and crews, leans robotic; explores Engineering and Biology worlds.', ru: 'Crewed-vehicle power: Biology worlds like Mars, Europa and Titan, bases and crew technology.',
+    eu: 'Robotics and telescopes; Physics research; trades with other factions.', jp: 'Robotic explorers; Engineering worlds and the component-design / computing line.',
+    cn: b.variant === 'rob' ? 'Robotic China: peaceful and versatile like North America; better ships and crews, bases.' : 'Military China: embargoes rivals, builds armed ships and hunts pirates.',
+    as: 'Base builder: many cheap crew vehicles, mining bases and Biology research.', sa: 'Versatile; bases kept stocked by cargo flights; diplomacy and trade.' })[b.f] || '';
 }
 
 // ---------------- main menu ----------------
@@ -493,7 +541,7 @@ function menuAction(k) {
 function loadPanel(host, inMenu) {
   const rows = SLOTS.map(k => { const g = readSlot(k); return `<div class="slot"><div><b>${slotName(k)}</b><small>${esc(slotInfo(g))}</small></div><div class="row" style="margin:0"><button class="b pri" data-ld="${k}" ${g ? '' : 'disabled'}>Load</button>${k !== 'sh-save' && g ? `<button class="b" data-del="${k}">Delete</button>` : ''}</div></div>`; }).join('');
   host.innerHTML = `<div class="${inMenu ? 'panel' : ''}"><h2>Load game</h2>${rows}<div class="row" style="margin-top:12px"><button class="b" data-back>Back</button></div></div>`;
-  host.querySelectorAll('[data-ld]').forEach(b => b.onclick = async () => { const g = readSlot(b.dataset.ld); if (!g) return; await loadAtlas(g.f); G = g; ui = null; sel = null; tab = 'turn'; hideMenu(); hidePause(); home(); save(); render(); toast(''); });
+  host.querySelectorAll('[data-ld]').forEach(b => b.onclick = async () => { const g = readSlot(b.dataset.ld); if (!g) return; await loadAtlases(g); G = g; ui = null; sel = null; tab = 'turn'; hideMenu(); hidePause(); home(); save(); render(); toast(''); });
   host.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (b.dataset.confirm) { try { localStorage.removeItem(b.dataset.del); } catch (e) {} loadPanel(host, inMenu); } else { b.dataset.confirm = 1; b.textContent = 'Tap again to delete'; } });
   host.querySelector('[data-back]').onclick = () => inMenu ? menuHome() : pauseHome();
 }
@@ -710,6 +758,7 @@ function tap(h) {
   if (h.t === 'ship') sel = { t: 'ship', id: h.id };
   else if (h.t === 'base') sel = { t: 'base', id: h.id };
   else if (h.t === 'world') sel = { t: 'world', k: h.k };
+  else if (h.t === 'oship' || h.t === 'obase') sel = { t: h.t, f: h.f, id: h.id };
   tab = 'sel'; render();
 }
 function cancelDrag() { dragS = null; targets = null; dirty = true; }
@@ -834,6 +883,7 @@ function nearestTarget(moves, p) {
 // ---------------- painting ----------------
 function drawTex(img, f, x, y, size) { if (!f) return; const k = size / Math.max(f[2], f[3]); const w = f[2] * k, h = f[3] * k; ctx.drawImage(img, f[0], f[1], f[2], f[3], x - w / 2, y - h / 2, w, h); }
 const uf = key => ATL[G.f].fr[key];
+const otherFacs = () => G && G.world ? Object.values(G.world.facs).filter(g => g !== G) : [];
 function txt(t, x, y, size, color, align) { ctx.font = `600 ${size}px "IBM Plex Sans Condensed", "Arial Narrow", sans-serif`; ctx.textAlign = align || 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = Math.max(2, size / 5); ctx.strokeStyle = '#000'; ctx.strokeText(t, x, y); ctx.fillStyle = color || '#fff'; ctx.fillText(t, x, y); }
 function pathShape(z) { ctx.beginPath(); const tr = poly => { poly.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); }; if (z.poly) { tr(z.poly); if (z.hole) tr(z.hole); } else ctx.arc(z.c[0], z.c[1], z.r, 0, Math.PI * 2); }
 function paint() {
@@ -867,8 +917,9 @@ function paint() {
   // probes on Earth
   (G.probes.earth || []).forEach((n, i) => { const p = posOf('earth'); drawTex(ATL[G.f].img, uf('Probe|' + n), p[0] - 100 - i * 28, p[1] + 34, 30); });
   // ships
-  const byLoc = {};
+  const byLoc = {}, owner = new Map();
   G.ships.forEach(s => (byLoc[s.loc] = byLoc[s.loc] || []).push(s));
+  otherFacs().forEach(g => g.ships.forEach(s => { owner.set(s, g.f); (byLoc[s.loc] = byLoc[s.loc] || []).push(s); }));
   Object.entries(byLoc).forEach(([loc, list]) => {
     const p = posOf(loc), cols = Math.min(list.length, 3), lp0 = E.P(loc);
     const RL = lp0.t === 'orbit' && GEO.worlds[lp0.w] ? ringLayout(lp0.w, list.filter(x => !(dragS && dragS.s === x))) : null;
@@ -880,6 +931,14 @@ function paint() {
       let rot = 0;
       if (lp.t === 'box') { const B = boxFrame(lp.s, lp.n); rot = B.a; const off = (i - (list.length - 1) / 2) * 9; cx = B.c[0] + off * Math.cos(rot) - off * .6 * Math.sin(rot); cy = B.c[1] + off * Math.sin(rot) + off * .6 * Math.cos(rot); }
       else if (lp.t === 'surf' && GEO.worlds[lp.w] && !GEO.worlds[lp.w].spoly) { const R = ringOf(lp.w); cx = R.c[0] + ((i % 3) - (cols - 1) / 2) * (CS + 4); cy = R.c[1] + Math.floor(i / 3) * (CS + 4); }
+      const of = owner.get(s);
+      if (of) {
+        if (!ATL[of]) return;
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot); ctx.strokeStyle = D.FAC[of].c; ctx.lineWidth = 3; ctx.beginPath(); ctx.roundRect(-CS / 2 - 3, -CS / 2 - 3, CS + 6, CS + 6, 5); ctx.stroke(); ctx.restore();
+        drawRot(ATL[of].img, ATL[of].fr[s.res ? s.img + '|back' : s.img], cx, cy, CS, rot);
+        hits.push({ t: 'oship', f: of, id: s.id, x: cx, y: cy, r: CS / 2 });
+        return;
+      }
       const ready = (G.phase === 'move' && E.moves(G, s).length) || (G.phase === 'explore' && E.exploreOptions(G, s).length);
       const isSel = sel && sel.t === 'ship' && sel.id === s.id;
       if (ready || isSel) { ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot); ctx.strokeStyle = isSel ? '#f2a93b' : '#4fc3d9'; ctx.lineWidth = 3; ctx.beginPath(); ctx.roundRect(-CS / 2 - 4, -CS / 2 - 4, CS + 8, CS + 8, 6); ctx.stroke(); ctx.restore(); }
@@ -980,7 +1039,7 @@ function unusedActions() {
 }
 function confirmNext() {
   const warn = unusedActions(), label = nextLabel();
-  ask(`${label}?`, warn.length ? `<p class="dim">You still have unused options in ${esc(G.estep ? E.ESTEP_NAME[G.estep] : E.PHASE_NAME[G.phase])}:</p><ul style="margin:6px 0 10px;padding-left:18px">${warn.map(w => `<li style="margin:3px 0;color:var(--warn)">${esc(w)}</li>`).join('')}</ul>` : `<p class="dim">Nothing left to do in ${esc(G.estep ? E.ESTEP_NAME[G.estep] : E.PHASE_NAME[G.phase])}.</p>`, () => { E.advance(G); return null; }, warn.length ? 'Continue anyway' : 'Continue');
+  ask(`${label}?`, warn.length ? `<p class="dim">You still have unused options in ${esc(G.estep ? E.ESTEP_NAME[G.estep] : E.PHASE_NAME[G.phase])}:</p><ul style="margin:6px 0 10px;padding-left:18px">${warn.map(w => `<li style="margin:3px 0;color:var(--warn)">${esc(w)}</li>`).join('')}</ul>` : `<p class="dim">Nothing left to do in ${esc(G.estep ? E.ESTEP_NAME[G.estep] : E.PHASE_NAME[G.phase])}.</p>`, () => { if (G.world) AI.advanceWorld(G); else E.advance(G); return null; }, warn.length ? 'Continue anyway' : 'Continue');
 }
 function nextLabel() {
   if (G.phase === 'econ') { const i = E.ESTEPS.indexOf(G.estep); return i < E.ESTEPS.length - 1 ? 'Next: ' + E.ESTEP_NAME[E.ESTEPS[i + 1]] : 'Next: build & service'; }
@@ -1002,8 +1061,9 @@ function renderBar() {
 }
 const lvTxt = () => ([1, 2, 3, 4].filter(z => G.lv.earth[z]).map(z => `LV-${z} ×${G.lv.earth[z]}`).join(', ') || 'none') + ((G.lvCool && G.lvCool.earth && [1, 2, 3, 4].some(z => G.lvCool.earth[z])) ? ` (recovered, ready next turn: ${[1, 2, 3, 4].filter(z => G.lvCool.earth[z]).map(z => 'LV-' + z + ' ×' + G.lvCool.earth[z]).join(', ')})` : '');
 function panelTurn() {
-  if (G.over) { const sc = E.score(G); return `<h2>Campaign over in ${G.endYear}</h2><p><b class="mono">${sc.total} VP</b>: ${sc.rating}.</p><table>${sc.parts.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="mono">${v}</td></tr>`).join('')}</table>`; }
+  if (G.over) { const sc = E.score(G); return `<h2>Campaign over in ${G.endYear}</h2><p><b class="mono">${sc.total} VP</b>: ${sc.rating}.</p><table>${sc.parts.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="mono">${v}</td></tr>`).join('')}</table>${factionsTable()}`; }
   let h = `<h2>${E.PHASE_NAME[G.phase]}${G.estep ? ': ' + E.ESTEP_NAME[G.estep] : ''}</h2>`;
+  if (G.world) { const o = (G.phase === 'move' || G.estep === 'tech') ? G.world.meta.order.slice().reverse() : G.world.meta.order; h += `<p class="dim order">Order this phase: ${o.map(f => `<span style="color:${D.FAC[f].c}">${esc(D.FAC[f].pre)}${f === G.f ? ' (you)' : ''}</span>`).join(' → ')}</p>`; }
   if (G.phase === 'econ') h += panelEcon();
   if (G.phase === 'build') h += panelBuild();
   if (G.phase === 'move') h += panelMove();
@@ -1016,7 +1076,13 @@ function panelTurn() {
 }
 function panelEcon() {
   const s = G.estep;
-  if (s === 'politics') return `<p>You drew politics markers and rolled for events; see the log. Next comes diplomacy.</p>`;
+  if (s === 'politics') return `<p>You drew politics markers and rolled for events; see the log. Next comes ${G.world ? 'initiative' : 'diplomacy'}.</p>`;
+  if (s === 'initiative') {
+    const o = G.world.meta.order, slot = o.indexOf(G.f) + 1, mil = [0, 20, 40, 50][E.polLv(G, 'mil')], bid = G.initBid || 0;
+    return `<p class="dim">Factions act in initiative order (movement and technology go in reverse). From the last slot up, each faction may spend politics markers: +10% each (at most its slot number) plus its Military Policy bonus; a d100 at or under that moves it up one slot.</p>
+    <ol class="initord">${o.map(f => `<li style="color:${D.FAC[f].c}">${esc(D.FAC[f].n)}${f === G.f ? ' (you)' : ' (bot)'}</li>`).join('')}</ol>
+    ${slot > 1 ? `<div class="row"><span>Markers to spend: <b class="mono">${bid}</b> → ${bid * 10 + mil}% to move up</span><button class="b" data-ib="-1" ${bid ? '' : 'disabled'}>−</button><button class="b" data-ib="1" ${bid < Math.min(G.polm, slot) ? '' : 'disabled'}>+</button><span class="dim">You have ${G.polm}.</span></div>` : '<p>You hold the first slot.</p>'}`;
+  }
   if (s === 'diplomacy') {
     const cost = E.dipCost(G);
     return `<p class="dim">Spend politics markers on attempts to improve (+) or worsen (−) relations. Attempts cost 1, then 2, then 3 markers, and succeed on a d10 roll of 6 or less. They resolve when you leave this step. Embargo needs Military Policy; war needs Vigorous Military Policy.</p>
@@ -1056,7 +1122,7 @@ function panelMove() {
   const movers = G.ships.filter(s => E.moves(G, s).length);
   let h = `<p class="dim">Drag counters on the board, or tap a ship below to pick a destination from a list. Robotic explorers need a launch vehicle for their first move; crew vehicles need one to leave Earth.</p>`;
   h += movers.length ? movers.map(s => shipLine(s, `<button class="b" data-sel="${s.id}">Move…</button>`)).join('') : '<p class="dim">No ship can move right now.</p>';
-  if (G.bases.length) h += `<h3>Cargo flight from Earth</h3><p class="dim">An LV carries resources bought on Earth to one of your bases (capacity = LV size${G.f === 'sa' ? ' + 1' : ''}).</p><div class="row"><select id="cf-base">${G.bases.map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select>${['ORE', 'SUP', 'FUEL'].map(r => `<label>${RS(r, '')}<input id="cf-${r}" type="number" min="0" value="0" style="width:48px"></label>`).join('')}<button class="b" data-a="cargo">Launch</button></div>`;
+  if (G.bases.length) { const lvs = E.launchLVs(G, 'earth', 1); h += `<h3>Cargo flight from Earth</h3><p class="dim">An LV carries resources to one of your bases: faction-board resources first, the rest bought at $1B each. Capacity = LV size${G.f === 'sa' ? ' + 1 (Equatorial Launch Sites: LV-1 carries 2 … LV-4 carries 5)' : ''}.</p>${lvs.length ? `<div class="row"><select id="cf-base">${G.bases.map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select><select id="cf-lv">${lvs.map(o => `<option value="${o.n}">LV-${o.n} ${o.stock ? 'from stock' : '(new: ' + esc(o.txt) + ')'} · carries ${(o.n + (G.f === 'sa' ? 1 : 0)) * E.cargoMul(G)}</option>`).join('')}</select></div><div id="cf-sl"></div><div class="row"><button class="b" data-a="cargo">Launch</button></div>` : '<p class="dim">No launch vehicle available on Earth.</p>'}`; }
   return h;
 }
 function panelCombat() {
@@ -1082,6 +1148,12 @@ function panelSel() {
   if (sel.t === 'ship') { const s = G.ships.find(x => x.id === sel.id); return s ? panelShip(s) : '<p class="dim">That ship is gone.</p>'; }
   if (sel.t === 'base') { const b = G.bases.find(x => x.id === sel.id); return b ? panelBase(b) : ''; }
   if (sel.t === 'world') return panelWorld(sel.k);
+  if (sel.t === 'oship' || sel.t === 'obase') {
+    const g = G.world && G.world.facs[sel.f]; if (!g) return '';
+    const F = D.FAC[sel.f];
+    if (sel.t === 'oship') { const s = g.ships.find(x => x.id === sel.id); return s ? `<h2 style="color:${F.c}">${esc(s.name)}</h2><p class="dim">${esc(F.n)} (bot) · ${s.cls === 'CV' ? 'CV-' + s.sz : s.kind} · ${esc(E.locName(s.loc))}${s.res ? ' · reserved' : ''}${s.cap ? ' · cargo ' + E.resTxt(s.cargo) : ''}</p>` : ''; }
+    const b = g.bases.find(x => x.id === sel.id); return b ? `<h2 style="color:${F.c}">${esc(b.name)}</h2><p class="dim">${esc(F.n)} (bot) base at ${esc(D.W[b.w].n)} · ${b.set} settlement(s) · ${Object.entries(b.fac).filter(([, v]) => v).map(([c, v]) => D.FACIL[c][v - 1].n).join(', ') || 'no facilities yet'}</p>` : '';
+  }
   return '';
 }
 function panelShip(s) {
@@ -1127,9 +1199,13 @@ function panelWorld(k) {
   if (G.ask[0] && G.ask[0].k === 'publicity' && ws.v > 0) h += `<button class="b pri" data-pub="${k}">Raise ${esc(w.n)} by 2 (Publicity Campaign)</button>`;
   return h;
 }
+function factionsTable() {
+  if (!G.world) return '';
+  return `<h3>Factions in play</h3><table><tr><th></th><th>Score</th><th>Techs</th><th>Bases</th><th>Ships</th><th>Cash</th></tr>${G.world.meta.order.map(f => { const g = G.world.facs[f], sc = E.score(g); return `<tr><td style="color:${D.FAC[f].c}">${esc(D.FAC[f].n)}${f === G.f ? ' (you)' : g.variant ? ' (' + D.FAC[f].variants[g.variant].n + ')' : ''}</td><td class="mono">${sc.total}</td><td class="mono">${Object.keys(g.tech).length}</td><td class="mono">${g.bases.length}</td><td class="mono">${g.ships.length}</td><td class="mono">$${g.cash}B</td></tr>`; }).join('')}</table><p class="dim">Non-player factions: ${E.npfKeys(G).map(f => D.FAC[f].n).join(', ') || 'none'}.</p>`;
+}
 function panelFac() {
   const F = D.FAC[G.f], [lre, lcv, lb] = E.lims(G);
-  return `<h2>${esc(F.n)}</h2><img class="board-img" src="boards/${G.f}.webp" alt="${esc(F.n)} faction sheet">
+  return `<h2>${esc(F.n)}${G.variant ? ' · ' + esc(F.variants[G.variant].n) : ''}</h2>${factionsTable()}<img class="board-img" src="boards/${G.f}.webp" alt="${esc(F.n)} faction sheet">
   <p class="dim">${esc(F.ab)}</p>
   <table><tr><th>Support</th><th>Used</th><th>Limit</th></tr><tr><td>Robotic explorers</td><td class="mono">${E.nonProbeRE(G)}</td><td class="mono">${lre}</td></tr><tr><td>Crew vehicles</td><td class="mono">${E.nCV(G)}</td><td class="mono">${lcv}</td></tr><tr><td>Bases</td><td class="mono">${E.nBase(G)}</td><td class="mono">${lb}</td></tr></table>
   <h3>Foreign relations</h3><table>${Object.keys(G.rel).map(k => `<tr><td>${esc(D.FAC[k].n)}</td><td>${D.REL[G.rel[k]]}</td></tr>`).join('')}</table>
@@ -1279,6 +1355,7 @@ function wire() {
   on('[data-a="redraw"]', () => ask('Redraw your mission?', `<p>Return ${esc(E.misTxt(G.mis.mine))} to the pool and draw a new one for <b>2 politics markers</b> (you have ${G.polm}).</p>`, () => E.redrawMission(G), 'Redraw'));
   on('[data-a="buyvm"]', () => ask('Buy a victory marker?', `<p>Spend <b>4 politics markers</b> (you have ${G.polm}) for 1 victory marker, worth 1 VP at the end.</p>`, () => E.buyVictory(G), 'Buy'));
   on('[data-a="tabtech"]', () => { tab = 'tech'; render(); });
+  on('[data-ib]', b => { E.setInitBid(G, (G.initBid || 0) + +b.dataset.ib); save(); render(); });
   on('[data-a="treeclose"]', () => { tab = 'turn'; render(); });
   on('[data-dip]', b => act(() => E.setDiplomacy(G, b.dataset.dip, +b.dataset.d)));
   P.querySelectorAll('[data-out]').forEach(s => s.onchange = () => { G.bases.find(b => b.id === s.dataset.out).out = s.value; save(); render(); });
@@ -1328,8 +1405,16 @@ function wire() {
   on('[data-npft]', b => { const k = b.dataset.npft, x = G.w[k]; tradeAsk({ w: k }, x.npfTrade, (D.FAC[G.f].rel[G.rel[x.npf]] || [0, 0])[1], `Trade with ${D.FAC[x.npf].n} at ${D.W[k].n}?`); });
   on('[data-cb]', b => act(() => E.combatAct(G, E.combatOptions(G)[+b.dataset.cb])));
   on('[data-pub]', b => act(() => E.answer(G, b.dataset.pub)));
-  on('[data-a="cargo"]', () => { const load = { ORE: +$('cf-ORE').value || 0, SUP: +$('cf-SUP').value || 0, FUEL: +$('cf-FUEL').value || 0 }, bs = G.bases.find(x => x.id === $('cf-base').value), lv = E.launchLVs(G, 'earth', 1)[0];
-    ask(`Cargo flight to ${bs.name}?`, `<p>${resHTML(load)}${lv ? ` on LV-${lv.n} ${lv.stock ? 'from stock' : '(new)'}` : ''}: <b>${esc(E.earthCostTxt(G, lv && lv.buy ? { ORE: (load.ORE || 0) + 1, SUP: load.SUP || 0, FUEL: (load.FUEL || 0) + lv.n } : load))}</b>.</p><p class="dim">Engine failure ${E.engBase(G)}% loses the cargo.</p>`, () => E.shipCargo(G, bs.id, load), 'Launch'); });
+  { const sl = $('cf-sl'), lvSel = $('cf-lv');
+    if (sl && lvSel) {
+      const setup = () => { const o = E.launchLVs(G, 'earth', 1).find(x => x.n === +lvSel.value), cap = o.n + (G.f === 'sa' ? 1 : 0);
+        sl.innerHTML = cargoSliders({ cap, prod: false, cargo: { ORE: 0, SUP: 0, FUEL: 0 } }, 'cfsl').replace('Load cargo on Earth', `LV-${o.n} cargo`);
+        sl.getLoad = wireCargo(sl, () => o.buy ? o.cost : null); };
+      lvSel.onchange = setup; setup();
+    } }
+  on('[data-a="cargo"]', () => { const sl = $('cf-sl'), load = sl && sl.getLoad ? sl.getLoad() : {}, bs = G.bases.find(x => x.id === $('cf-base').value), lv = E.launchLVs(G, 'earth', 1).find(x => x.n === +$('cf-lv').value);
+    if (!E.sum(load)) { toast('Set some cargo with the sliders first.'); return; }
+    ask(`Cargo flight to ${bs.name}?`, `<p>${resHTML(load)}${lv ? ` on LV-${lv.n} ${lv.stock ? 'from stock' : '(new)'}` : ''}: <b>${esc(E.earthCostTxt(G, lv && lv.buy ? { ORE: (load.ORE || 0) + 1, SUP: load.SUP || 0, FUEL: (load.FUEL || 0) + lv.n } : load))}</b>.</p><p class="dim">Engine failure ${E.engBase(G)}% loses the cargo.</p>`, () => E.shipCargo(G, bs.id, load, lv && lv.n), 'Launch'); });
 }
 boot().catch(e => { document.body.insertAdjacentHTML('beforeend', `<p style="position:fixed;left:16px;bottom:16px;color:#ef6b5b">The game failed to load: ${esc(e.message)}</p>`); console.error(e); });
 </script>
