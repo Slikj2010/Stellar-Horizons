@@ -299,23 +299,24 @@ function wboxFrame(k) {
 }
 function drawRot(img, f, x, y, size, a) { if (!f) return; const k = size / Math.max(f[2], f[3]), w = f[2] * k, h = f[3] * k; ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.drawImage(img, f[0], f[1], f[2], f[3], -w / 2, -h / 2, w, h); ctx.restore(); }
 function paintWorldBoxes() {
-  const CW = 120, CH = 79, LS = 52, BS = CS + 14, TS = 42;
+  const CW = 172, CH = 113, LS = 60, BS = CS + 10, TS = 46;
   Object.keys(GEO.worlds).forEach(k => {
     const ws = G.w[k]; if (!ws) return;
     const bases = G.bases.filter(b => b.w === k);
     if (!ws.card && !ws.sol && !ws.life && !bases.length) return;
     const F = wboxFrame(k), ca = Math.cos(F.a), sa = Math.sin(F.a);
     const at = (lx, ly) => [F.x + lx * ca - ly * sa, F.y + lx * sa + ly * ca];
-    const cy0 = 128;
+    // the printed World Box (EXPLORE box + traits) spans about local y -75..+85, so the card sits fully below it
+    const cy0 = 100 + CH / 2;
     if (ws.card) { const c = D.CARDS.find(x => x.n === ws.card), [x, y] = at(56, cy0); drawRot(IMG.markers, MK['card_' + c.img], x, y, CW, F.a); }
-    if (ws.sol || ws.life) { const [x, y] = at(56 + CW / 2 + LS / 2 + 6, cy0); drawRot(IMG.life, [ws.life ? 96 : 0, 0, 96, 96], x, y, LS, F.a); }
+    if (ws.sol || ws.life) { const [x, y] = at(50 + CW / 2 + LS / 2 + 8, cy0); drawRot(IMG.life, [ws.life ? 96 : 0, 0, 96, 96], x, y, LS, F.a); }
     bases.forEach((b, i) => {
-      const [x, y] = at(56 - (bases.length - 1) * (BS + 6) / 2 + i * (BS + 6), cy0 + CH / 2 + BS / 2 + 8);
+      const [x, y] = at(50 - (bases.length - 1) * (BS + 6) / 2 + i * (BS + 6), (ws.card ? cy0 + CH / 2 : 100) + BS / 2 + 18);
       drawRot(ATL[G.f].img, uf(baseKey(b)), x, y, BS, F.a);
       hits.push({ t: 'base', id: b.id, x, y, r: BS / 2 });
-      if (b.set) { const [sx, sy] = at(56 - (bases.length - 1) * (BS + 6) / 2 + i * (BS + 6) + BS / 2 - 6, cy0 + CH / 2 + BS + 2); txt(String(b.set), sx, sy, 15, '#f2a93b'); }
+      if (b.set) { const [sx, sy] = at(50 - (bases.length - 1) * (BS + 6) / 2 + i * (BS + 6) + BS / 2 - 6, (ws.card ? cy0 + CH / 2 : 100) + BS + 12); txt(String(b.set), sx, sy, 15, '#f2a93b'); }
       if (sel && sel.t === 'base' && sel.id === b.id) { ctx.save(); ctx.translate(x, y); ctx.rotate(F.a); ctx.strokeStyle = '#f2a93b'; ctx.lineWidth = 3; ctx.strokeRect(-BS / 2 - 3, -BS / 2 - 3, BS + 6, BS + 6); ctx.restore(); }
-      if (b.trade && b.set > 0) { const [tx, ty] = at(56 - (bases.length - 1) * (BS + 6) / 2 + i * (BS + 6), cy0 + CH / 2 + BS + 8 + TS / 2 + 4); drawRot(IMG.markers, MK[(b.trade.side === 'buy' ? 'buy_' : 'sell_') + b.trade.type], tx, ty, TS, F.a); }
+      if (b.trade && b.set > 0) { const [tx, ty] = at(50 - (bases.length - 1) * (BS + 6) / 2 + i * (BS + 6), (ws.card ? cy0 + CH / 2 : 100) + BS + 18 + TS / 2 + 6); drawRot(IMG.markers, MK[(b.trade.side === 'buy' ? 'buy_' : 'sell_') + b.trade.type], tx, ty, TS, F.a); }
     });
   });
 }
