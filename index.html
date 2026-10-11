@@ -294,37 +294,39 @@ function baseKey(b) {
   const station = D.W[b.w].tags.includes('station');
   return (station !== !!STATION_ALT[G.f]) ? plain : alt;
 }
-function wboxFrame(k) {
-  const e = FX.exp && FX.exp[k];
-  if (e) { const m = GEO.maps[e.map]; return { x: m[0] + e.cx * .4, y: m[1] + e.cy * .4, a: e.ang * Math.PI / 180 }; }
-  const g = GEO.worlds[k], o = g.orbit || g.exp; return { x: o[0] - 60, y: o[1] + 20, a: 0 };
-}
 function drawRot(img, f, x, y, size, a) { if (!f) return; const k = size / Math.max(f[2], f[3]), w = f[2] * k, h = f[3] * k; ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.drawImage(img, f[0], f[1], f[2], f[3], -w / 2, -h / 2, w, h); ctx.restore(); }
+// world card slot (geo.json wcard, found by tools/place_cards.py): lined up under the printed World Box in its tilt,
+// clear of all printed text. Life marker to the card's right, bases in a row under the card, trade marker right of each base.
+const WB = { LS: 56, BS: CS + 10, TS: 50, GAP: 14 };
+function wcardFrame(k) {
+  const g = GEO.worlds[k]; if (!g || !g.wcard) return null;
+  const [x, y, deg, CW] = g.wcard, a = deg * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a), CH = CW * 127 / 192;
+  // Earth never takes a card, so its bases use the card's row
+  const noCard = D.W[k] && D.W[k].tags.includes('earth');
+  return { x, y, a, CW, CH, noCard, at: (lx, ly) => [x + lx * ca - ly * sa, y + lx * sa + ly * ca] };
+}
+function wcardRects() {
+  // card + base row footprints, for keeping orbiting counters off them
+  return Object.keys(GEO.worlds).map(wcardFrame).filter(Boolean).map(F => ({ F, w: F.CW + WB.LS + 10, h: F.CH + WB.GAP + WB.BS, cx: (WB.LS + 10) / 2, cy: (WB.GAP + WB.BS) / 2 }));
+}
 function paintWorldBoxes() {
-  // world card sits upright and centred under the world's circle (outside it), Signs of Life marker to its right,
-  // bases in a row under the card, each base's trade marker to its right
-  const LS = 60, BS = CS + 10, TS = 50;
+  const { LS, BS, TS, GAP } = WB;
   Object.keys(GEO.worlds).forEach(k => {
     const ws = G.w[k]; if (!ws) return;
     const bases = G.bases.filter(b => b.w === k);
     if (!ws.card && !ws.sol && !ws.life && !bases.length) return;
-    const g = GEO.worlds[k];
-    let cx, top, rr;
-    if (g.poly) { const R = ringOf(k); rr = g.circ || R.r - CS / 2 - 12; cx = R.c[0]; top = R.c[1] + Math.max(rr, DOTR[k] || 0) + 16; }
-    else { const o = g.orbit || g.exp; rr = 60; cx = o[0]; top = o[1] + 76; }
-    const CW = Math.max(170, Math.min(210, rr * 1.45)), CH = CW * 127 / 192;
-    let y = top;
-    if (ws.card) { const c = D.CARDS.find(x => x.n === ws.card); drawRot(IMG.markers, MK['card_' + c.img], cx, y + CH / 2, CW, 0); }
-    if (ws.sol || ws.life) { const lx = ws.card ? cx + CW / 2 + LS / 2 + 10 : cx; drawRot(IMG.life, [ws.life ? 96 : 0, 0, 96, 96], lx, y + (ws.card ? CH / 2 : LS / 2), LS, 0); }
-    y += ws.card ? CH + 16 : (ws.sol || ws.life) ? LS + 14 : 0;
-    const unit = BS + 10 + TS + 18, x0 = cx - (bases.length * unit - 18) / 2 + BS / 2;
+    const F = wcardFrame(k); if (!F) return;
+    const { CW, CH, at } = F;
+    if (ws.card) { const c = D.CARDS.find(x => x.n === ws.card), [x, y] = at(0, 0); drawRot(IMG.markers, MK['card_' + c.img], x, y, CW, F.a); }
+    if (ws.sol || ws.life) { const [x, y] = at(CW / 2 + 10 + LS / 2, 0); drawRot(IMG.life, [ws.life ? 96 : 0, 0, 96, 96], x, y, LS, F.a); }
+    const rowY = F.noCard ? 0 : CH / 2 + GAP + BS / 2, unit = BS + 8 + TS + 14;
     bases.forEach((b, i) => {
-      const x = x0 + i * unit, by = y + BS / 2;
-      drawRot(ATL[G.f].img, uf(baseKey(b)), x, by, BS, 0);
-      hits.push({ t: 'base', id: b.id, x, y: by, r: BS / 2 });
-      if (b.set) txt(String(b.set), x + BS / 2 - 8, by + BS / 2 + 10, 15, '#f2a93b');
-      if (sel && sel.t === 'base' && sel.id === b.id) { ctx.strokeStyle = '#f2a93b'; ctx.lineWidth = 3; ctx.strokeRect(x - BS / 2 - 3, by - BS / 2 - 3, BS + 6, BS + 6); }
-      if (b.trade && b.set > 0) drawRot(IMG.markers, MK[(b.trade.side === 'buy' ? 'buy_' : 'sell_') + b.trade.type], x + BS / 2 + 10 + TS / 2, by, TS, 0);
+      const lx = -CW / 2 + BS / 2 + i * unit, [x, y] = at(lx, rowY);
+      drawRot(ATL[G.f].img, uf(baseKey(b)), x, y, BS, F.a);
+      hits.push({ t: 'base', id: b.id, x, y, r: BS / 2 });
+      if (b.set) { const [sx, sy] = at(lx + BS / 2 - 8, rowY + BS / 2 + 10); txt(String(b.set), sx, sy, 15, '#f2a93b'); }
+      if (sel && sel.t === 'base' && sel.id === b.id) { ctx.save(); ctx.translate(x, y); ctx.rotate(F.a); ctx.strokeStyle = '#f2a93b'; ctx.lineWidth = 3; ctx.strokeRect(-BS / 2 - 3, -BS / 2 - 3, BS + 6, BS + 6); ctx.restore(); }
+      if (b.trade && b.set > 0) { const [tx, ty] = at(lx + BS / 2 + 8 + TS / 2, rowY); drawRot(IMG.markers, MK[(b.trade.side === 'buy' ? 'buy_' : 'sell_') + b.trade.type], tx, ty, TS, F.a); }
     });
   });
 }
@@ -523,7 +525,13 @@ function savePanel() {
 // ---------------- camera ----------------
 const toWorld = (x, y) => ({ x: (x - cam.x) / cam.s, y: (y - cam.y) / cam.s });
 function zoomAt(x, y, f) { const s = Math.max(.08, Math.min(3, cam.s * f)); const k = s / cam.s; cam.x = x - (x - cam.x) * k; cam.y = y - (y - cam.y) * k; cam.s = s; dirty = true; }
-function fit() { const W = 4792, H = 4032; cam.s = Math.min(SW() / W, SH() / H) * .98; cam.x = (SW() - W * cam.s) / 2; cam.y = (SH() - H * cam.s) / 2; dirty = true; }
+function boardBox() {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; const add = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
+  Object.values(GEO.maps).forEach(([x, y, w, h]) => { add(x, y); add(x + w, y + h); });
+  Object.values(GEO.worlds).forEach(g => { if (g.wcard) { add(g.wcard[0] - 260, g.wcard[1] - 200); add(g.wcard[0] + 260, g.wcard[1] + 260); } });
+  return [x0, y0, x1, y1];
+}
+function fit() { const [x0, y0, x1, y1] = boardBox(), W = x1 - x0, H = y1 - y0; cam.s = Math.min(SW() / W, SH() / H) * .98; cam.x = (SW() - W * cam.s) / 2 - x0 * cam.s; cam.y = (SH() - H * cam.s) / 2 - y0 * cam.s; dirty = true; }
 function home() { const e = GEO.worlds.ear.orbit; focus([e[0] + 120, e[1] + 120], Math.max(.32, Math.min(.6, SW() / 1500))); }
 function focus(p, s) { cam.s = s; cam.x = SW() / 2 - p[0] * s; cam.y = SH() / 2 - p[1] * s; dirty = true; }
 
@@ -650,6 +658,7 @@ function ringBlocked(w, a) {
   const L = RING_LABEL[w]; if (L && angDist(a, L[0]) < L[1]) b = true;
   // other worlds' printed circles and every EXPLORE box
   if (!b) b = Object.entries(GEO.worlds).some(([k, g]) => k !== w && g.poly && g.circ && Math.hypot(x - ringOf(k).c[0], y - ringOf(k).c[1]) < g.circ + rad);
+  if (!b) b = wcardRects().some(R => { const dx = x - R.F.x, dy = y - R.F.y, ca = Math.cos(-R.F.a), sa = Math.sin(-R.F.a), u = dx * ca - dy * sa - R.cx, v = dx * sa + dy * ca - R.cy; return Math.abs(u) < R.w / 2 + rad && Math.abs(v) < R.h / 2 + rad; });
   if (!b && FX.exp) b = Object.values(FX.exp).some(e => { const m = GEO.maps[e.map]; return Math.hypot(x - (m[0] + e.cx * .4), y - (m[1] + e.cy * .4)) < e.s * .4 * .75 + rad; });
   return BLOCK[key] = b;
 }
