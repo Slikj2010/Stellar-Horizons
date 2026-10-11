@@ -418,8 +418,11 @@ function develop(G, k) {
 }
 function convertPolitics(G, to) { // to: 'cash' | field
   if (G.polm < 1) return 'No politics markers left.';
+  if (to !== 'cash' && !FIELDS.includes(to)) return 'Unknown conversion.';
   G.polm--;
-  if (to === 'cash') G.cash++; else G.bank[to] += polLv(G, 'dip') >= 3 ? 3 : 2;
+  const n = polLv(G, 'dip') >= 3 ? 3 : 2;
+  if (to === 'cash') G.cash++; else G.bank[to] += n;
+  log(G, `Converted 1 politics marker to ${to === 'cash' ? '$1B' : n + ' ' + FN[to] + ' points'}.`);
   return null;
 }
 function buyVictory(G) { if (G.polm < 4) return 'A victory marker costs 4 politics markers.'; G.polm -= 4; G.vm++; log(G, 'Bought a victory marker with 4 politics markers.', 'g'); return null; }

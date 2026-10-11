@@ -1071,6 +1071,12 @@ function renderBar() {
   <span class="grow"></span><span class="st">Score <b>${sc.total}</b></span>`;
 }
 const lvTxt = () => ([1, 2, 3, 4].filter(z => G.lv.earth[z]).map(z => `LV-${z} ×${G.lv.earth[z]}`).join(', ') || 'none') + ((G.lvCool && G.lvCool.earth && [1, 2, 3, 4].some(z => G.lvCool.earth[z])) ? ` (recovered, ready next turn: ${[1, 2, 3, 4].filter(z => G.lvCool.earth[z]).map(z => 'LV-' + z + ' ×' + G.lvCool.earth[z]).join(', ')})` : '');
+// politics markers can be converted at any time: 1 → $1B, or 1 → 2 points of any field (3 with Unified Space Diplomacy)
+function politicsBlock() {
+  const n = E.polLv(G, 'dip') >= 3 ? 3 : 2;
+  return `<h3>Politics markers: ${G.polm}</h3><div class="row"><button class="b" data-pc="cash" ${G.polm ? '' : 'disabled'}>1 → $1B</button>${E.FIELDS.map(f => `<button class="b" data-pc="${f}" ${G.polm ? '' : 'disabled'}>1 → ${n} <span class="f-${f}">${E.FN[f]}</span></button>`).join('')}<button class="b" data-pc="allcash" ${G.polm ? '' : 'disabled'}>All to cash</button></div>
+  <p class="dim">Convert at any time. Points go to your tech bank (spent in the tech step; the bank is halved after it).</p>`;
+}
 function panelTurn() {
   if (G.over) { const sc = E.score(G); return `<h2>Campaign over in ${G.endYear}</h2><p><b class="mono">${sc.total} VP</b>: ${sc.rating}.</p><table>${sc.parts.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="mono">${v}</td></tr>`).join('')}</table>${factionsTable()}`; }
   let h = `<h2>${E.PHASE_NAME[G.phase]}${G.estep ? ': ' + E.ESTEP_NAME[G.estep] : ''}</h2>`;
@@ -1082,6 +1088,7 @@ function panelTurn() {
   if (G.phase === 'explore') h += panelExplore();
   if (G.phase === 'trade') h += panelTrade();
   { const sc = E.score(G); h += `<h3>Score if the game ended now: ${sc.total} (${sc.rating})</h3><table>${sc.parts.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="mono">${v}</td></tr>`).join('')}</table><p class="dim">Every technology you have not developed costs 3 VP at the end, so the score starts low and climbs as you research.</p>`; }
+  if (G.estep !== 'tech') h += politicsBlock();
   h += `<h3>Missions</h3><p class="dim">Yours: ${esc(E.misTxt(G.mis.mine))}. Common: ${esc(E.misTxt(G.mis.common))}. Kept: ${G.mis.kept.map(id => esc(E.misTxt(id))).join('; ') || 'none'}.</p><div class="row"><button class="b" data-a="redraw" ${G.polm < 2 ? 'disabled' : ''}>Redraw your mission (2 politics)</button><button class="b" data-a="buyvm" ${G.polm < 4 ? 'disabled' : ''}>Buy victory marker (4 politics)</button></div>`;
   return h;
 }
@@ -1104,7 +1111,7 @@ function panelEcon() {
   if (s === 'placement') return `<p>NPF bases, asteroids, pirates and trade markers were placed; see the log and the board.</p>`;
   if (s === 'tech') return `<p class="dim">Develop technologies from your bank in the Tech tab. Before leaving this step, convert politics markers: unconverted markers are discarded, then banked points are halved.</p>
     <div class="row"><button class="b" data-a="tabtech">Open the tech chart</button></div>
-    <h3>Politics markers: ${G.polm}</h3><div class="row"><button class="b" data-pc="cash" ${G.polm ? '' : 'disabled'}>1 → $1B</button>${E.FIELDS.map(f => `<button class="b" data-pc="${f}" ${G.polm ? '' : 'disabled'}>1 → ${E.polLv(G, 'dip') >= 3 ? 3 : 2} ${E.FN[f]}</button>`).join('')}<button class="b" data-pc="allcash" ${G.polm ? '' : 'disabled'}>All to cash</button></div>
+    ${politicsBlock()}
     ${['Bio', 'Phy', 'Eng'].filter(f => E.has(G, { Bio: 'gen', Phy: 'mec', Eng: 'nano' }[f])).map(f => `<div class="row"><span>${E.FN[f]} points:</span><button class="b" data-tp="${f}" data-d="buy">Buy 1 for $1B</button><button class="b" data-tp="${f}" data-d="sell">Sell 2 for $1B</button></div>`).join('')}`;
   if (s === 'growth') return `<p>Settlements grew; see the log.</p>`;
   if (s === 'policy') return `<p class="dim">${G.policyLeft > 0 ? `Futuristic start: adopt <b>${G.policyLeft}</b> more ${G.policyLeft > 1 ? 'policies' : 'policy'} for the missed economic phases (one each for 2040, 2050 and 2060; the same chain may be raised more than once).` : 'Adopt one policy this decade (free).'} You may hold one Unified policy and ten in total.</p>${D.POL.map(p => { const lv = E.polLv(G, p.k); return `<div class="item"><span class="chip ${lv ? 'ok' : ''}">${lv ? ['', 'Basic', 'Vigorous', 'Unified'][lv] : 'None'}</span><div class="t"><b>${p.n}</b><small>${lv < 3 ? 'Next: ' + esc(D.POL_LV[lv] + p.n) + ' — ' + esc(p.d[lv]) : 'Complete'}</small></div><button class="b" data-pol="${p.k}" ${lv >= 3 || G.policyPicked ? 'disabled' : ''}>Adopt</button></div>`; }).join('')}`;

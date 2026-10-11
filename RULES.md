@@ -14,7 +14,7 @@ Prereqs: all connected techs to left. After tech step: convert politics markers 
 Connected benefits don't stack (use stated total).
 
 ## Politics markers
-+2 each econ phase (+1 per alliance, + policy). Uses: +10% initiative each (max = current initiative slot#); 2 tech pts; $1B any time; 2 = redraw unearned mission; 4 = buy victory marker; diplomacy attempts.
++2 each econ phase (+1 per alliance, + policy). Uses: +10% initiative each (max = current initiative slot#); 1 → $1B or 1 → 2 tech points of any field, at any time (Turn tab); 2 = redraw unearned mission; 4 = buy victory marker; diplomacy attempts.
 
 ## Missions
 Personal mission (draw 1) + 1 common mission. Dated missions join pool in their year. Complete by depleting named world (some need CV depletion; telescopes never). Completion: +1 politics marker (on top of depletion's), draw replacement. Kept missions: VP = printed value at end; +$1B per kept mission each production step. Max kept = decade number (2030=1, 2040=2 ... ). If can't keep: +1 politics +1 VM, return one kept mission. Mission on world at 0 -> removed/replaced.
