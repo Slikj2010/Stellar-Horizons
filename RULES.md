@@ -36,6 +36,7 @@ CV range: start Earth orbit only; Orbital rendezvous -> Moon & NEA. Range = max 
 Reserve: choose at start of turn; recalled; out of range; surrender. Reserved can't explore/produce/trade/build bases/initiate combat; can move. Build reserved: -1 SUP -1 FUEL.
 Unreserve: $2B on Earth or 1 SUP+1 FUEL at base. CV-2 small Supply Station, CV-3 large Supply Station, CV-4/5 small Spaceport, larger large Spaceport.
 Re-entry: CV-5+ can't land on re-entry worlds (Earth). Severe atmosphere (Venus, gas giants): CV needs Pressure shells; rover on Venus +20% malfunction unless Pressure shells; no rovers on gas giants. Severe radiation (Sun, Jupiter): CV needs Active radiation shielding; RE +10% malfunction unless ARS.
+Search for life happens after the world card decision, so a placed card's life bonus (e.g. Water Ice +4%, Subterranean Water +5%) counts.
 Severe radiation covers the whole Mercury section (Mercury, Sun Observation, its flyby box and transfer boxes 1-6). Sun Observation (explore 5, Physics): treated as an orbit; no CVs or rovers; no bases or world cards. Orbiters, flybys and telescopes can explore it. An orbiter at Mercury explores the Sun with no -1 penalty (other worlds of a system keep the -1).
 
 ## Bases & facilities (2.7)
