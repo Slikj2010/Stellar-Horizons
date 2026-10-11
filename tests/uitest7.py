@@ -1,0 +1,47 @@
+"""Menu flow test. Usage: python3 uitest7.py <site> <out>"""
+import sys, subprocess, time, os
+from playwright.sync_api import sync_playwright
+site, out = sys.argv[1], sys.argv[2]
+srv = subprocess.Popen([sys.executable, '-m', 'http.server', '8771', '-d', site], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+time.sleep(1)
+errs = []
+try:
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=['--use-gl=swiftshader', '--enable-unsafe-swiftshader'])
+        pg = b.new_page(viewport={'width': 1440, 'height': 900})
+        pg.on('console', lambda m: errs.append(m.type + ': ' + m.text) if m.type == 'error' and 'ERR_FAILED' not in m.text else None)
+        pg.on('pageerror', lambda e: errs.append('PAGEERROR: ' + str(e)))
+        pg.route('**fonts.googleapis.com**', lambda r: r.abort())
+        pg.goto('http://localhost:8771/index.html')
+        pg.wait_for_selector('#menu [data-mb="new"]', timeout=20000); time.sleep(1.5)
+        pg.screenshot(path=os.path.join(out, 'm_title1.png'))
+        pg.hover('#menu [data-mb="load"]', force=True); time.sleep(2.2)
+        pg.screenshot(path=os.path.join(out, 'm_title2.png'))
+        pg.click('#menu [data-mb="settings"]', force=True); time.sleep(.4)
+        pg.screenshot(path=os.path.join(out, 'm_settings.png'))
+        pg.click('#mpanel [data-back]', force=True)
+        pg.click('#menu [data-mb="new"]', force=True); time.sleep(.4)
+        pg.click('#pick [data-f="eu"]'); time.sleep(1.5)
+        print('game started:', pg.evaluate('G && G.f'), 'menu hidden:', pg.evaluate("$('menu').hidden"))
+        pg.click('#pzbtn'); time.sleep(.3)
+        pg.screenshot(path=os.path.join(out, 'm_pause.png'))
+        pg.click('[data-p="save"]'); time.sleep(.2)
+        pg.click('[data-sv="sh-slot-1"]'); time.sleep(.2)
+        print('saved:', pg.inner_text('#pbox')[:120].replace('\n', ' | '))
+        pg.click('#pbox [data-back]'); time.sleep(.2)
+        pg.click('[data-p="menu"]'); time.sleep(.2)
+        pg.click('[data-m="go"]'); time.sleep(1)
+        print('back at menu:', not pg.evaluate("$('menu').hidden"))
+        pg.click('#menu [data-mb="load"]', force=True); time.sleep(.4)
+        pg.screenshot(path=os.path.join(out, 'm_load.png'))
+        pg.click('#mpanel [data-ld="sh-slot-1"]', force=True); time.sleep(1.2)
+        print('loaded:', pg.evaluate('G.f'), pg.evaluate('G.y'), 'menu hidden:', pg.evaluate("$('menu').hidden"))
+        pg.keyboard.press('Escape'); time.sleep(.3)
+        print('escape opens pause:', not pg.evaluate("$('pause').hidden"))
+        pg.set_viewport_size({'width': 400, 'height': 820}); pg.click('[data-p="menu"]'); pg.click('[data-m="go"]'); time.sleep(1)
+        pg.screenshot(path=os.path.join(out, 'm_phone.png'))
+        b.close()
+finally:
+    srv.terminate()
+print('ERRORS:', len(errs))
+for e in errs[:20]: print(' ', e)

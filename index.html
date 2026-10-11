@@ -1,0 +1,1009 @@
+<meta charset="utf-8">
+<title>Stellar Horizons Solo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jura:wght@500;700&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: full-screen star chart (canvas) with a command rail on the right and a status strip on top; phone: rail becomes a bottom sheet. Single dark look by design: the board art is a black starfield. */
+:root {
+  --void: #05080d; --hull: #0d141d; --hull2: #142030; --line: #263a50; --ink: #dfe7ee; --dim: #8ea1b3;
+  --beacon: #f2a93b; --ion: #4fc3d9; --ok: #5fcf8a; --warn: #f2a93b; --bad: #ef6b5b;
+  --phy: #4f9be6; --eng: #a9b4bf; --bio: #5fcf8a;
+  --f-disp: "Jura", "Eurostile", "Segoe UI", sans-serif; --f-body: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--void); color: var(--ink); font: 15px/1.45 var(--f-body); overflow: hidden; }
+#app { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr; padding-top: env(safe-area-inset-top, 0px); }
+#bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding: 8px 16px; background: var(--hull); border-bottom: 1px solid var(--line); font-size: 13px; }
+#bar .yr { font: 700 22px/1 var(--f-disp); letter-spacing: .06em; color: var(--beacon); }
+#bar .ph { font: 600 13px var(--f-disp); letter-spacing: .12em; text-transform: uppercase; color: var(--ion); }
+#bar .st { color: var(--dim); white-space: nowrap; } #bar .st b { color: var(--ink); font: 500 13px var(--f-mono); font-variant-numeric: tabular-nums; }
+#bar .grow { flex: 1; }
+#main { position: relative; display: grid; grid-template-columns: 1fr minmax(340px, 400px); min-height: 0; }
+#stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: var(--void); touch-action: none; }
+#stage canvas { display: block; }
+#zoom { position: absolute; left: 16px; bottom: 16px; display: flex; gap: 6px; }
+#hint { position: absolute; left: 16px; top: 12px; right: 16px; pointer-events: none; font-size: 13px; color: var(--dim); text-shadow: 0 1px 2px #000; }
+#rail { display: grid; grid-template-rows: auto 1fr auto; min-height: 0; background: var(--hull); border-left: 1px solid var(--line); }
+#tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+#tabs button { flex: 1; padding: 9px 4px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--dim); font: 600 12px var(--f-disp); letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
+#tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--beacon); }
+#panel { overflow-y: auto; padding: 14px 16px 24px; min-height: 0; }
+#foot { display: flex; gap: 8px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); background: var(--hull2); }
+#foot .next { flex: 1; }
+h2 { font: 700 17px/1.2 var(--f-disp); letter-spacing: .05em; margin: 0 0 6px; text-wrap: balance; }
+h3 { font: 600 12px var(--f-disp); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin: 16px 0 6px; }
+p { margin: 0 0 8px; } .dim { color: var(--dim); font-size: 13px; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+button.b { font: 600 13px var(--f-body); padding: 7px 11px; border-radius: 4px; border: 1px solid var(--line); background: var(--hull2); color: var(--ink); cursor: pointer; }
+button.b:hover:not(:disabled) { border-color: var(--ion); }
+button.b.pri { background: var(--beacon); border-color: var(--beacon); color: #1b1203; }
+button.b:disabled { opacity: .4; cursor: not-allowed; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--ion); outline-offset: 2px; }
+.row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+.item { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+.item .t { min-width: 0; } .item .t small { display: block; color: var(--dim); font-size: 12px; }
+.chip { display: inline-block; padding: 1px 7px; border-radius: 10px; font: 600 11px var(--f-body); letter-spacing: .04em; border: 1px solid var(--line); color: var(--dim); }
+.chip.ok { color: var(--ok); border-color: var(--ok); } .chip.warn { color: var(--warn); border-color: var(--warn); } .chip.bad { color: var(--bad); border-color: var(--bad); }
+.f-Phy { color: var(--phy); } .f-Eng { color: var(--eng); } .f-Bio { color: var(--bio); }
+.cnt { width: 40px; height: 40px; border-radius: 4px; background-repeat: no-repeat; flex: none; }
+.rs { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 3px; font: 700 11px/1 var(--f-mono); color: #fff; vertical-align: middle; }
+.rs.ORE { background: #6b7178; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); } .rs.SUP { background: #2c7cc4; border-radius: 50%; } .rs.FUEL { background: linear-gradient(#f5b62a, #d9411e); border-radius: 50% 50% 45% 45%; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padding: 4px 6px; border-top: 1px solid var(--line); text-align: left; } th { color: var(--dim); font-weight: 500; }
+.tech { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 6px 0; border-top: 1px solid var(--line); }
+.tech small { color: var(--dim); font-size: 12px; grid-column: 1 / -1; }
+.tech.have b { color: var(--ok); } .tech.locked { opacity: .55; }
+#log p { font-size: 13px; margin: 0 0 6px; color: var(--dim); } #log p.g { color: var(--ink); } #log p.x { color: var(--bad); } #log p.e { color: var(--warn); } #log p.h { color: var(--ion); font-family: var(--f-disp); letter-spacing: .06em; margin-top: 12px; }
+#modal { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(2,4,8,.7); z-index: 20; padding: 16px; }
+#modal .box { max-width: 460px; width: 100%; background: var(--hull); border: 1px solid var(--beacon); border-radius: 6px; padding: 18px; max-height: 85vh; overflow: auto; }
+#pick { position: fixed; inset: 0; overflow: auto; background: radial-gradient(ellipse at 30% 20%, #10213a 0, var(--void) 60%); z-index: 30; padding: 32px 16px; }
+#pick .in { max-width: 920px; margin: 0 auto; }
+#pick h1 { font: 500 clamp(32px, 6vw, 58px)/1 var(--f-disp); letter-spacing: .32em; margin: 0 0 6px; text-transform: uppercase; }
+#pick .lede { color: var(--dim); max-width: 62ch; margin-bottom: 22px; }
+.facs { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.fc { text-align: left; background: var(--hull); border: 1px solid var(--line); border-radius: 6px; padding: 14px; color: var(--ink); cursor: pointer; font: inherit; display: grid; gap: 6px; }
+.fc:hover { border-color: var(--beacon); } .fc b { font: 700 16px var(--f-disp); letter-spacing: .04em; } .fc small { color: var(--dim); font-size: 13px; }
+.fc .sw { height: 4px; border-radius: 2px; }
+#toast { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); background: var(--hull2); border: 1px solid var(--bad); color: var(--ink); padding: 8px 14px; border-radius: 4px; font-size: 13px; max-width: 80%; z-index: 5; }
+#lvpick { position: absolute; z-index: 6; background: var(--hull); border: 1px solid var(--ion); border-radius: 6px; padding: 10px; display: grid; gap: 6px; }
+.die { display: inline-grid; place-items: center; width: 52px; height: 52px; border-radius: 10px; font: 700 28px var(--f-mono); background: var(--hull2); border: 2px solid var(--line); flex: none; }
+.die.ok { border-color: var(--ok); color: var(--ok); } .die.bad { border-color: var(--bad); color: var(--bad); }
+#menu { position: fixed; inset: 0; z-index: 40; background: #02040a; overflow: hidden; }
+#menu::before { content: ""; position: absolute; inset: -40px; background: url(menu.webp) center / cover; filter: blur(28px) brightness(.55); }
+#menu .stage { position: absolute; transform-origin: 30% 58%; animation: kb 46s ease-in-out infinite alternate; }
+@keyframes kb { from { transform: scale(1); } to { transform: scale(1.045) translate(-0.6%, 0.4%); } }
+#menu img, #menu canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#menu .mb { position: absolute; background: transparent; border: 0; cursor: pointer; clip-path: polygon(6% 0, 94% 0, 100% 50%, 94% 100%, 6% 100%, 0 50%); }
+#menu .mb::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(140,220,255,.38) 50%, transparent 70%); background-size: 260% 100%; background-position: 130% 0; opacity: 0; transition: opacity .2s; }
+#menu .mb:hover::after, #menu .mb:focus-visible::after { opacity: 1; animation: sweep 1.1s ease-out; }
+#menu .mb:hover, #menu .mb:focus-visible { box-shadow: inset 0 0 22px rgba(79,195,217,.55); outline: none; }
+@keyframes sweep { from { background-position: 130% 0; } to { background-position: -30% 0; } }
+#menu .panel { position: absolute; z-index: 3; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100% - 32px)); max-height: calc(100% - 48px); overflow: auto; background: rgba(8,16,30,.92); border: 1px solid #3aa6d8; box-shadow: 0 0 40px rgba(58,166,216,.35); border-radius: 8px; padding: 20px; }
+.slot { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.slot small { color: var(--dim); display: block; font-size: 12px; }
+#pause { position: fixed; inset: 0; z-index: 35; display: grid; place-items: center; background: rgba(2,5,12,.72); backdrop-filter: blur(3px); padding: 16px; }
+#pause .box { width: min(420px, 100%); max-height: calc(100% - 32px); overflow: auto; background: var(--hull); border: 1px solid #3aa6d8; border-radius: 8px; padding: 20px; box-shadow: 0 0 40px rgba(58,166,216,.3); }
+#pause .big { display: block; width: 100%; text-align: left; margin: 6px 0; padding: 11px 14px; font: 600 14px var(--f-disp); letter-spacing: .14em; text-transform: uppercase; }
+#pause h2 { letter-spacing: .3em; text-transform: uppercase; font-weight: 500; }
+#bar .pz { font: 600 12px var(--f-disp); letter-spacing: .12em; padding: 5px 10px; }
+.toggle { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.board-img { width: 100%; border-radius: 4px; border: 1px solid var(--line); }
+@media (max-width: 820px) {
+  #main { grid-template-columns: 1fr; grid-template-rows: 1fr minmax(260px, 46%); }
+  #rail { border-left: 0; border-top: 1px solid var(--line); }
+  #bar { gap: 2px 12px; padding: 6px 16px; } #bar .yr { font-size: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div id="app">
+  <div id="bar"></div>
+  <div id="main">
+    <div id="stage"><div id="hint"></div>
+      <div id="zoom"><button class="b" id="zin" aria-label="Zoom in">+</button><button class="b" id="zout" aria-label="Zoom out">−</button><button class="b" id="zfit">Whole map</button><button class="b" id="zme">My ships</button></div>
+    </div>
+    <aside id="rail">
+      <nav id="tabs" role="tablist"></nav>
+      <div id="panel"></div>
+      <div id="foot"><button class="b pri next" id="next">Next step</button></div>
+    </aside>
+  </div>
+</div>
+<div id="pick" hidden></div>
+<div id="menu" hidden><div class="stage" id="mstage"><img id="mimg" src="menu.webp" alt="Stellar Horizons title screen"><canvas id="mfx"></canvas><div id="mbtns"></div></div><div id="mpanel"></div></div>
+<div id="pause" hidden><div class="box" id="pbox"></div></div>
+<div id="modal" hidden><div class="box" id="mbox"></div></div>
+
+<script src="data.js"></script>
+<script src="rules.js"></script>
+<script>
+'use strict';
+const D = window.SHD;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let ui = null, E, G = null, GEO, ATL = {}, MK, UNITS, sel = null, tab = 'turn', toastT;
+const CS = 52; // counter size on the board (world px)
+const RS = (r, n) => `<span class="rs ${r}" title="${r}">${n}</span>`;
+const resHTML = o => ['ORE', 'SUP', 'FUEL'].filter(r => o[r]).map(r => RS(r, o[r])).join(' ') || '<span class="dim">none</span>';
+
+function toast(msg) { if (!msg) return; let t = $('toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; $('stage').appendChild(t); } t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 4200); }
+function act(fn) { const r = fn(); if (typeof r === 'string') toast(r); save(); render(); }
+function save() { try { if (G) localStorage.setItem('sh-save', JSON.stringify(G)); } catch (e) {} }
+function load() { try { const s = localStorage.getItem('sh-save'); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+// save slots: 'sh-save' is the autosave; three manual slots
+const SLOTS = ['sh-save', 'sh-slot-1', 'sh-slot-2', 'sh-slot-3'];
+const slotName = k => k === 'sh-save' ? 'Autosave' : 'Slot ' + k.slice(-1);
+function readSlot(k) { try { const s = localStorage.getItem(k); if (!s) return null; const g = JSON.parse(s); return g && g.v === 2 ? g : null; } catch (e) { return null; } }
+function slotInfo(g) { if (!g) return 'Empty'; return `${D.FAC[g.f].n} · ${g.over ? 'finished ' + g.endYear : g.y + ' · ' + E.PHASE_NAME[g.phase]} · ${g.savedAt ? new Date(g.savedAt).toLocaleString() : ''}`; }
+function saveSlot(k) { try { G.savedAt = Date.now(); localStorage.setItem(k, JSON.stringify(G)); save(); return true; } catch (e) { return false; } }
+const SET = (() => { try { return JSON.parse(localStorage.getItem('sh-settings')) || {}; } catch (e) { return {}; } })();
+SET.anim = SET.anim !== false; SET.rerolls = SET.rerolls !== false;
+function saveSettings() { try { localStorage.setItem('sh-settings', JSON.stringify(SET)); } catch (e) {} }
+
+// ---------------- boot ----------------
+const IMG = {}; let cv, ctx, cam = { x: 0, y: 0, s: .2 }, dirty = true, hits = [], dragS = null, targets = null;
+const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Could not load ' + src)); i.src = src; });
+async function boot() {
+  const j = u => fetch(u).then(r => { if (!r.ok) throw new Error('Could not load ' + u); return r.json(); });
+  [GEO, UNITS, MK, FX.bodies, FX.sun, FX.exp] = await Promise.all([j('geo.json'), j('units.json'), j('markers.json'), j('bodies.json'), j('sun.json'), j('expbox.json')]);
+  E = window.SHE(D, UNITS);
+  cv = document.createElement('canvas'); $('stage').prepend(cv); ctx = cv.getContext('2d');
+  IMG.markers = await loadImg('markers.webp');
+  IMG.maps = {};
+  await Promise.all(Object.keys(GEO.maps).map(async c => IMG.maps[c] = await loadImg('maps/' + c + '.webp')));
+  setupInput(); resize(); new ResizeObserver(resize).observe($('stage'));
+  try { await initFX(); } catch (e) { console.warn('Effects disabled:', e.message); }
+  requestAnimationFrame(loop);
+  showMenu();
+}
+async function loadAtlas(f) {
+  if (ATL[f]) return;
+  const [fr, img] = await Promise.all([fetch('atlas_' + f + '.json').then(r => r.json()), loadImg('atlas_' + f + '.webp')]);
+  ATL[f] = { fr, img };
+}
+function resize() { const r = $('stage').getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1); cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d); cv.style.width = r.width + 'px'; cv.style.height = r.height + 'px'; cv.dpr = d; dirty = true; }
+const SW = () => cv.width / cv.dpr, SH = () => cv.height / cv.dpr;
+const STILL = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+let lastPaint = 0;
+function loop(now) { if (!$('menu').hidden) { menuFrame(now); requestAnimationFrame(loop); return; } FX.t = (STILL || !SET.anim) ? FX.t : now / 1000; if (G && $('pause').hidden && (dirty || (!STILL && SET.anim && now - lastPaint > 32))) { dirty = false; lastPaint = now; paint(); } requestAnimationFrame(loop); }
+// ---------------- effects: starfield, spinning bodies, sun ----------------
+const FX = { t: 0, gl: null };
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+async function initFX() {
+  // star layers in a 2048px repeating tile, three depths
+  const rnd = mulberry(20300); FX.stars = [];
+  [[700, .06, .5, 1.1], [380, .14, .8, 1.6], [140, .28, 1.1, 2.3]].forEach(([n, par, a, rmax], li) => {
+    for (let i = 0; i < n; i++) FX.stars.push({ x: rnd() * 2048, y: rnd() * 2048, r: .35 + rnd() * rmax, a: a * (.35 + rnd() * .65), ph: rnd() * 6.28, sp: .4 + rnd() * 2.2, par, hue: rnd() < .12 ? (rnd() < .5 ? '#ffd9a8' : '#a8c8ff') : '#ffffff' });
+  });
+  // nebula wash, prerendered
+  const nb = document.createElement('canvas'); nb.width = nb.height = 1024; const nx = nb.getContext('2d');
+  [['79,195,217', 0.07], ['120,80,200', 0.08], ['242,169,59', 0.035], ['60,90,200', 0.07]].forEach(([c, a]) => { for (let i = 0; i < 5; i++) { const x = rnd() * 1024, y = rnd() * 1024, rr = 180 + rnd() * 320; const g = nx.createRadialGradient(x, y, 0, x, y, rr); g.addColorStop(0, `rgba(${c},${a})`); g.addColorStop(1, `rgba(${c},0)`); nx.fillStyle = g; for (const dx of [-1024, 0, 1024]) for (const dy of [-1024, 0, 1024]) { nx.save(); nx.translate(dx, dy); nx.fillRect(x - rr, y - rr, rr * 2, rr * 2); nx.restore(); } } });
+  FX.neb = nb;
+  // WebGL body spinner
+  const gc = document.createElement('canvas'); gc.width = gc.height = 512;
+  const gl = gc.getContext('webgl', { premultipliedAlpha: true, preserveDrawingBuffer: true, alpha: true });
+  if (!gl) return;
+  const sh = (t, src) => { const o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+  const pr = gl.createProgram();
+  gl.attachShader(pr, sh(gl.VERTEX_SHADER, 'attribute vec2 p;varying vec2 v;void main(){v=p;gl_Position=vec4(p,0.,1.);}'));
+  gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, `precision mediump float;varying vec2 v;uniform sampler2D T;uniform float row,rot,AW,AH,TW,TH,DS;
+    void main(){vec2 q=vec2(v.x,-v.y);float d=length(q);if(d>1.)discard;
+      float lat=asin(clamp(q.y,-1.,1.));float cl=max(cos(lat),1e-3);float lon=asin(clamp(q.x/cl,-1.,1.))+rot;
+      float u=fract((lon+3.14159265)/6.2831853);float vv=(lat+1.5707963)/3.14159265;
+      vec3 c=texture2D(T,vec2(u*TW/AW,(row*TH+vv*TH)/AH)).rgb;
+      vec4 m=texture2D(T,vec2((TW+(q.x*.5+.5)*DS)/AW,(row*TH+(q.y*.5+.5)*DS)/AH));
+      float a=m.a*smoothstep(1.,.97,d);gl_FragColor=vec4(c*m.r*1.6*a,a);}`));
+  gl.linkProgram(pr); gl.useProgram(pr);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  const img = await loadImg('bodies.png');
+  const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+  [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T].forEach(k => gl.texParameteri(gl.TEXTURE_2D, k, gl.CLAMP_TO_EDGE));
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  const U = n => gl.getUniformLocation(pr, n);
+  const B = FX.bodies; gl.uniform1f(U('AW'), img.width); gl.uniform1f(U('AH'), img.height); gl.uniform1f(U('TW'), B.tw); gl.uniform1f(U('TH'), B.th); gl.uniform1f(U('DS'), B.ds);
+  gl.clearColor(0, 0, 0, 0);
+  FX.gl = { gl, gc, uRow: U('row'), uRot: U('rot') };
+}
+function paintStars() {
+  const d = cv.dpr, w = cv.width, h = cv.height;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const g = ctx.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#060a12'); g.addColorStop(1, '#03050a'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  if (!FX.stars) return;
+  if (FX.neb) { const ox = ((cam.x * .04 % 1024) + 1024) % 1024, oy = ((cam.y * .04 % 1024) + 1024) % 1024; ctx.globalAlpha = 1; for (let x = ox - 1024; x < w / d; x += 1024) for (let y = oy - 1024; y < h / d; y += 1024) ctx.drawImage(FX.neb, x * d, y * d, 1024 * d, 1024 * d); }
+  const t = FX.t;
+  for (const st of FX.stars) {
+    let x = ((st.x + cam.x * st.par) % 2048 + 2048) % 2048, y = ((st.y + cam.y * st.par + t * st.par * 6) % 2048 + 2048) % 2048;
+    for (let tx = x; tx < w / d; tx += 2048) for (let ty = y; ty < h / d; ty += 2048) {
+      const tw = .55 + .45 * Math.sin(t * st.sp + st.ph);
+      ctx.globalAlpha = st.a * tw; ctx.fillStyle = st.hue;
+      ctx.beginPath(); ctx.arc(tx * d, ty * d, st.r * d, 0, 6.2832); ctx.fill();
+      if (st.r > 1.6 && tw > .9) { ctx.globalAlpha = st.a * (tw - .9) * 4; ctx.fillRect((tx - st.r * 3) * d, (ty - .3) * d, st.r * 6 * d, .6 * d); ctx.fillRect((tx - .3) * d, (ty - st.r * 3) * d, .6 * d, st.r * 6 * d); }
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+function paintBodies() {
+  const F = FX.gl; if (!F) return;
+  const { gl, gc } = F, d = cv.dpr;
+  Object.values(FX.bodies.b).forEach(b => {
+    const m = GEO.maps[b.map]; const wx = m[0] + b.cx * .4, wy = m[1] + b.cy * .4, wr = b.r * .4;
+    const sx = (cam.x + wx * cam.s) * d, sy = (cam.y + wy * cam.s) * d, sr = wr * cam.s * d;
+    if (sx + sr < 0 || sy + sr < 0 || sx - sr > cv.width || sy - sr > cv.height || sr < 3) return;
+    const N = Math.min(512, Math.ceil(sr * 2) + 2);
+    gl.viewport(0, 0, N, N); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform1f(F.uRow, b.row); gl.uniform1f(F.uRot, (FX.t * 6.2832 / b.spd) % 6.2832);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(gc, 0, 512 - N, N, N, sx - sr, sy - sr, sr * 2, sr * 2);
+  });
+}
+// printed EXPLORE boxes: animated sheen and glow; when a world's value changes, its printed number is painted over
+const FIELD_GLOW = { Phy: '90,170,255', Eng: '200,210,225', Bio: '110,220,140' };
+function paintExplore() {
+  if (!FX.exp) return;
+  const t = FX.t, now = performance.now() / 1000;
+  FX.expPrev = FX.expPrev || {}; FX.expHit = FX.expHit || {};
+  Object.entries(FX.exp).forEach(([k, e], i) => {
+    const ws = G.w[k]; if (!ws) return;
+    const m = GEO.maps[e.map], x = m[0] + e.cx * .4, y = m[1] + e.cy * .4, sz = e.s * .4, h = sz / 2;
+    const v = ws.v, printed = D.W[k].v, fld = k === 'alp' ? null : D.W[k].f;
+    if (FX.expPrev[k] === undefined) FX.expPrev[k] = v; else if (FX.expPrev[k] !== v) { FX.expHit[k] = now; FX.expPrev[k] = v; }
+    const since = FX.expHit[k] ? now - FX.expHit[k] : 9;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(e.ang * Math.PI / 180);
+    // soft pulsing glow behind the tile
+    const pulse = .5 + .5 * Math.sin(t * 1.6 + i * .9), col = fld ? FIELD_GLOW[fld] : '255,170,90';
+    ctx.globalCompositeOperation = 'lighter';
+    let g = ctx.createRadialGradient(0, 0, h * .6, 0, 0, h * 1.75);
+    g.addColorStop(0, `rgba(${col},${(v > 0 ? .1 + .12 * pulse : .03) + (since < 1.2 ? .5 * (1 - since / 1.2) : 0)})`); g.addColorStop(1, `rgba(${col},0)`);
+    ctx.fillStyle = g; ctx.fillRect(-h * 1.8, -h * 1.8, h * 3.6, h * 3.6);
+    // sheen sweeping diagonally across the tile
+    ctx.save(); ctx.beginPath(); ctx.rect(-h, -h, sz, sz); ctx.clip();
+    const ph = ((t * .16 + i * .137) % 1) * 3.2 - 1.1;
+    if (ph > -.6 && ph < 1.6 && v > 0) { const bx = -h + ph * sz; g = ctx.createLinearGradient(bx - h * .5, -h, bx + h * .5, h); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.5, 'rgba(255,255,255,.22)'); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.fillRect(-h, -h, sz, sz); }
+    ctx.restore();
+    ctx.globalCompositeOperation = 'source-over';
+    // repaint the number when it differs from the printed one
+    if (v !== printed) {
+      const [r0, g0, b0] = e.hub, hr = h * .7;
+      g = ctx.createRadialGradient(0, -hr * .2, hr * .1, 0, 0, hr);
+      g.addColorStop(0, `rgb(${Math.min(255, r0 + 25)},${Math.min(255, g0 + 25)},${Math.min(255, b0 + 25)})`); g.addColorStop(1, `rgb(${r0},${g0},${b0})`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, hr, 0, 6.2832); ctx.fill();
+      const pop = since < .6 ? 1 + .45 * (1 - since / .6) * (1 - since / .6) : 1, fs = h * (v >= 10 ? .9 : 1.2) * pop;
+      ctx.font = `700 ${fs}px "IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round'; ctx.lineWidth = fs * .16; ctx.strokeStyle = '#111'; ctx.strokeText(String(v), 0, fs * .04);
+      ctx.fillStyle = '#fff'; ctx.fillText(String(v), 0, fs * .04);
+    }
+    if (v < 1) { ctx.fillStyle = 'rgba(10,0,0,.5)'; ctx.fillRect(-h, -h, sz, sz); ctx.strokeStyle = 'rgba(239,107,91,.9)'; ctx.lineWidth = 2.5; ctx.strokeRect(-h, -h, sz, sz); }
+    if (since < 1) { ctx.strokeStyle = `rgba(255,255,255,${1 - since})`; ctx.lineWidth = 3; const gr = h * (1 + since * .8); ctx.strokeRect(-gr, -gr, gr * 2, gr * 2); }
+    ctx.restore();
+  });
+}
+function paintSun() {
+  // continues the sun past the bottom edge of its map section: corona, slow flares, and a body that fades into space
+  const S = FX.sun; if (!S) return;
+  const m = GEO.maps[S.map], cx = m[0] + S.cx * .4, cy = m[1] + S.cy * .4, r = S.r * .4, edge = m[1] + m[3], t = FX.t;
+  const X0 = cx - r * 1.25, Y0 = cy - r * 1.18, W = r * 2.5, H = edge + 170 - Y0, k = .6;
+  if (!FX.sunC) { FX.sunC = document.createElement('canvas'); FX.sunC.width = Math.ceil(W * k); FX.sunC.height = Math.ceil(H * k); }
+  const sc = FX.sunC, x = sc.getContext('2d');
+  x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, sc.width, sc.height);
+  x.setTransform(k, 0, 0, k, -X0 * k, -Y0 * k);
+  const pulse = 1 + .035 * Math.sin(t * .7);
+  let g = x.createRadialGradient(cx, cy, r * .97, cx, cy, r * 1.17 * pulse);
+  g.addColorStop(0, 'rgba(255,170,80,.45)'); g.addColorStop(.3, 'rgba(255,125,45,.17)'); g.addColorStop(1, 'rgba(255,90,20,0)');
+  x.fillStyle = g; x.beginPath(); x.arc(cx, cy, r * 1.2, 0, 6.2832); x.fill();
+  // body below the cut
+  x.save(); x.beginPath(); x.arc(cx, cy, r, 0, 6.2832); x.clip();
+  g = x.createLinearGradient(0, edge - 8, 0, edge + 60); g.addColorStop(0, 'rgba(208,88,40,0)'); g.addColorStop(.12, 'rgba(208,88,40,1)'); g.addColorStop(1, 'rgba(176,64,28,1)');
+  x.fillStyle = g; x.fillRect(cx - r, edge - 8, r * 2, 200);
+  x.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 30; i++) { const a = -Math.PI / 2 + (i - 15) * .045, rr = r * (.93 + .05 * Math.sin(i * 7.1)), px = cx + Math.cos(a) * rr, py = Math.max(cy + Math.sin(a) * rr, edge + 10 + (i % 4) * 18); const fl = .5 + .5 * Math.sin(t * (.5 + (i % 5) * .15) + i); const gg = x.createRadialGradient(px, py, 0, px, py, 30); gg.addColorStop(0, `rgba(255,185,90,${.07 * fl})`); gg.addColorStop(1, 'rgba(255,185,90,0)'); x.fillStyle = gg; x.fillRect(px - 30, py - 30, 60, 60); }
+  x.restore();
+  // flares lifting off the limb
+  x.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 9; i++) {
+    const base = -Math.PI / 2 + (i - 4) * .085 + .02 * Math.sin(t * .13 + i), life = (t * (.06 + i * .01) + i * .37) % 1, s = Math.sin(life * Math.PI), h = r * (.02 + .05 * s) * (.6 + .4 * Math.abs(Math.sin(i * 3.3)));
+    const x0 = cx + Math.cos(base) * r, y0 = cy + Math.sin(base) * r, x1 = cx + Math.cos(base) * (r + h), y1 = cy + Math.sin(base) * (r + h);
+    const gg = x.createRadialGradient(x1, y1, 0, x1, y1, h * 1.1 + 5); gg.addColorStop(0, `rgba(255,205,130,${.22 * s})`); gg.addColorStop(1, 'rgba(255,120,40,0)');
+    x.fillStyle = gg; x.beginPath(); x.ellipse((x0 + x1) / 2, (y0 + y1) / 2, h * .8 + 5, h * .4 + 3, base + Math.PI / 2, 0, 6.2832); x.fill();
+  }
+  // fade the whole layer out below the board edge
+  x.globalCompositeOperation = 'destination-in';
+  g = x.createLinearGradient(0, edge - 10, 0, edge + 165); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(.3, 'rgba(0,0,0,.75)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = g; x.fillRect(X0, Y0, W, H + 10);
+  ctx.drawImage(sc, X0, Y0, W, H);
+}
+function cssCounter(key, size) { const a = ATL[G.f]; const f = a && a.fr[key]; if (!f) return ''; const sc = size / 96; return `<span class="cnt" style="width:${size}px;height:${size}px;background-image:url(atlas_${G.f}.webp);background-size:${1152 * sc}px auto;background-position:-${f[0] * sc}px -${f[1] * sc}px"></span>`; }
+
+function showPicker() {
+  $('pick').hidden = false;
+  $('pick').innerHTML = `<div class="in"><h1>Stellar Horizons</h1><p class="lede">Solo campaign, 2030 to as late as 2169. Lead one of seven space programs: explore the solar system, found bases, grow settlements and race to an interstellar colonizer. Pick your faction.</p>
+  <div class="facs">${Object.entries(D.FAC).map(([k, f]) => `<button class="fc" data-f="${k}"><span class="sw" style="background:${f.c}"></span><b>${esc(f.n)}</b><small>Start with $${f.cash}B. Support limits: ${f.lim[0]} robotic, ${f.lim[1]} crewed, ${f.lim[2]} base.</small><small>${esc(f.ab)}</small></button>`).join('')}</div>
+  <p class="dim" style="margin-top:18px">Your game autosaves in this browser as you play; use the pause menu to save to a slot.</p><button class="b" id="pickback" style="margin-top:8px">Back to main menu</button></div>`;
+  $('pick').querySelectorAll('[data-f]').forEach(b => b.onclick = async () => { await loadAtlas(b.dataset.f); G = E.newGame(b.dataset.f, { rerolls: SET.rerolls }); $('pick').hidden = true; hideMenu(); sel = null; tab = 'turn'; home(); save(); render(); });
+  $('pickback').onclick = () => { $('pick').hidden = true; showMenu(); };
+}
+
+// ---------------- main menu ----------------
+const MENU = { meta: null, fx: null, rect: null };
+async function showMenu() {
+  $('menu').hidden = false; $('pause').hidden = true; $('pick').hidden = true; $('modal').hidden = true; ui = null;
+  if (!MENU.meta) {
+    MENU.meta = await fetch('menu.json').then(r => r.json());
+    MENU.fx = await loadImg('menu_fx.png');
+    const st = mulberry(41);
+    MENU.glints = MENU.meta.stars.map(s => ({ x: s[0], y: s[1], r: s[2], ph: st() * 6.28, sp: .5 + st() * 2.4, big: st() < .12 }));
+    MENU.sats = [{ path: 'orbitA', t: 0, sp: .022 }, { path: 'orbitB', t: .5, sp: .03 }];
+    new ResizeObserver(layoutMenu).observe($('menu'));
+    window.addEventListener('keydown', menuKeys);
+  }
+  layoutMenu(); menuHome();
+}
+function hideMenu() { $('menu').hidden = true; }
+function layoutMenu() {
+  const M = MENU.meta; if (!M) return;
+  const W = $('menu').clientWidth, H = $('menu').clientHeight, ar = M.w / M.h;
+  let w, h, x, y;
+  if (W >= H) { w = Math.max(W, H * ar); h = w / ar; x = -(w - W) * .4; y = (H - h) / 2; }   // cover, keeping the buttons in view
+  else { h = Math.min(H, Math.max(H * .6, W / ar)); w = h * ar; x = -Math.min(w - W, w * .045); y = (H - h) * .42; } // portrait: big enough to tap, anchored left
+  const st = $('mstage'); Object.assign(st.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
+  MENU.rect = { x, y, w, h, k: w / M.w };
+  const c = $('mfx'), d = Math.min(2, devicePixelRatio || 1); c.width = Math.round(w * d); c.height = Math.round(h * d); MENU.dpr = d;
+  $('mbtns').innerHTML = M.btn.map(([bx, by, bw, bh, k]) => `<button class="mb" data-mb="${k}" style="left:${bx / M.w * 100}%;top:${by / M.h * 100}%;width:${bw / M.w * 100}%;height:${bh / M.h * 100}%" aria-label="${{ new: 'New game', load: 'Load game', settings: 'Settings', quit: 'Quit' }[k]}"></button>`).join('');
+  $('mbtns').querySelectorAll('[data-mb]').forEach(b => b.onclick = () => menuAction(b.dataset.mb));
+}
+function menuKeys(e) {
+  if (e.key !== 'Escape') return;
+  if (!$('menu').hidden) { if ($('mpanel').innerHTML) menuHome(); return; }
+  if (G && !G.over) { if ($('pause').hidden) showPause(); else hidePause(); }
+}
+function menuHome() { $('mpanel').innerHTML = ''; }
+function menuPanel(html) { $('mpanel').innerHTML = `<div class="panel">${html}</div>`; return $('mpanel'); }
+function menuAction(k) {
+  if (k === 'new') { hideMenu(); showPicker(); return; }
+  if (k === 'load') return loadPanel($('mpanel'), true);
+  if (k === 'settings') return settingsPanel($('mpanel'), true);
+  if (k === 'quit') { const p = menuPanel(`<h2>Leave Stellar Horizons?</h2><p class="dim">Your autosave and save slots stay in this browser. You can close this tab, or return to the main menu.</p><div class="row"><button class="b pri" data-q="close">Quit to a blank screen</button><button class="b" data-q="back">Back</button></div>`);
+    p.querySelector('[data-q="back"]').onclick = menuHome;
+    p.querySelector('[data-q="close"]').onclick = () => { menuPanel(`<h2>Thanks for playing</h2><p class="dim">You can close this tab now.</p><button class="b" id="qback">Return to main menu</button>`).querySelector('#qback').onclick = menuHome; }; }
+}
+function loadPanel(host, inMenu) {
+  const rows = SLOTS.map(k => { const g = readSlot(k); return `<div class="slot"><div><b>${slotName(k)}</b><small>${esc(slotInfo(g))}</small></div><div class="row" style="margin:0"><button class="b pri" data-ld="${k}" ${g ? '' : 'disabled'}>Load</button>${k !== 'sh-save' && g ? `<button class="b" data-del="${k}">Delete</button>` : ''}</div></div>`; }).join('');
+  host.innerHTML = `<div class="${inMenu ? 'panel' : ''}"><h2>Load game</h2>${rows}<div class="row" style="margin-top:12px"><button class="b" data-back>Back</button></div></div>`;
+  host.querySelectorAll('[data-ld]').forEach(b => b.onclick = async () => { const g = readSlot(b.dataset.ld); if (!g) return; await loadAtlas(g.f); G = g; ui = null; sel = null; tab = 'turn'; hideMenu(); hidePause(); home(); save(); render(); toast(''); });
+  host.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (b.dataset.confirm) { try { localStorage.removeItem(b.dataset.del); } catch (e) {} loadPanel(host, inMenu); } else { b.dataset.confirm = 1; b.textContent = 'Tap again to delete'; } });
+  host.querySelector('[data-back]').onclick = () => inMenu ? menuHome() : pauseHome();
+}
+function settingsPanel(host, inMenu) {
+  host.innerHTML = `<div class="${inMenu ? 'panel' : ''}"><h2>Settings</h2>
+  <label class="toggle"><span>Animated board<br><small class="dim">Spinning planets, twinkling stars and the sun's corona</small></span><input type="checkbox" id="set-anim" ${SET.anim ? 'checked' : ''}></label>
+  <label class="toggle"><span>Improved engine reliability<br><small class="dim">Optional rule: two engine-failure rerolls per campaign (applies to new games)</small></span><input type="checkbox" id="set-rr" ${SET.rerolls ? 'checked' : ''}></label>
+  <div class="row" style="margin-top:12px"><button class="b" data-back>Back</button></div></div>`;
+  host.querySelector('#set-anim').onchange = e => { SET.anim = e.target.checked; saveSettings(); dirty = true; };
+  host.querySelector('#set-rr').onchange = e => { SET.rerolls = e.target.checked; saveSettings(); };
+  host.querySelector('[data-back]').onclick = () => inMenu ? menuHome() : pauseHome();
+}
+// animated overlay drawn in image coordinates
+function catmull(pts, t) {
+  const n = pts.length - 1, f = Math.min(n - 1e-6, Math.max(0, t * n)), i = Math.floor(f), u = f - i;
+  const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(n, i + 2)];
+  const c = (a, b, c2, d) => .5 * ((2 * b) + (-a + c2) * u + (2 * a - 5 * b + 4 * c2 - d) * u * u + (-a + 3 * b - 3 * c2 + d) * u * u * u);
+  return [c(p0[0], p1[0], p2[0], p3[0]), c(p0[1], p1[1], p2[1], p3[1])];
+}
+function menuFrame(now) {
+  const M = MENU.meta, R = MENU.rect; if (!M || !R) return;
+  const c = $('mfx'), x = c.getContext('2d'), d = MENU.dpr, t = (STILL || !SET.anim) ? 0 : now / 1000;
+  $('mstage').style.animationPlayState = (STILL || !SET.anim) ? 'paused' : 'running';
+  x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, c.width, c.height);
+  x.setTransform(R.k * d, 0, 0, R.k * d, 0, 0);
+  x.globalCompositeOperation = 'lighter';
+  // twinkling stars (on top of the painted ones)
+  for (const g of MENU.glints) {
+    const tw = Math.max(0, Math.sin(t * g.sp + g.ph)); const a = tw * tw * (g.big ? .9 : .55);
+    if (a < .02) continue;
+    const rr = (g.r + 1.5) * (g.big ? 2.2 : 1.3);
+    const gr = x.createRadialGradient(g.x, g.y, 0, g.x, g.y, rr * 2.2); gr.addColorStop(0, `rgba(220,235,255,${a})`); gr.addColorStop(1, 'rgba(220,235,255,0)');
+    x.fillStyle = gr; x.fillRect(g.x - rr * 2.2, g.y - rr * 2.2, rr * 4.4, rr * 4.4);
+    if (g.big) { x.fillStyle = `rgba(200,225,255,${a * .5})`; x.fillRect(g.x - rr * 4, g.y - .5, rr * 8, 1); x.fillRect(g.x - .5, g.y - rr * 4, 1, rr * 8); }
+  }
+  // sun: pulsing glare with slowly turning rays
+  const [sx, sy] = M.sun, pulse = 1 + .08 * Math.sin(t * 1.3) + .04 * Math.sin(t * 3.1);
+  let gr = x.createRadialGradient(sx, sy, 0, sx, sy, 150 * pulse); gr.addColorStop(0, 'rgba(255,230,180,.55)'); gr.addColorStop(.25, 'rgba(255,170,80,.22)'); gr.addColorStop(1, 'rgba(255,120,40,0)');
+  x.fillStyle = gr; x.beginPath(); x.arc(sx, sy, 150 * pulse, 0, 6.2832); x.fill();
+  x.save(); x.translate(sx, sy); x.rotate(t * .05);
+  for (let i = 0; i < 12; i++) { x.rotate(6.2832 / 12); const L = 140 + 70 * Math.sin(t * .8 + i * 1.7); const g2 = x.createLinearGradient(0, 0, L, 0); g2.addColorStop(0, `rgba(255,210,150,${.16 + .06 * Math.sin(t + i)})`); g2.addColorStop(1, 'rgba(255,180,100,0)'); x.fillStyle = g2; x.beginPath(); x.moveTo(0, -2.5); x.lineTo(L, 0); x.lineTo(0, 2.5); x.fill(); }
+  x.restore();
+  // lens flare ghosts along the sun-to-centre line
+  [[.35, 18, '120,200,255', .10], [.55, 10, '255,200,120', .12], [.8, 30, '90,160,255', .06]].forEach(([k, rr, col, a]) => { const fx = sx + (M.w * .5 - sx) * k * 1.6, fy = sy + (M.h * .5 - sy) * k * 1.6; const g3 = x.createRadialGradient(fx, fy, 0, fx, fy, rr); g3.addColorStop(0, `rgba(${col},${a * (1 + .3 * Math.sin(t * 1.3))})`); g3.addColorStop(1, `rgba(${col},0)`); x.fillStyle = g3; x.beginPath(); x.arc(fx, fy, rr, 0, 6.2832); x.fill(); });
+  // earth: breathing atmosphere and flickering city lights
+  const [ex, ey, er] = M.earth;
+  gr = x.createRadialGradient(ex, ey, er * .97, ex, ey, er * 1.07); gr.addColorStop(0, `rgba(90,170,255,${.22 + .1 * Math.sin(t * .9)})`); gr.addColorStop(1, 'rgba(90,170,255,0)');
+  x.fillStyle = gr; x.beginPath(); x.arc(ex, ey, er * 1.07, 0, 6.2832); x.fill();
+  const [cx0, cy0, cw, ch, csx, csy] = M.city; x.globalAlpha = .35 + .3 * (.5 + .5 * Math.sin(t * 1.7)) * (.7 + .3 * Math.sin(t * 5.3)); x.drawImage(MENU.fx, csx, csy, cw, ch, cx0, cy0, cw, ch); x.globalAlpha = 1;
+  // light pulses travelling along the orbit lines
+  MENU.sats.forEach((s, i) => {
+    const pts = M[s.path], u = ((t * s.sp + s.t) % 1);
+    for (let k = 0; k < 14; k++) { const uu = u - k * .006; if (uu < 0) break; const [px, py] = catmull(pts, uu); const a = (1 - k / 14) * .55; const g4 = x.createRadialGradient(px, py, 0, px, py, 9 - k * .4); g4.addColorStop(0, `rgba(140,220,255,${a})`); g4.addColorStop(1, 'rgba(140,220,255,0)'); x.fillStyle = g4; x.fillRect(px - 10, py - 10, 20, 20); }
+  });
+  // title shimmer: a light band sweeping across the lettering every few seconds
+  const [tx0, ty0, tw, th, tsx, tsy] = M.title, ph = (t % 7) / 7;
+  if (ph < .45) {
+    const band = tx0 - 200 + (tw + 400) * (ph / .45);
+    x.save(); x.beginPath(); x.rect(band - 90, ty0, 180, th); x.clip();
+    x.globalAlpha = .9 * Math.sin(Math.PI * (ph / .45)); x.drawImage(MENU.fx, tsx, tsy, tw, th, tx0, ty0, tw, th); x.restore(); x.globalAlpha = 1;
+  }
+  x.globalCompositeOperation = 'source-over';
+}
+
+// ---------------- pause menu ----------------
+function showPause() { if (!G) return; $('pause').hidden = false; pauseHome(); }
+function hidePause() { $('pause').hidden = true; dirty = true; }
+function pauseHome() {
+  const b = $('pbox');
+  b.innerHTML = `<h2>Paused</h2><p class="dim">${esc(D.FAC[G.f].n)} · ${G.over ? 'campaign over' : G.y + ' · ' + E.PHASE_NAME[G.phase]}</p>
+  <button class="b pri big" data-p="resume">Resume</button>
+  <button class="b big" data-p="save">Save game</button>
+  <button class="b big" data-p="load">Load game</button>
+  <button class="b big" data-p="settings">Settings</button>
+  <button class="b big" data-p="menu">Return to main menu</button>`;
+  b.querySelector('[data-p="resume"]').onclick = hidePause;
+  b.querySelector('[data-p="save"]').onclick = savePanel;
+  b.querySelector('[data-p="load"]').onclick = () => loadPanel(b, false);
+  b.querySelector('[data-p="settings"]').onclick = () => settingsPanel(b, false);
+  b.querySelector('[data-p="menu"]').onclick = () => {
+    b.innerHTML = `<h2>Return to main menu?</h2><p class="dim">Progress since your last manual save is kept in the autosave, so you can continue later from Load game.</p><div class="row"><button class="b pri" data-m="save">Save to a slot first</button><button class="b" data-m="go">Return without saving</button><button class="b" data-m="back">Back</button></div>`;
+    b.querySelector('[data-m="save"]').onclick = savePanel;
+    b.querySelector('[data-m="go"]').onclick = () => { save(); showMenu(); };
+    b.querySelector('[data-m="back"]').onclick = pauseHome;
+  };
+}
+function savePanel() {
+  const b = $('pbox');
+  b.innerHTML = `<h2>Save game</h2>${SLOTS.slice(1).map(k => { const g = readSlot(k); return `<div class="slot"><div><b>${slotName(k)}</b><small>${esc(slotInfo(g))}</small></div><button class="b pri" data-sv="${k}">${g ? 'Overwrite' : 'Save'}</button></div>`; }).join('')}
+  <p class="dim" style="margin-top:10px">The autosave updates after every action. Saves live in this browser.</p><div class="row"><button class="b" data-back>Back</button></div>`;
+  b.querySelectorAll('[data-sv]').forEach(x => x.onclick = () => {
+    const k = x.dataset.sv;
+    if (readSlot(k) && !x.dataset.confirm) { x.dataset.confirm = 1; x.textContent = 'Tap again to overwrite'; return; }
+    const ok = saveSlot(k);
+    b.innerHTML = `<h2>${ok ? 'Game saved' : 'Could not save'}</h2><p class="dim">${ok ? esc(slotName(k) + ': ' + slotInfo(readSlot(k))) : 'This browser is blocking storage, so the game cannot be saved here.'}</p><div class="row"><button class="b pri" data-r>Resume</button><button class="b" data-back>Back</button></div>`;
+    b.querySelector('[data-r]').onclick = hidePause; b.querySelector('[data-back]').onclick = pauseHome;
+  });
+  b.querySelector('[data-back]').onclick = pauseHome;
+}
+
+// ---------------- camera ----------------
+const toWorld = (x, y) => ({ x: (x - cam.x) / cam.s, y: (y - cam.y) / cam.s });
+function zoomAt(x, y, f) { const s = Math.max(.08, Math.min(3, cam.s * f)); const k = s / cam.s; cam.x = x - (x - cam.x) * k; cam.y = y - (y - cam.y) * k; cam.s = s; dirty = true; }
+function fit() { const W = 4792, H = 4032; cam.s = Math.min(SW() / W, SH() / H) * .98; cam.x = (SW() - W * cam.s) / 2; cam.y = (SH() - H * cam.s) / 2; dirty = true; }
+function home() { const e = GEO.worlds.ear.orbit; focus([e[0] + 120, e[1] + 120], Math.max(.32, Math.min(.6, SW() / 1500))); }
+function focus(p, s) { cam.s = s; cam.x = SW() / 2 - p[0] * s; cam.y = SH() / 2 - p[1] * s; dirty = true; }
+
+// ---------------- input ----------------
+const pointers = new Map(); let gesture = null;
+function setupInput() {
+  cv.style.touchAction = 'none';
+  cv.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.offsetX, e.offsetY, e.deltaY < 0 ? 1.15 : 1 / 1.15); }, { passive: false });
+  cv.addEventListener('pointerdown', e => {
+    cv.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    if (pointers.size === 2) { const [a, b] = [...pointers.values()]; gesture = { k: 'pinch', d: Math.hypot(a.x - b.x, a.y - b.y), s: cam.s }; if (dragS) cancelDrag(); return; }
+    const h = hitTest(e.offsetX, e.offsetY);
+    gesture = { k: 'press', x: e.offsetX, y: e.offsetY, h, moved: false };
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!pointers.has(e.pointerId)) { hover(e); return; }
+    const prev = pointers.get(e.pointerId); pointers.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    if (gesture && gesture.k === 'pinch' && pointers.size === 2) { const [a, b] = [...pointers.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, (gesture.s * d / gesture.d) / cam.s); return; }
+    if (!gesture) return;
+    if (gesture.k === 'press' && Math.hypot(e.offsetX - gesture.x, e.offsetY - gesture.y) > 6) {
+      gesture.moved = true;
+      const h = gesture.h;
+      if (h && h.t === 'ship' && G.phase === 'move') { const s = G.ships.find(x => x.id === h.id); const m = s ? E.moves(G, s) : []; if (m.length) { gesture = { k: 'drag' }; dragS = { s, moves: m, x: e.offsetX, y: e.offsetY }; targets = m; dirty = true; return; } }
+      gesture = { k: 'pan' };
+    }
+    if (gesture.k === 'pan') { cam.x += e.offsetX - prev.x; cam.y += e.offsetY - prev.y; dirty = true; }
+    if (gesture.k === 'drag') { dragS.x = e.offsetX; dragS.y = e.offsetY; dirty = true; }
+  });
+  const up = e => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+    const g = gesture;
+    if (pointers.size === 0) gesture = null; else if (g && g.k === 'pinch') { gesture = { k: 'pan' }; }
+    if (!g) return;
+    if (g.k === 'press' && !g.moved && e.type === 'pointerup') tap(g.h);
+    if (g.k === 'drag') drop(e);
+  };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', e => { if (dragS) cancelDrag(); up(e); });
+  $('zin').onclick = () => zoomAt(SW() / 2, SH() / 2, 1.3);
+  $('zout').onclick = () => zoomAt(SW() / 2, SH() / 2, 1 / 1.3);
+  $('zfit').onclick = fit;
+  $('zme').onclick = () => { if (!G) return; const s = (sel && sel.t === 'ship' && G.ships.find(x => x.id === sel.id)) || G.ships.find(x => x.loc !== 'earth'); focus(s ? posOf(s.loc) : GEO.worlds.ear.orbit, .9); };
+}
+function hover(e) { const h = hitTest(e.offsetX, e.offsetY); cv.style.cursor = h ? (h.t === 'ship' && G && G.phase === 'move' ? 'grab' : 'pointer') : 'default'; }
+function hitTest(x, y) {
+  const p = toWorld(x, y);
+  for (let i = hits.length - 1; i >= 0; i--) {
+    const h = hits[i];
+    if (h.r ? Math.abs(p.x - h.x) <= h.r && Math.abs(p.y - h.y) <= h.r : h.poly ? inPoly(p, h.poly) : Math.hypot(p.x - h.x, p.y - h.y) <= h.rad) return h;
+  }
+  return null;
+}
+function tap(h) {
+  if (!h) return;
+  if (h.t === 'ship') sel = { t: 'ship', id: h.id };
+  else if (h.t === 'base') sel = { t: 'base', id: h.id };
+  else if (h.t === 'world') sel = { t: 'world', k: h.k };
+  tab = 'sel'; render();
+}
+function cancelDrag() { dragS = null; targets = null; dirty = true; }
+function drop(e) {
+  const d = dragS; cancelDrag();
+  if (!d) return;
+  const p = toWorld(e.offsetX, e.offsetY);
+  const hit = nearestTarget(d.moves, p);
+  if (!hit) { toast('Drop the counter on a highlighted box.'); return; }
+  chooseAndMove(d.s, hit.dest, d.moves.filter(m => m.dest === hit.dest), p);
+}
+
+// ---------------- board positions ----------------
+function posOf(loc) {
+  const p = E.P(loc);
+  if (p.t === 'earth') { const o = GEO.worlds.ear.surf || GEO.worlds.ear.orbit; return [o[0], o[1] + 20]; }
+  if (p.t === 'fly') return GEO.sys[p.s].flyby;
+  if (p.t === 'box') return GEO.sys[p.s].box[p.n];
+  const g = GEO.worlds[p.w];
+  if (p.t === 'surf') return g.surf || [g.orbit[0], g.orbit[1] + 34];
+  if (p.w === 'ear') return [g.orbit[0], g.orbit[1] - 110];
+  return g.surf ? [g.orbit[0], g.orbit[1] - (g.poly ? polyH(g.poly) * .3 : 60)] : [g.orbit[0], g.orbit[1] - 24];
+}
+const polyH = poly => { const ys = poly.map(p => p[1]); return Math.max(...ys) - Math.min(...ys); };
+function zoneShape(loc, holes) {
+  const p = E.P(loc), g = p.w && GEO.worlds[p.w];
+  if (p.t === 'fly') return { poly: hull(GEO.sys[p.s].flybyPoly) };
+  if (p.t === 'box') return { poly: GEO.sys[p.s].boxPoly[p.n] };
+  if (p.t === 'earth') return GEO.worlds.ear.spoly ? { poly: GEO.worlds.ear.spoly } : { c: posOf(loc), r: 44 };
+  if (p.t === 'surf' && g.spoly) return { poly: hull(g.spoly) };
+  if (p.t === 'orbit' && g.poly) return { poly: hull(g.poly), hole: holes && g.spoly ? hull(g.spoly) : null };
+  return { c: posOf(loc), r: 44 };
+}
+const HULLS = new Map();
+function hull(poly) { if (HULLS.has(poly)) return HULLS.get(poly); const P = poly.map(q => q.slice()).sort((a, b) => a[0] - b[0] || a[1] - b[1]); const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); const lo = [], up = [];
+  for (const q of P) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (let i = P.length - 1; i >= 0; i--) { const q = P[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  const h = lo.slice(0, -1).concat(up.slice(0, -1)); HULLS.set(poly, h); return h; }
+// orbit ring of a world: the printed purple circle (inner ring for worlds with a separate surface, outer world circle otherwise)
+const RINGS = {};
+function ringOf(w) {
+  if (RINGS[w]) return RINGS[w];
+  const g = GEO.worlds[w];
+  if (!g.poly) return RINGS[w] = { c: g.orbit || g.exp, r: 60 };
+  const hp = hull(g.poly), xs = hp.map(q => q[0]), ys = hp.map(q => q[1]);
+  const c = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2], half = (Math.max(...xs) - Math.min(...xs) + Math.max(...ys) - Math.min(...ys)) / 4;
+  return RINGS[w] = { c: w === 'ear' ? c : c, r: half * (g.spoly ? .59 : .79) };
+}
+const polyArea = poly => Math.abs(poly.reduce((a, [x, y], i) => { const [x2, y2] = poly[(i + 1) % poly.length]; return a + x * y2 - x2 * y; }, 0) / 2);
+function inPoly(pt, poly) { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if (((yi > pt.y) !== (yj > pt.y)) && pt.x < (xj - xi) * (pt.y - yi) / (yj - yi) + xi) c = !c; } return c; }
+function nearestTarget(moves, p) {
+  // smallest highlighted zone containing the drop point wins (a surface inside its orbit ring, a box on the arc)
+  let best = null, ba = 1e12, near = null, nd = 1e9;
+  moves.forEach(m => {
+    const z = zoneShape(m.dest);
+    if (z.poly) { if (inPoly(p, z.poly)) { const a = polyArea(z.poly); if (a < ba) { ba = a; best = m; } } return; }
+    const d = Math.hypot(z.c[0] - p.x, z.c[1] - p.y); if (d < z.r * 1.4 && d < nd) { nd = d; near = m; }
+  });
+  return best || near;
+}
+
+// ---------------- painting ----------------
+function drawTex(img, f, x, y, size) { if (!f) return; const k = size / Math.max(f[2], f[3]); const w = f[2] * k, h = f[3] * k; ctx.drawImage(img, f[0], f[1], f[2], f[3], x - w / 2, y - h / 2, w, h); }
+const uf = key => ATL[G.f].fr[key];
+function txt(t, x, y, size, color, align) { ctx.font = `600 ${size}px "IBM Plex Sans Condensed", "Arial Narrow", sans-serif`; ctx.textAlign = align || 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = Math.max(2, size / 5); ctx.strokeStyle = '#000'; ctx.strokeText(t, x, y); ctx.fillStyle = color || '#fff'; ctx.fillText(t, x, y); }
+function pathShape(z) { ctx.beginPath(); const tr = poly => { poly.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); }; if (z.poly) { tr(z.poly); if (z.hole) tr(z.hole); } else ctx.arc(z.c[0], z.c[1], z.r, 0, Math.PI * 2); }
+function paint() {
+  const d = cv.dpr;
+  paintStars();
+  ctx.setTransform(d * cam.s, 0, 0, d * cam.s, d * cam.x, d * cam.y);
+  Object.entries(GEO.maps).forEach(([c, [x, y, w, h]]) => { if (IMG.maps[c]) ctx.drawImage(IMG.maps[c], x, y, w, h); });
+  paintSun();
+  paintBodies();
+  ctx.setTransform(d * cam.s, 0, 0, d * cam.s, d * cam.x, d * cam.y);
+  paintExplore();
+  ctx.setTransform(d * cam.s, 0, 0, d * cam.s, d * cam.x, d * cam.y);
+  hits = [];
+  // worlds
+  Object.entries(GEO.worlds).forEach(([k, g]) => {
+    const ws = G.w[k]; if (!ws) return;
+    const wx = g.orbit || g.exp;
+    if (g.poly) hits.push({ t: 'world', k, poly: g.poly }); else hits.push({ t: 'world', k, x: wx[0], y: wx[1], rad: 60 });
+    if (sel && sel.t === 'world' && sel.k === k) { ctx.lineWidth = 5; ctx.strokeStyle = '#f2a93b'; pathShape(g.poly ? { poly: g.poly } : { c: wx, r: 60 }); ctx.stroke(); }
+    if (ws.card) { const c = D.CARDS.find(x => x.n === ws.card); drawTex(IMG.markers, MK['card_' + c.img], wx[0], wx[1] + 58, 74); }
+    if (ws.sol || ws.life) drawTex(IMG.markers, MK[ws.life ? 'life' : 'sol'], wx[0] + 50, wx[1] - 44, 44);
+    if (ws.npf) { const f = D.FAC[ws.npf]; ctx.fillStyle = f.c; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(wx[0] - 92, wx[1] - 2, 40, 24, 3); ctx.fill(); ctx.stroke(); txt('NPF', wx[0] - 72, wx[1] + 10, 13); if (ws.npfTrade) txt((ws.npfTrade.side === 'buy' ? 'BUY ' : 'SELL ') + ws.npfTrade.type, wx[0] - 72, wx[1] + 34, 11, '#f2a93b'); if (ws.blk) txt('BLOCKADED', wx[0] - 72, wx[1] + 48, 11, '#ef6b5b'); }
+    if (D.TERRA[k] && ws.terra) txt(`Terraformed ${ws.terra}/${D.TERRA[k]}`, wx[0], wx[1] - 64, 14, '#5fcf8a');
+  });
+  // flyby boxes
+  Object.entries(G.fly).forEach(([s, f]) => {
+    const p = GEO.sys[s] && GEO.sys[s].flyby; if (!p) return;
+    f.pir.forEach((pr, i) => { drawTex(IMG.markers, MK[pr.strong ? 'pir_l' : 'pir_s'], p[0] - 26 + i * 22, p[1] - 34, 46); if (pr.dmg) txt('dmg ' + pr.dmg, p[0] - 26 + i * 22, p[1] - 4, 11, '#ef6b5b'); });
+    for (let i = 0; i < f.ast; i++) drawTex(IMG.markers, MK.ast, p[0] + 26 + i * 16, p[1] + 34, 42);
+  });
+  // bases
+  G.bases.forEach(b => {
+    const p = posOf(E.baseLoc(b)), x = p[0] - 64, y = p[1];
+    const key = Object.keys(ATL[G.f].fr).find(k => k === 'Base|' + b.name) || Object.keys(ATL[G.f].fr).find(k => k.startsWith('Base|' + b.name));
+    drawTex(ATL[G.f].img, uf(key), x, y, CS + 8);
+    hits.push({ t: 'base', id: b.id, x, y, r: (CS + 8) / 2 });
+    if (b.set) txt(String(b.set), x + 24, y + 24, 15, '#f2a93b');
+    if (sel && sel.t === 'base' && sel.id === b.id) { ctx.strokeStyle = '#f2a93b'; ctx.lineWidth = 3; ctx.strokeRect(x - 33, y - 33, 66, 66); }
+  });
+  // probes on Earth
+  (G.probes.earth || []).forEach((n, i) => { const p = posOf('earth'); drawTex(ATL[G.f].img, uf('Probe|' + n), p[0] - 100 - i * 28, p[1] + 34, 30); });
+  // ships
+  const byLoc = {};
+  G.ships.forEach(s => (byLoc[s.loc] = byLoc[s.loc] || []).push(s));
+  Object.entries(byLoc).forEach(([loc, list]) => {
+    const p = posOf(loc), cols = Math.min(list.length, 3);
+    list.forEach((s, i) => {
+      if (dragS && dragS.s === s) return;
+      let cx = p[0] + ((i % 3) - (cols - 1) / 2) * (CS + 4), cy = p[1] + Math.floor(i / 3) * (CS + 4);
+      const lp = E.P(loc);
+      if (lp.t === 'orbit' && GEO.worlds[lp.w]) { const R = ringOf(lp.w), a = s.ang != null ? s.ang : -Math.PI / 2 + (i - (list.length - 1) / 2) * .42; cx = R.c[0] + Math.cos(a) * R.r; cy = R.c[1] + Math.sin(a) * R.r; }
+      else if (lp.t === 'surf' && GEO.worlds[lp.w] && !GEO.worlds[lp.w].spoly) { const R = ringOf(lp.w); cx = R.c[0] + ((i % 3) - (cols - 1) / 2) * (CS + 4); cy = R.c[1] + Math.floor(i / 3) * (CS + 4); }
+      const ready = (G.phase === 'move' && E.moves(G, s).length) || (G.phase === 'explore' && E.exploreOptions(G, s).length);
+      const isSel = sel && sel.t === 'ship' && sel.id === s.id;
+      if (ready || isSel) { ctx.strokeStyle = isSel ? '#f2a93b' : '#4fc3d9'; ctx.lineWidth = 3; ctx.beginPath(); ctx.roundRect(cx - CS / 2 - 4, cy - CS / 2 - 4, CS + 8, CS + 8, 6); ctx.stroke(); }
+      drawTex(ATL[G.f].img, uf(s.res ? s.img + '|back' : s.img), cx, cy, CS);
+      if (s.dmg) txt('▼' + s.dmg, cx + 18, cy - 20, 13, '#ef6b5b');
+      if (s.hold) txt('+' + s.hold, cx + 18, cy + 20, 13, '#f2a93b');
+      if (s.probe) drawTex(ATL[G.f].img, uf('Probe|' + s.probe), cx - 20, cy + 20, 22);
+      hits.push({ t: 'ship', id: s.id, x: cx, y: cy, r: CS / 2 });
+    });
+  });
+  // drag targets and dragged counter
+  if (targets) {
+    const seen = new Set();
+    const dests = new Set(targets.map(m => m.dest));
+    targets.forEach(m => { if (seen.has(m.dest)) return; seen.add(m.dest); const p = E.P(m.dest), z = zoneShape(m.dest, p.t === 'orbit' && dests.has('surf:' + p.w)); ctx.fillStyle = 'rgba(79,195,217,.16)'; ctx.strokeStyle = '#4fc3d9'; ctx.lineWidth = 4; pathShape(z); ctx.fill('evenodd'); ctx.stroke(); });
+  }
+  if (dragS) { const p = toWorld(dragS.x, dragS.y); ctx.globalAlpha = .9; drawTex(ATL[G.f].img, uf(dragS.s.res ? dragS.s.img + '|back' : dragS.s.img), p.x, p.y, CS * 1.15); ctx.globalAlpha = 1; }
+}
+function chooseAndMove(s, dest, opts, dropPt) {
+  const lvs = [...new Map(opts.filter(o => o.lv).map(o => [o.lv.n, o])).values()];
+  const probes = !s.launched && s.cls === 'RE' && ['Flyby', 'Orbiter', 'Rover'].includes(s.kind) ? (G.probes[s.loc] || []) : [];
+  const o0 = opts[0], rate = Math.max(0, E.engRate(G, s));
+  const body = `<p>${esc(s.name)} moves from ${esc(E.locName(s.loc))} to <b>${esc(E.locName(dest))}</b>${o0.eta ? `, a ${o0.eta}-turn transfer` : ', arriving this turn'}${o0.final ? '. This is its final move' : ''}.</p>
+    ${lvs.length ? `<p class="dim">Launch vehicle:</p><div class="row">${lvs.map((o, i) => `<label class="chip" style="padding:4px 9px;cursor:pointer"><input type="radio" name="mvlv" value="${o.lv.n}" ${i ? '' : 'checked'}> LV-${o.lv.n} ${o.lv.stock ? 'from stock' : `(buy $${o.lv.buy}B)`}${o.eta && lvs.length > 1 ? `, ${o.eta} turn${o.eta > 1 ? 's' : ''}` : ''}</label>`).join('')}</div>` : ''}
+    ${probes.length ? `<label class="dim"><input type="checkbox" id="mvprobe" checked> Carry probe ${esc(probes[0])}</label>` : ''}
+    <p class="dim">Engine failure ${rate < 1 ? 'under 1%, no roll' : rate + '%'}${lvs.length ? (E.has(G, 'reuse') ? '; the LV is recovered on a roll above 25 and can launch again next turn' : '; the LV is used up') : ''}. Each unit moves once per turn.</p>`;
+  ui = { k: 'gen', title: `Move ${s.name}?`, body, go: 'Move', fn: () => {
+    const lvEl = document.querySelector('input[name="mvlv"]:checked'), pr = $('mvprobe');
+    const res = E.move(G, s, dest, { lvSize: lvEl ? +lvEl.value : undefined, probe: pr && pr.checked ? probes[0] : null });
+    if (s.loc === dest) { const pp = E.P(dest); if (pp.t === 'orbit' && dropPt) { const R = ringOf(pp.w); s.ang = Math.atan2(dropPt.y - R.c[1], dropPt.x - R.c[0]); } else if (pp.t !== 'orbit') delete s.ang; }
+    return res;
+  } };
+  renderAsk();
+}
+
+// ---------------- HTML panels ----------------
+function render() {
+  if (!G) return;
+  dirty = true;
+  renderBar();
+  const tabs = [['turn', 'Turn'], ['sel', 'Selected'], ['fac', 'Faction'], ['tech', 'Tech'], ['log', 'Log']];
+  $('tabs').innerHTML = tabs.map(([k, n]) => `<button role="tab" aria-selected="${tab === k}" data-t="${k}">${n}</button>`).join('');
+  $('tabs').querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; render(); });
+  const P = { turn: panelTurn, sel: panelSel, fac: panelFac, tech: panelTech, log: panelLog }[tab];
+  $('panel').innerHTML = P();
+  wire();
+  const nx = $('next');
+  nx.textContent = G.over ? 'New campaign' : G.ask.length ? 'Answer the question first' : nextLabel();
+  nx.disabled = !G.over && !!G.ask.length;
+  nx.onclick = () => { if (G.over) { try { localStorage.removeItem('sh-save'); } catch (e) {} showMenu(); return; } confirmNext(); };
+  $('hint').textContent = hintText();
+  renderAsk();
+}
+function unusedActions() {
+  const out = [], n = (arr, f) => arr.length ? out.push(f(arr)) : 0, names = a => a.map(x => x.name).join(', ');
+  const ph = G.phase;
+  if (ph === 'move') {
+    n(G.ships.filter(s => s.cls === 'RE' && !s.launched && E.moves(G, s).length), a => `Not launched yet: ${names(a)}.`);
+    n(G.ships.filter(s => (s.kind === 'Orbiter' || s.kind === 'Rover') && !s.fixed && s.launched && E.P(s.loc).t === 'fly' && E.moves(G, s).length), a => `Waiting in a flyby box for their final move: ${names(a)}.`);
+    n(G.ships.filter(s => s.cls === 'CV' && !s.res && E.moves(G, s).length), a => `Crew vehicles that can still move: ${names(a)}.`);
+  }
+  if (ph === 'explore') {
+    n(G.ships.filter(s => E.exploreOptions(G, s).some(o => o.kind === 'explore' || o.kind === 'probe')), a => `Ships that can still explore: ${names(a)}.`);
+    n(G.ships.filter(s => E.exploreOptions(G, s).some(o => o.kind === 'produce' || o.kind === 'harvest')), a => `Crew vehicles that can still produce or harvest: ${names(a)}.`);
+    n(G.ships.filter(s => s.kind === 'Flyby' && E.P(s.loc).t === 'fly' && !G.turn.acted[s.id]), a => `Flybys in a flyby box will be sent outward automatically: ${names(a)}.`);
+  }
+  if (ph === 'combat') n(E.combatOptions(G), a => `Combat available: ${a.map(o => o.label).join('; ')}.`);
+  if (ph === 'build') {
+    n(G.ships.filter(s => s.cls === 'CV' && s.res && s.loc === 'earth'), a => `Reserved crew vehicles on Earth you could unreserve: ${names(a)}.`);
+    n(G.ships.filter(s => s.cls === 'CV' && s.dmg && s.loc === 'earth'), a => `Damaged crew vehicles you could repair: ${names(a)}.`);
+    if ((G.probes.earth || []).length && !G.ships.some(s => s.cls === 'RE' && !s.launched && s.kind !== 'Telescope')) out.push(`Probe${G.probes.earth.length > 1 ? 's' : ''} ${G.probes.earth.join(', ')} ${G.probes.earth.length > 1 ? 'have' : 'has'} no unlaunched flyby, orbiter or rover to ride on.`);
+  }
+  if (ph === 'trade') {
+    n(G.ships.filter(s => { const c = E.canFoundBase(G, s); return c && s.cargo.SUP >= c.cost; }), a => `Crew vehicles that can found a base now: ${names(a)}.`);
+    n(G.bases.filter(b => !G.turn.built[b.id] && (E.upgradeOptions(G, b).some(o => !o.why && ['ORE', 'SUP', 'FUEL'].every(r => (b.stock[r] || 0) >= (o.next.c[r] || 0))) || ['ORE', 'SUP', 'FUEL'].every(r => (b.stock[r] || 0) >= (D.SETTLE_COST[r] || 0)))), a => `Bases that can still build this turn: ${names(a)}.`);
+    n(G.bases.filter(b => b.trade && E.tradeLimitOwn(b)), a => `Unused trade markers at: ${names(a)}.`);
+  }
+  if (ph === 'econ') {
+    if (G.estep === 'diplomacy' && E.dipCost(G)) out.push(`Planned diplomacy attempts (${E.dipCost(G)} politics markers) will now be rolled.`);
+    if (G.estep === 'transport' && G.transferLeft) out.push(`${G.transferLeft} resource transfer(s) left unused.`);
+    if (G.estep === 'tech') {
+      n(D.TECH.filter(t => E.techState(G, t) === 'open' && G.bank[t.f] >= E.techCost(G, t)), a => `Technologies you can afford: ${a.map(t => t.n).join(', ')}.`);
+      if (G.polm) out.push(`${G.polm} politics marker(s) not converted will be discarded.`);
+      out.push(`Banked tech points will be halved (now ${E.FIELDS.map(f => G.bank[f] + ' ' + E.FN[f]).join(', ')}).`);
+    }
+    if (G.estep === 'policy' && !G.policyPicked) out.push('No policy adopted this decade.');
+    if (G.estep === 'production') n(G.bases.filter(b => b.out && !E.baseOutput(G, b)), a => `Bases set to produce nothing: ${names(a)}.`);
+  }
+  return out;
+}
+function confirmNext() {
+  const warn = unusedActions(), label = nextLabel();
+  ask(`${label}?`, warn.length ? `<p class="dim">You still have unused options in ${esc(G.estep ? E.ESTEP_NAME[G.estep] : E.PHASE_NAME[G.phase])}:</p><ul style="margin:6px 0 10px;padding-left:18px">${warn.map(w => `<li style="margin:3px 0;color:var(--warn)">${esc(w)}</li>`).join('')}</ul>` : `<p class="dim">Nothing left to do in ${esc(G.estep ? E.ESTEP_NAME[G.estep] : E.PHASE_NAME[G.phase])}.</p>`, () => { E.advance(G); return null; }, warn.length ? 'Continue anyway' : 'Continue');
+}
+function nextLabel() {
+  if (G.phase === 'econ') { const i = E.ESTEPS.indexOf(G.estep); return i < E.ESTEPS.length - 1 ? 'Next: ' + E.ESTEP_NAME[E.ESTEPS[i + 1]] : 'Next: build & service'; }
+  const i = E.PHASES.indexOf(G.phase); return G.phase === 'trade' ? 'End ' + G.y : 'Next: ' + E.PHASE_NAME[E.PHASES[i + 1]];
+}
+function hintText() {
+  if (G.over) return 'The campaign is over. See the Turn tab for the final score.';
+  return { econ: 'Economic phase. Work through each step in the Turn tab.', build: 'Build ships and launch vehicles, unreserve and repair crew vehicles, or load cargo on Earth.', move: 'Drag a counter onto a highlighted box to move it. Tap a counter to see its options.', combat: 'Attack pirates or blockade and raid NPF bases where your armed crew vehicles are.', explore: 'Tap a ship with a blue ring to explore. Each ship explores once per turn.', trade: 'Found bases, build facilities and settlements, trade and terraform.' }[G.phase];
+}
+function renderBar_() {}
+function renderBar() {
+  const sc = E.score(G);
+  const mk = f => G.mk[f].reduce((a, b) => a + b, 0);
+  setTimeout(() => { const b = $('pzbtn'); if (b) b.onclick = showPause; });
+  $('bar').innerHTML = `<button class="b pz" id="pzbtn" aria-label="Pause menu">❚❚ Menu</button><span class="yr">${G.over ? G.endYear : G.y}</span><span class="ph">${G.over ? 'Campaign over' : E.PHASE_NAME[G.phase] + (G.estep ? ' · ' + E.ESTEP_NAME[G.estep] : '')}</span>
+  <span class="st">${esc(D.FAC[G.f].n)}</span><span class="st">Cash <b>$${G.cash}B</b></span><span class="st">Politics <b>${G.polm}</b></span><span class="st">Victory <b>${G.vm}</b></span>
+  ${E.FIELDS.map(f => `<span class="st f-${f}">${E.FN[f]} <b>${G.bank[f]}</b>${mk(f) ? ` <span class="dim">+${mk(f)} in markers</span>` : ''}</span>`).join('')}
+  <span class="grow"></span><span class="st">Score <b>${sc.total}</b></span>`;
+}
+const lvTxt = () => ([1, 2, 3, 4].filter(z => G.lv.earth[z]).map(z => `LV-${z} ×${G.lv.earth[z]}`).join(', ') || 'none') + ((G.lvCool && G.lvCool.earth && [1, 2, 3, 4].some(z => G.lvCool.earth[z])) ? ` (recovered, ready next turn: ${[1, 2, 3, 4].filter(z => G.lvCool.earth[z]).map(z => 'LV-' + z + ' ×' + G.lvCool.earth[z]).join(', ')})` : '');
+function panelTurn() {
+  if (G.over) { const sc = E.score(G); return `<h2>Campaign over in ${G.endYear}</h2><p><b class="mono">${sc.total} VP</b>: ${sc.rating}.</p><table>${sc.parts.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="mono">${v}</td></tr>`).join('')}</table>`; }
+  let h = `<h2>${E.PHASE_NAME[G.phase]}${G.estep ? ': ' + E.ESTEP_NAME[G.estep] : ''}</h2>`;
+  if (G.phase === 'econ') h += panelEcon();
+  if (G.phase === 'build') h += panelBuild();
+  if (G.phase === 'move') h += panelMove();
+  if (G.phase === 'combat') h += panelCombat();
+  if (G.phase === 'explore') h += panelExplore();
+  if (G.phase === 'trade') h += panelTrade();
+  { const sc = E.score(G); h += `<h3>Score if the game ended now: ${sc.total} (${sc.rating})</h3><table>${sc.parts.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="mono">${v}</td></tr>`).join('')}</table><p class="dim">Every technology you have not developed costs 3 VP at the end, so the score starts low and climbs as you research.</p>`; }
+  h += `<h3>Missions</h3><p class="dim">Yours: ${esc(E.misTxt(G.mis.mine))}. Common: ${esc(E.misTxt(G.mis.common))}. Kept: ${G.mis.kept.map(id => esc(E.misTxt(id))).join('; ') || 'none'}.</p><div class="row"><button class="b" data-a="redraw" ${G.polm < 2 ? 'disabled' : ''}>Redraw your mission (2 politics)</button><button class="b" data-a="buyvm" ${G.polm < 4 ? 'disabled' : ''}>Buy victory marker (4 politics)</button></div>`;
+  return h;
+}
+function panelEcon() {
+  const s = G.estep;
+  if (s === 'politics') return `<p>You drew politics markers and rolled for events; see the log. Next comes diplomacy.</p>`;
+  if (s === 'diplomacy') {
+    const cost = E.dipCost(G);
+    return `<p class="dim">Spend politics markers on attempts to improve (+) or worsen (−) relations. Attempts cost 1, then 2, then 3 markers, and succeed on a d10 roll of 6 or less. They resolve when you leave this step. Embargo needs Military Policy; war needs Vigorous Military Policy.</p>
+    <table><tr><th>Faction</th><th>Relation</th><th>Attempts</th><th></th></tr>${Object.keys(G.rel).map(k => `<tr><td>${esc(D.FAC[k].n)}</td><td>${D.REL[G.rel[k]]}</td><td class="mono">${(G.dipl || {})[k] || 0}</td><td><button class="b" data-dip="${k}" data-d="1">+</button> <button class="b" data-dip="${k}" data-d="-1">−</button></td></tr>`).join('')}</table><p class="dim">Planned cost: ${cost} of ${G.polm} markers.</p>`;
+  }
+  if (s === 'production') return `<p>Production is collected; see the log. Set what each base produces next decade:</p>${G.bases.map(b => `<div class="item"><span></span><div class="t"><b>${esc(b.name)}</b><small>${esc(D.W[b.w].n)}</small></div><select data-out="${b.id}">${['ORE', 'SUP', 'FUEL', 'tech'].map(t => { const o = E.baseOutput(G, b, t); return `<option value="${t}" ${b.out === t ? 'selected' : ''}>${t === 'tech' ? 'Tech' : t} ${o ? '(' + o.n + ')' : '(none)'}</option>`; }).join('')}</select></div>`).join('') || '<p class="dim">You have no bases yet.</p>'}`;
+  if (s === 'transport') return G.transferLeft ? `<p>You can move ${G.transferLeft} resources between Earth and your bases (Trade Routes). Buying on Earth costs $1B each; resources sent to Earth sell at 2 for $1B.</p>${transferForm()}` : `<p class="dim">No transfers available (you need Trade Routes).</p>`;
+  if (s === 'placement') return `<p>NPF bases, asteroids, pirates and trade markers were placed; see the log and the board.</p>`;
+  if (s === 'tech') return `<p class="dim">Develop technologies from your bank in the Tech tab. Before leaving this step, convert politics markers: unconverted markers are discarded, then banked points are halved.</p>
+    <div class="row"><button class="b" data-a="tabtech">Open the tech chart</button></div>
+    <h3>Politics markers: ${G.polm}</h3><div class="row"><button class="b" data-pc="cash" ${G.polm ? '' : 'disabled'}>1 → $1B</button>${E.FIELDS.map(f => `<button class="b" data-pc="${f}" ${G.polm ? '' : 'disabled'}>1 → ${E.polLv(G, 'dip') >= 3 ? 3 : 2} ${E.FN[f]}</button>`).join('')}<button class="b" data-pc="allcash" ${G.polm ? '' : 'disabled'}>All to cash</button></div>
+    ${['Bio', 'Phy', 'Eng'].filter(f => E.has(G, { Bio: 'gen', Phy: 'mec', Eng: 'nano' }[f])).map(f => `<div class="row"><span>${E.FN[f]} points:</span><button class="b" data-tp="${f}" data-d="buy">Buy 1 for $1B</button><button class="b" data-tp="${f}" data-d="sell">Sell 2 for $1B</button></div>`).join('')}`;
+  if (s === 'growth') return `<p>Settlements grew; see the log.</p>`;
+  if (s === 'policy') return `<p class="dim">Adopt one policy this decade (free). You may hold one Unified policy and ten in total.</p>${D.POL.map(p => { const lv = E.polLv(G, p.k); return `<div class="item"><span class="chip ${lv ? 'ok' : ''}">${lv ? ['', 'Basic', 'Vigorous', 'Unified'][lv] : 'None'}</span><div class="t"><b>${p.n}</b><small>${lv < 3 ? 'Next: ' + esc(D.POL_LV[lv] + p.n) + ' — ' + esc(p.d[lv]) : 'Complete'}</small></div><button class="b" data-pol="${p.k}" ${lv >= 3 || G.policyPicked ? 'disabled' : ''}>Adopt</button></div>`; }).join('')}`;
+  return '';
+}
+function transferForm() {
+  const opts = [['earth', 'Earth'], ...G.bases.map(b => [b.id, b.name])].map(([v, n]) => `<option value="${v}">${esc(n)}</option>`).join('');
+  return `<div class="row"><select id="tf-from">${opts}</select> to <select id="tf-to">${opts}</select></div><div class="row"><select id="tf-type"><option>ORE</option><option>SUP</option><option>FUEL</option></select><input id="tf-n" type="number" min="1" value="1" style="width:60px"><button class="b" data-a="transfer">Transfer</button></div>`;
+}
+function shipLine(s, right) {
+  return `<div class="item">${cssCounter(s.res ? s.img + '|back' : s.img, 40)}<div class="t"><b>${esc(s.name)}</b><small>${s.cls === 'CV' ? 'CV-' + s.sz : s.kind} · ${esc(E.locName(s.loc))}${s.hold ? ' (+' + s.hold + ' turns)' : ''}${s.res ? ' · reserved' : ''}${s.dmg ? ' · ' + s.dmg + ' damage' : ''}${E.sum(s.cargo) ? ' · cargo ' + E.resTxt(s.cargo) : ''}</small></div><div class="row">${right || ''}</div></div>`;
+}
+function panelBuild() {
+  const opts = E.buildOptions(G, 'earth');
+  let h = `<p class="dim">Units cost Ore, SUP and Fuel bought on Earth at $1B each. Launch vehicles are separate: LV-n costs 1 Ore plus n Fuel. Stock on Earth: ${lvTxt()}. Probes waiting: ${(G.probes.earth || []).join(', ') || 'none'}.</p>`;
+  h += `<div class="row">${[1, 2, 3, 4].map(z => `<button class="b" data-lv="${z}">Build LV-${z} ${RS('ORE', 1)} ${RS('FUEL', z)}</button>`).join('')}</div>`;
+  h += `<h3>Earth shipyard</h3>` + opts.map(o => `<div class="item">${cssCounter(o.kind + '|' + o.u.n, 40)}<div class="t"><b>${esc(o.u.n)}</b><small>${o.kind} · search ${o.u.ev}${o.u.spec ? ', spectrometer' : ''}${o.u.lab ? ', mobile lab' : ''}${o.u.cargo ? ' · cargo ' + o.u.cargo + (o.u.prod ? ' (production)' : '') : ''}${o.u.cb ? ' · combat ' + o.u.cb : ''} · ${resHTML(o.cost)} = $${E.sum(o.cost)}B${o.why ? ' · ' + esc(o.why) : ''}</small></div><div class="row"><button class="b" data-build="${esc(o.key)}" ${o.why || G.cash < E.sum(o.cost) ? 'disabled' : ''}>Build</button>${o.cv && !o.why ? `<button class="b" data-buildr="${esc(o.key)}" title="Reserved: 1 SUP and 1 Fuel cheaper">Reserved</button>` : ''}</div></div>`).join('');
+  const cvs = G.ships.filter(s => s.cls === 'CV');
+  if (cvs.length) h += `<h3>Crew vehicles</h3>` + cvs.map(s => shipLine(s, (s.res ? `<button class="b" data-unres="${s.id}">Unreserve</button>` : `<button class="b" data-reserve="${s.id}">Reserve</button>`) + (s.dmg ? `<button class="b" data-repair="${s.id}">Repair</button>` : '') + (s.loc === 'earth' && s.cap ? `<button class="b" data-sel="${s.id}">Load cargo</button>` : ''))).join('');
+  G.bases.filter(b => b.fac.sup).forEach(b => { h += `<h3>${esc(b.name)} shipyard</h3><p class="dim">Stock ${resHTML(b.stock)}</p><div class="row">${[1, 2, 3, 4].map(z => `<button class="b" data-lvb="${z}" data-base="${b.id}">LV-${z}</button>`).join('')}</div>`; });
+  return h;
+}
+function panelMove() {
+  const movers = G.ships.filter(s => E.moves(G, s).length);
+  let h = `<p class="dim">Drag counters on the board, or tap a ship below to pick a destination from a list. Robotic explorers need a launch vehicle for their first move; crew vehicles need one to leave Earth.</p>`;
+  h += movers.length ? movers.map(s => shipLine(s, `<button class="b" data-sel="${s.id}">Move…</button>`)).join('') : '<p class="dim">No ship can move right now.</p>';
+  if (G.bases.length) h += `<h3>Cargo flight from Earth</h3><p class="dim">An LV carries resources bought on Earth to one of your bases (capacity = LV size${G.f === 'sa' ? ' + 1' : ''}).</p><div class="row"><select id="cf-base">${G.bases.map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select>${['ORE', 'SUP', 'FUEL'].map(r => `<label>${RS(r, '')}<input id="cf-${r}" type="number" min="0" value="0" style="width:48px"></label>`).join('')}<button class="b" data-a="cargo">Launch</button></div>`;
+  return h;
+}
+function panelCombat() {
+  const o = E.combatOptions(G);
+  return `<p class="dim">Pirates hold $${G.cache}B in their cache; destroying one earns half of it, a politics marker and a victory marker.</p>` + (o.length ? o.map((x, i) => `<div class="row"><button class="b" data-cb="${i}">${esc(x.label)}</button></div>`).join('') : '<p class="dim">No combat available: you need armed, unreserved crew vehicles in a flyby box with a pirate, or at an NPF base you are embargoing or at war with.</p>');
+}
+function panelExplore() {
+  const ex = G.ships.filter(s => E.exploreOptions(G, s).length);
+  return `<p class="dim">Each ship explores once. Value = world value + ship search value + technology + world card; each full 10 earns a tech marker and the remainder is a d10 chance of one more.</p>` + (ex.length ? ex.map(s => shipLine(s, `<button class="b" data-sel="${s.id}">Explore…</button>`)).join('') : '<p class="dim">No ship can explore right now.</p>');
+}
+function panelTrade() {
+  let h = '';
+  const founders = G.ships.filter(s => E.canFoundBase(G, s));
+  if (founders.length) h += `<h3>Found a base</h3>` + founders.map(s => { const c = E.canFoundBase(G, s); return shipLine(s, `<button class="b" data-found="${s.id}" ${s.cargo.SUP < c.cost ? 'disabled' : ''}>Found base (${c.cost} SUP)</button>`); }).join('');
+  else h += `<p class="dim">To found a base, bring an unreserved crew vehicle carrying enough SUP to a world with a base cost (orbit for Earth and the gas giants, surface elsewhere).</p>`;
+  h += G.bases.length ? `<h3>Your bases</h3>` + G.bases.map(b => `<div class="item"><span></span><div class="t"><b>${esc(b.name)}</b><small>${esc(D.W[b.w].n)} · ${b.set} settlement(s) · stock ${E.resTxt(b.stock)}</small></div><button class="b" data-selb="${b.id}">Open</button></div>`).join('') : '';
+  const npf = Object.keys(G.w).filter(k => G.w[k].npf && G.w[k].npfTrade && G.ships.some(s => s.cls === 'CV' && E.worldOf(s.loc) === k));
+  if (npf.length) h += `<h3>NPF trade</h3>` + npf.map(k => { const t = G.w[k].npfTrade; return `<div class="row"><span>${esc(D.FAC[G.w[k].npf].n)} at ${esc(D.W[k].n)}: ${t.side === 'buy' ? 'buy 2 ' + t.type + ' per $1B' : 'sell ' + t.type + ' for $2B each'}</span><button class="b" data-npft="${k}">Trade</button></div>`; }).join('');
+  return h;
+}
+function panelSel() {
+  if (!sel) return '<p class="dim">Tap a ship, base or world on the board.</p>';
+  if (sel.t === 'ship') { const s = G.ships.find(x => x.id === sel.id); return s ? panelShip(s) : '<p class="dim">That ship is gone.</p>'; }
+  if (sel.t === 'base') { const b = G.bases.find(x => x.id === sel.id); return b ? panelBase(b) : ''; }
+  if (sel.t === 'world') return panelWorld(sel.k);
+  return '';
+}
+function panelShip(s) {
+  let h = `<div class="row">${cssCounter(s.res ? s.img + '|back' : s.img, 72)}<div><h2>${esc(s.name)}</h2><p class="dim">${s.cls === 'CV' ? 'Crew vehicle CV-' + s.sz : s.kind} at ${esc(E.locName(s.loc))}${s.hold ? ' (' + s.hold + ' turns beyond box 6)' : ''}</p></div></div>`;
+  h += `<p class="dim">Search ${s.ev}${s.spec ? ' with spectrometer' : ''}${s.lab ? ' with mobile lab' : ''}${s.cap ? ` · cargo ${E.sum(s.cargo)}/${s.cap * E.cargoMul(G)}${s.prod ? ' (production)' : ''}` : ''}${s.cb ? ' · combat ' + s.cb : ''}${s.dr ? ' · ' + s.dr + ' drone squadron(s)' : ''}${s.res ? ' · <span class="chip warn">reserved</span>' : ''}${s.dmg ? ` · <span class="chip bad">${s.dmg} damage</span>` : ''}${s.probe ? ' · carrying probe ' + esc(s.probe) : ''}</p>`;
+  if (E.sum(s.cargo)) h += `<p>Cargo: ${resHTML(s.cargo)}</p>`;
+  if (s.cls === 'CV' || s.kind !== 'Probe') h += `<p class="dim">Engine failure ${Math.max(0, E.engRate(G, s))}%${s.cls === 'RE' ? ' · malfunction ' + E.malfRate(G, s) + '%' : ' · recall ' + E.recall(G) + '%'}</p>`;
+  if (G.phase === 'move' && G.turn.moved[s.id]) h += `<p class="dim">${esc(s.name)} has already moved this turn.</p>`;
+  if (G.phase === 'move') { const m = E.moves(G, s); const uniq = [...new Map(m.map(x => [x.dest, x])).values()]; h += m.length ? `<h3>Move to</h3>` + uniq.map(x => `<div class="row"><button class="b" data-mvto="${esc(x.dest)}">${esc(x.label)}</button><span class="dim">${x.eta ? x.eta + ' turns' : 'this turn'}${x.lv ? ' · LV-' + x.lv.n + (x.lv.buy ? ' (buy $' + x.lv.buy + 'B)' : ' from stock') : ''}${x.final ? ' · final move' : ''}</span></div>`).join('') : ''; }
+  if (G.phase === 'explore') {
+    const o = E.exploreOptions(G, s);
+    if (o.length) h += `<h3>Explore</h3>` + o.map((x, i) => `<div class="row"><button class="b" data-ex="${i}">${x.kind === 'probe' ? 'Probe ' : x.kind === 'produce' ? 'Produce ' + x.res + ' at ' : x.kind === 'harvest' ? 'Harvest asteroid' : ''}${x.w ? esc(D.W[x.w].n) : ''}</button><span class="dim">${x.kind === 'produce' ? 'production value ' + x.value : x.kind === 'harvest' ? '' : `${fieldTag(x.w)} · world ${G.w[x.w].v} · explore value <b class="mono" style="color:var(--ink)">${x.value}</b>${x.pen ? ' (−' + x.pen + ' distance)' : ''}`}</span></div>`).join('');
+    if (s.kind === 'Flyby' && E.P(s.loc).t === 'fly' && o.length) h += `<div class="row"><button class="b" data-fskip="${s.id}">Transfer outward without exploring</button></div>`;
+  }
+  if (G.phase === 'build' && s.loc === 'earth' && s.cap) h += `<h3>Buy cargo on Earth ($1B each)</h3><div class="row">${['ORE', 'SUP', 'FUEL'].map(r => `<button class="b" data-buyc="${r}">+1 ${RS(r, '')}</button>`).join('')}<button class="b" data-buyc5="SUP">Fill with SUP</button>${E.sum(s.cargo) ? `<button class="b" data-sellc="1">Sell cargo</button>` : ''}</div>`;
+  const b = E.atOwnBase(G, s);
+  if (b && s.cap) h += `<h3>At ${esc(b.name)}</h3><div class="row"><button class="b" data-unload="${s.id}" ${E.sum(s.cargo) ? '' : 'disabled'}>Unload all</button>${['ORE', 'SUP', 'FUEL'].map(r => `<button class="b" data-loadr="${r}" ${b.stock[r] ? '' : 'disabled'}>Load ${r}</button>`).join('')}</div>`;
+  if (G.phase === 'trade' && E.canFoundBase(G, s)) { const c = E.canFoundBase(G, s); h += `<div class="row"><button class="b pri" data-found="${s.id}" ${s.cargo.SUP < c.cost ? 'disabled' : ''}>Found a base here (${c.cost} SUP)</button></div>`; }
+  h += `<div class="row" style="margin-top:14px"><button class="b" data-scrap="${s.id}">${s.cls === 'CV' && E.atOwnBase(G, s) || s.loc === 'earth' ? 'Scrap' : 'Destroy'}</button></div>`;
+  return h;
+}
+function panelBase(b) {
+  const sr = E.setRow(b.set);
+  let h = `<h2>${esc(b.name)}</h2><p class="dim">${esc(D.W[b.w].n)} · founded ${b.built} · ${b.set} settlement(s)${sr ? ` (trade ${sr[1]}, +${sr[2]} resources, +${sr[3]} tech)` : ''}</p><p>Stock ${resHTML(b.stock)}</p>`;
+  h += `<h3>Facilities</h3>` + E.upgradeOptions(G, b).map(o => `<div class="item"><span class="chip ${o.lv ? 'ok' : ''}">${o.lv ? D.FACIL[o.c][o.lv - 1].n : 'None'}</span><div class="t">${b.dmg[o.c] ? `<span class="chip bad">${b.dmg[o.c]} damage</span> ` : ''}<small>${o.next ? 'Next: ' + esc(o.next.n) + ' ' + resHTML(o.next.c) : 'Fully built'}</small></div><div class="row">${b.dmg[o.c] ? `<button class="b" data-rf="${o.c}">Repair</button>` : ''}<button class="b" data-fac="${o.c}" ${o.why || G.phase !== 'trade' ? 'disabled' : ''} title="${esc(o.why || '')}">Build</button></div></div>`).join('');
+  h += `<div class="row"><button class="b" data-settle="1" ${G.phase !== 'trade' ? 'disabled' : ''}>Add settlement ${resHTML(D.SETTLE_COST)}</button>${D.TERRA[b.w] ? `<button class="b" data-terra="1" ${G.phase !== 'trade' || !E.has(G, 'terra') ? 'disabled' : ''}>Terraform (${G.w[b.w].terra}/${D.TERRA[b.w]})</button>` : ''}</div>`;
+  h += `<p class="dim">Produces: ${(() => { const o = E.baseOutput(G, b); return o ? o.n + ' ' + (o.type === 'tech' ? E.FN[o.field] + ' points' : o.type) : 'nothing yet (needs a Mining Station or Research Lab)'; })()} each decade.</p>`;
+  if (b.trade) h += `<h3>Trade marker</h3><div class="row"><span>${b.trade.side === 'buy' ? 'Buy 2 ' + b.trade.type + ' per $1B' : 'Sell ' + b.trade.type + ' for $2B each'} (up to ${E.tradeLimitOwn(b)})</span><button class="b" data-tradeb="${b.id}" ${G.phase !== 'trade' ? 'disabled' : ''}>Trade</button></div>`;
+  return h;
+}
+function panelWorld(k) {
+  const w = D.W[k], ws = G.w[k], c = E.cardFor(G, k);
+  let h = `<h2>${esc(w.n)}</h2><p class="dim">${D.SYS[w.sys].n} system · <span class="f-${w.f}">${E.FN[w.f]}</span> · exploration <b>${ws.v}</b> (started ${w.v}) · life ${w.life}%${w.base ? ' · base cost ' + w.base : ' · no bases'}</p>`;
+  h += `<p>Intrinsic production ${resHTML(w.prod)}</p>`;
+  if (c) h += `<h3>World card: ${esc(c.n)}</h3><p class="dim">Production ${resHTML(c.prod)} · research ${c.rv} ${E.FN[c.rf]} · exploration bonus ${esc(Object.entries(c.bonus).map(([a, v]) => '+' + v + ' ' + a).join(', '))}</p>`;
+  if (ws.sol || ws.life) h += `<p><span class="chip ok">${ws.life ? 'Existing life' : 'Signs of life'}</span></p>`;
+  if (ws.npf) h += `<p>${esc(D.FAC[ws.npf].n)} NPF base (relations ${D.REL[G.rel[ws.npf]]})${ws.npfTrade ? ' · trade marker: ' + (ws.npfTrade.side === 'buy' ? 'buy 2 ' : 'sell ') + ws.npfTrade.type : ''}${ws.blk ? ' · blockaded' : ''}</p>`;
+  if (D.TERRA[k]) h += `<p class="dim">Terraforming ${ws.terra}/${D.TERRA[k]}</p>`;
+  const tags = { rad: 'Severe radiation', severeAtm: 'Severe atmosphere', gas: 'Gas giant', minimal: 'Minimal gravity' };
+  const t = w.tags.filter(x => tags[x]).map(x => tags[x]); if (t.length) h += `<p class="dim">${t.join(' · ')}</p>`;
+  if (G.ask[0] && G.ask[0].k === 'publicity' && ws.v > 0) h += `<button class="b pri" data-pub="${k}">Raise ${esc(w.n)} by 2 (Publicity Campaign)</button>`;
+  return h;
+}
+function panelFac() {
+  const F = D.FAC[G.f], [lre, lcv, lb] = E.lims(G);
+  return `<h2>${esc(F.n)}</h2><img class="board-img" src="boards/${G.f}.webp" alt="${esc(F.n)} faction sheet">
+  <p class="dim">${esc(F.ab)}</p>
+  <table><tr><th>Support</th><th>Used</th><th>Limit</th></tr><tr><td>Robotic explorers</td><td class="mono">${E.nonProbeRE(G)}</td><td class="mono">${lre}</td></tr><tr><td>Crew vehicles</td><td class="mono">${E.nCV(G)}</td><td class="mono">${lcv}</td></tr><tr><td>Bases</td><td class="mono">${E.nBase(G)}</td><td class="mono">${lb}</td></tr></table>
+  <h3>Foreign relations</h3><table>${Object.keys(G.rel).map(k => `<tr><td>${esc(D.FAC[k].n)}</td><td>${D.REL[G.rel[k]]}</td></tr>`).join('')}</table>
+  <h3>Policies</h3><p class="dim">${D.POL.filter(p => E.polLv(G, p.k)).map(p => D.POL_LV[E.polLv(G, p.k) - 1] + p.n).join(', ') || 'none'}</p>
+  <h3>Crew range ${E.range(G) >= 99 ? 'unlimited' : E.range(G)} · transfers ×${E.mult(G)} · recall ${E.recall(G)}% · malfunction ${E.malfBase(G)}% · engine ${E.engBase(G)}%</h3>
+  <h3>Launch vehicles on Earth</h3><p class="dim">${lvTxt()} (counters: ${Object.entries(F.lvs).map(([z, n]) => 'LV-' + z + ' ×' + n).join(', ')})</p>`;
+}
+function panelTech() {
+  const can = G.estep === 'tech';
+  return `<p class="dim">${can ? 'Develop technologies now.' : 'Technologies are developed in the economic phase (every decade from 2040).'} Bank: ${E.FIELDS.map(f => `<span class="f-${f}">${G.bank[f]} ${E.FN[f]}</span>`).join(', ')}. Each undeveloped technology costs 3 VP at the end.</p>` +
+    E.FIELDS.map(f => `<h3 class="f-${f}">${E.FN[f]}</h3>` + D.TECH.filter(t => t.f === f).map(t => { const st = E.techState(G, t), c = E.techCost(G, t); return `<div class="tech ${st}"><b>${esc(t.n)}</b><span>${st === 'have' ? '<span class="chip ok">Developed</span>' : `<button class="b" data-dev="${t.k}" ${!can || st !== 'open' || G.bank[f] < c ? 'disabled' : ''}>${c} pts</button>`}</span><small>${esc(t.d)}${st === 'locked' && t.r.length ? ' · needs ' + t.r.filter(x => !G.tech[x]).map(x => D.TECHK[x].n).join(', ') : ''}</small></div>`; }).join('')).join('');
+}
+function panelLog() { return `<div id="log">${G.log.slice(0, 160).map(l => `<p class="${l.c}">${esc(l.t)}</p>`).join('')}</div>`; }
+
+const fieldTag = w => w === 'alp' ? '<span class="dim">random field</span>' : `<span class="f-${D.W[w].f}">${E.FN[D.W[w].f]}</span>`;
+function exploreConfirm() {
+  const s = G.ships.find(x => x.id === ui.s), o = ui.o, v = Math.max(0, o.value), auto = Math.floor(v / 10), rem = v % 10;
+  const chance = rem ? rem * 10 : 0;
+  const lab = s.cls === 'CV' && s.lab && o.kind !== 'probe';
+  return `<h2>Explore ${esc(D.W[o.w].n)}?</h2>
+  <p>${esc(D.W[o.w].n)}: ${fieldTag(o.w)} research, world value <b class="mono">${G.w[o.w].v}</b>.</p>
+  <p>${o.kind === 'probe' ? 'Probe ' + esc(s.probe) + ' (from ' + esc(s.name) + ')' : esc(s.name)} explores at value <b class="mono">${v}</b>${o.pen ? ` (includes −${o.pen} for transfer box distance)` : ''}.</p>
+  <p class="dim">${auto ? `${auto} marker(s) earned automatically. ` : ''}${rem ? `Roll a d10: ${rem} or less earns ${auto ? 'one more' : 'a'} marker (${chance}%${lab ? ', mobile lab rolls two dice and keeps the better' : ''}).` : 'No roll needed.'}</p>
+  <p class="dim">${o.kind === 'probe' ? 'The probe is spent afterwards.' : s.cls === 'CV' ? `Then a recall check (${E.recall(G)}%).` : `Then a malfunction check (${E.malfRate(G, s)}%).`}</p>
+  <div class="row"><button class="b pri" data-ui="go">Explore</button><button class="b" data-ui="cancel">Cancel</button></div>`;
+}
+function ask(title, body, fn, go) { ui = { k: 'gen', title, body, fn, go: go || 'Confirm' }; renderAsk(); }
+const costLine = (cost, where) => where === 'earth' || !where ? `Costs ${resHTML(cost)}, bought on Earth for <b>$${E.sum(cost)}B</b> (you have $${G.cash}B).` : `Costs ${resHTML(cost)} from ${esc(where.name)}'s stock (it has ${resHTML(where.stock)}).`;
+function dieFace(n, ok) { return `<span class="die ${ok ? 'ok' : 'bad'}">${n}</span>`; }
+function exploreResult() {
+  const L = G.lastRoll;
+  if (L.kind) return `<h2>${esc(L.title)}</h2><div class="row" style="gap:14px;align-items:center">${dieFace(L.r, L.good)}<div><p style="margin:0"><b>${esc(L.head)}</b></p><p class="dim" style="margin:0">${esc(L.sub)}</p></div></div>${L.extra.map(t => `<p class="dim">${esc(t)}</p>`).join('')}<div class="row"><button class="b pri" data-ui="ok">Continue</button></div>`;
+  return `<h2>${esc(L.who)} explores ${esc(L.world)}</h2>
+  <div class="row" style="gap:14px;align-items:center">${L.rem ? dieFace(L.r, L.hit) + (L.r2 != null ? `<span class="dim">best of ${L.r1} and ${L.r2}</span>` : '') : ''}<div><p style="margin:0"><b>${L.ok ? 'Success' : 'Failure'}</b> at value ${L.val}${L.rem ? `: needed ${L.rem} or less, rolled ${L.r}` : ''}.</p>
+  <p class="dim" style="margin:0">${L.got.length ? 'Earned ' + L.got.map(v => v + ' ' + E.FN[L.field]).join(', ') + '.' : 'No tech markers.'}</p></div></div>
+  ${L.extra.map(t => `<p class="dim">${esc(t)}</p>`).join('')}
+  <div class="row"><button class="b pri" data-ui="ok">Continue</button></div>`;
+}
+function renderAsk() {
+  const m = $('modal');
+  if (ui) {
+    $('mbox').innerHTML = ui.k === 'confirm' ? exploreConfirm() : ui.k === 'gen' ? `<h2>${esc(ui.title)}</h2>${ui.body}<div class="row"><button class="b pri" data-ui="gen">${esc(ui.go)}</button><button class="b" data-ui="cancel">Cancel</button></div>` : exploreResult(); m.hidden = false;
+    $('mbox').querySelectorAll('[data-ui]').forEach(b => b.onclick = () => {
+      const k = b.dataset.ui;
+      if (k === 'gen') { const fn = ui.fn; ui = null; G.lastRoll = null; act(fn); if (G.lastRoll && G.lastRoll.kind) { ui = { k: 'result' }; render(); } return; }
+      if (k === 'go') { const s = G.ships.find(x => x.id === ui.s), o = ui.o; G.lastRoll = null; const r = E.explore(G, s, o); if (typeof r === 'string') { ui = null; toast(r); } else ui = G.lastRoll ? { k: 'result' } : null; save(); render(); return; }
+      ui = null; render();
+    });
+    return;
+  }
+  const a = G.ask[0];
+  if (!a) { m.hidden = true; return; }
+  let h = `<h2>Decision</h2><p>${esc(a.text)}</p>`;
+  if (a.k === 'pirate') h += `<p class="dim">Pirate demand roll: ${a.roll}.</p><div class="row"><button class="b" data-ans="pay">Pay $${a.roll}B and pass</button><button class="b" data-ans="remove">Pay $${a.roll * 2}B to drive it off</button><button class="b" data-ans="fight">Fight</button><button class="b" data-ans="surrender">Surrender</button><button class="b" data-ans="stay">Stay put</button></div>`;
+  if (a.k === 'card') h += `<div class="row">${a.opts.map(o => `<button class="b" data-ans="${esc(o)}">Place ${esc(o)}</button>`).join('')}<button class="b" data-ans="">Return to deck</button></div>`;
+  if (a.k === 'flyby') h += `<div class="row">${a.opts.map(o => `<button class="b" data-ans="${o.sys}">${D.SYS[o.sys].n} (${o.eta} turns)</button>`).join('')}</div>`;
+  if (a.k === 'immigration') h += `<div class="row">${G.bases.map(b => `<button class="b" data-ans="${b.id}">${esc(b.name)}</button>`).join('')}</div>`;
+  if (a.k === 'publicity') h += `<p class="dim">Tap a world on the board, then use the button in the Selected tab. Or pick one here:</p><select id="pubsel">${Object.keys(G.w).filter(k => G.w[k].v > 0).map(k => `<option value="${k}">${esc(D.W[k].n)} (${G.w[k].v})</option>`).join('')}</select> <button class="b" data-ans="__pub">Raise by 2</button>`;
+  $('mbox').innerHTML = h; m.hidden = false;
+  $('mbox').querySelectorAll('[data-ans]').forEach(b => b.onclick = () => { let v = b.dataset.ans; if (v === '__pub') v = $('pubsel').value; if (a.k === 'card' && v === '') v = null; act(() => E.answer(G, v)); });
+}
+
+function wire() {
+  const P = $('panel'), on = (sel_, fn) => P.querySelectorAll(sel_).forEach(b => b.onclick = () => fn(b));
+  const ship = () => sel && sel.t === 'ship' && G.ships.find(x => x.id === sel.id);
+  on('[data-a="redraw"]', () => ask('Redraw your mission?', `<p>Return ${esc(E.misTxt(G.mis.mine))} to the pool and draw a new one for <b>2 politics markers</b> (you have ${G.polm}).</p>`, () => E.redrawMission(G), 'Redraw'));
+  on('[data-a="buyvm"]', () => ask('Buy a victory marker?', `<p>Spend <b>4 politics markers</b> (you have ${G.polm}) for 1 victory marker, worth 1 VP at the end.</p>`, () => E.buyVictory(G), 'Buy'));
+  on('[data-a="tabtech"]', () => { tab = 'tech'; render(); });
+  on('[data-dip]', b => act(() => E.setDiplomacy(G, b.dataset.dip, +b.dataset.d)));
+  P.querySelectorAll('[data-out]').forEach(s => s.onchange = () => { G.bases.find(b => b.id === s.dataset.out).out = s.value; save(); render(); });
+  on('[data-a="transfer"]', () => { const f = $('tf-from').value, t = $('tf-to').value, ty = $('tf-type').value, n = +$('tf-n').value, nm = v => v === 'earth' ? 'Earth' : G.bases.find(x => x.id === v).name;
+    ask(`Transfer ${n} ${ty}?`, `<p>From ${esc(nm(f))} to ${esc(nm(t))}.${f === 'earth' ? ` Bought on Earth for <b>$${n}B</b>.` : ''}${t === 'earth' ? ` Sold on Earth at 2 for $1B.` : ''}</p>`, () => E.transferRes(G, f, t, ty, n), 'Transfer'); });
+  on('[data-pc]', b => act(() => { if (b.dataset.pc === 'allcash') { while (G.polm) E.convertPolitics(G, 'cash'); return null; } return E.convertPolitics(G, b.dataset.pc); }));
+  on('[data-tp]', b => { const f = b.dataset.tp, buy = b.dataset.d === 'buy'; ask(buy ? `Buy 1 ${E.FN[f]} point?` : `Sell 2 ${E.FN[f]} points?`, `<p>${buy ? `Pay <b>$1B</b> (you have $${G.cash}B) for 1 ${E.FN[f]} point.` : `Trade 2 of your ${G.bank[f]} ${E.FN[f]} points for <b>$1B</b>.`}</p>`, () => E.tradePoints(G, f, b.dataset.d), buy ? 'Buy' : 'Sell'); });
+  on('[data-pol]', b => { const p = D.POL.find(x => x.k === b.dataset.pol), lv = E.polLv(G, p.k); ask(`Adopt ${D.POL_LV[lv]}${p.n}?`, `<p>${esc(p.d[lv])}.</p><p class="dim">You can adopt one policy per decade.</p>`, () => E.choosePolicy(G, p.k), 'Adopt'); });
+  on('[data-dev]', b => { const t = D.TECHK[b.dataset.dev], c = E.techCost(G, t); ask(`Develop ${t.n}?`, `<p>${esc(t.d)}.</p><p>Costs <b>${c} ${E.FN[t.f]} points</b> (you have ${G.bank[t.f]}).</p>`, () => E.develop(G, t.k), 'Develop'); });
+  const lvAsk = (z, where) => { const bs = where === 'earth' ? null : G.bases.find(x => x.id === where); ask(`Build LV-${z}${bs ? ' at ' + bs.name : ''}?`, `<p>${costLine({ ORE: 1, FUEL: z }, bs)}</p><p class="dim">Launch vehicles in use: ${Object.entries(E.lvCount(G)).map(([k, n]) => 'LV-' + k + ' ' + n + '/' + (D.FAC[G.f].lvs[k] || 0)).join(', ')}.</p>`, () => E.buildLV(G, z, where), 'Build'); };
+  on('[data-lv]', b => lvAsk(+b.dataset.lv, 'earth'));
+  on('[data-lvb]', b => lvAsk(+b.dataset.lvb, b.dataset.base));
+  const unitAsk = (key, reserved) => { const o = E.buildOptions(G, 'earth').find(x => x.key === key); const cost = { ...o.cost }; if (reserved) { cost.SUP = Math.max(0, cost.SUP - 1); cost.FUEL = Math.max(0, cost.FUEL - 1); }
+    ask(`Build ${o.kind} ${o.u.n}${reserved ? ' (reserved)' : ''}?`, `<div class="row">${cssCounter(key.split('|')[1] ? o.kind + '|' + o.u.n : '', 64)}<p class="dim" style="margin:0">Search ${o.u.ev}${o.u.spec ? ', spectrometer' : ''}${o.u.lab ? ', mobile lab' : ''}${o.u.cargo ? ' · cargo ' + o.u.cargo : ''}${o.u.cb ? ' · combat ' + o.u.cb : ''}</p></div><p>${costLine(cost, 'earth')}</p>${reserved ? '<p class="dim">Built on its reserved side: 1 SUP and 1 Fuel cheaper, and the first unreserve is included.</p>' : ''}${o.kind !== 'Probe' ? '<p class="dim">It still needs a launch vehicle to leave Earth.</p>' : ''}`, () => E.buildUnit(G, key, 'earth', reserved), 'Build'); };
+  on('[data-build]', b => unitAsk(b.dataset.build, false));
+  on('[data-buildr]', b => unitAsk(b.dataset.buildr, true));
+  on('[data-unres]', b => { const s = G.ships.find(x => x.id == b.dataset.unres); ask(`Unreserve ${s.name}?`, `<p>Costs <b>$2B</b> on Earth, or 1 SUP and 1 Fuel at a base.</p>`, () => E.unreserve(G, s), 'Unreserve'); });
+  on('[data-reserve]', b => act(() => E.setReserve(G, G.ships.find(s => s.id == b.dataset.reserve))));
+  on('[data-repair]', b => { const s = G.ships.find(x => x.id == b.dataset.repair); ask(`Repair ${s.name}?`, `<p>${s.dmg} damage. Repairs cost 1 Ore per marker ($1B each on Earth); the facility limits how many per turn.</p>`, () => E.repair(G, s), 'Repair'); });
+  on('[data-sel]', b => { sel = { t: 'ship', id: +b.dataset.sel }; tab = 'sel'; render(); });
+  on('[data-selb]', b => { sel = { t: 'base', id: b.dataset.selb }; tab = 'sel'; render(); });
+  on('[data-mvto]', b => { const s = ship(); chooseAndMove(s, b.dataset.mvto, E.moves(G, s).filter(m => m.dest === b.dataset.mvto)); });
+  on('[data-ex]', b => { const s = ship(); const o = E.exploreOptions(G, s)[+b.dataset.ex];
+    if (o.kind === 'explore' || o.kind === 'probe') { ui = { k: 'confirm', s: s.id, o }; renderAsk(); return; }
+    const room = s.cap * E.cargoMul(G) - E.sum(s.cargo);
+    if (o.kind === 'produce') ask(`Produce ${o.res} at ${D.W[o.w].n}?`, `<p>${esc(s.name)} produces 1 ${o.res} automatically. Then roll a d10${E.has(G, 'ref') ? ' (−1 for Space Refining)' : ''}: ${o.value % 10 || o.value} or less adds 1 more, and a 1 adds another.</p><p class="dim">Production value ${o.value}. Cargo room ${room}. Then a recall check (${E.recall(G)}%).</p>`, () => E.explore(G, s, o), 'Produce');
+    else ask('Harvest the asteroid?', `<p>${esc(s.name)} rolls a d10 on the asteroid harvest table: 1–3 SUP, 4–6 Fuel, 7–10 Ore (3 to 6 units), and earns 1 victory marker.</p><p class="dim">Cargo room ${room}. Then a recall check (${E.recall(G)}%).</p>`, () => E.explore(G, s, o), 'Harvest'); });
+  on('[data-fskip]', b => act(() => E.flybySkip(G, ship())));
+  on('[data-buyc]', b => { const s = ship(), r = b.dataset.buyc; ask(`Buy 1 ${r} for ${s.name}?`, `<p>${RS(r, 1)} costs <b>$1B</b> on Earth (you have $${G.cash}B). It goes into ${esc(s.name)}'s hold.</p>`, () => E.buyCargo(G, s, r, 1), 'Buy'); });
+  on('[data-buyc5]', b => { const s = ship(), n = Math.min(G.cash, s.cap * E.cargoMul(G) - E.sum(s.cargo)); ask(`Fill ${s.name} with SUP?`, `<p>${RS('SUP', n)} for <b>$${n}B</b> (you have $${G.cash}B).</p>`, () => E.buyCargo(G, s, 'SUP', 99), 'Buy'); });
+  on('[data-sellc]', () => { const s = ship(); const got = ['ORE', 'SUP', 'FUEL'].reduce((a, r) => a + Math.floor(s.cargo[r] / 2), 0); ask(`Sell ${s.name}'s cargo?`, `<p>Earth buys 2 of a type for $1B: ${resHTML(s.cargo)} sells for <b>$${got}B</b>. Odd leftovers stay aboard.</p>`, () => E.sellCargo(G, s), 'Sell'); });
+  on('[data-unload]', () => act(() => E.unload(G, ship(), E.atOwnBase(G, ship()))));
+  on('[data-loadr]', b => act(() => E.load(G, ship(), E.atOwnBase(G, ship()), b.dataset.loadr, 99)));
+  on('[data-found]', b => { const s = G.ships.find(x => x.id == b.dataset.found), c = E.canFoundBase(G, s); ask(`Found a base at ${D.W[c.w].n}?`, `<p>Uses <b>${c.cost} SUP</b> from ${esc(s.name)}'s hold (it carries ${s.cargo.SUP}). The base takes the next name on your faction sheet.</p>`, () => E.foundBase(G, s), 'Found base'); });
+  on('[data-scrap]', b => { const s = G.ships.find(x => x.id == b.dataset.scrap); if (b.dataset.confirm) { act(() => E.scrap(G, s)); sel = null; } else { b.dataset.confirm = 1; b.textContent = 'Tap again to confirm'; } });
+  const base = () => sel && sel.t === 'base' && G.bases.find(x => x.id === sel.id);
+  on('[data-fac]', b => { const bs = base(), o = E.upgradeOptions(G, bs).find(x => x.c === b.dataset.fac); ask(`Build ${o.next.n} at ${bs.name}?`, `<p>${costLine(o.next.c, bs)}</p><p class="dim">Each base builds one facility level or settlement per turn.</p>`, () => E.buildFacility(G, bs, o.c), 'Build'); });
+  on('[data-rf]', b => { const bs = base(); ask(`Repair at ${bs.name}?`, `<p>Removes 1 damage marker for 1 Ore from ${esc(bs.name)}'s stock (it has ${bs.stock.ORE}).</p>`, () => E.repairFacility(G, bs, b.dataset.rf), 'Repair'); });
+  on('[data-settle]', () => { const bs = base(); ask(`Add a settlement at ${bs.name}?`, `<p>${costLine(D.SETTLE_COST, bs)}</p><p class="dim">${bs.name} has ${bs.set} settlement(s).</p>`, () => E.buildSettlement(G, bs), 'Build'); });
+  on('[data-terra]', () => { const bs = base(), c = (E.has(G, 'atm') ? 3 : 4) + (G.turn.terraBuys[bs.id] || 0); ask(`Buy a terraforming point for ${D.W[bs.w].n}?`, `<p>Costs <b>${c} SUP</b> from ${esc(bs.name)} (it has ${bs.stock.SUP}). Each extra point this turn costs 1 SUP more.</p>`, () => E.terraform(G, bs), 'Buy'); });
+  const tradeAsk = (where, tm, limit, title) => ask(title, `<p>${tm.side === 'buy' ? `Buy up to ${limit} ${tm.type} at 2 per $1B (you have $${G.cash}B).` : `Sell up to ${limit} ${tm.type} at $2B each.`}</p><p class="dim">The trade marker is used up after this trade.</p>`, () => E.trade(G, where, 99), tm.side === 'buy' ? 'Buy' : 'Sell');
+  on('[data-tradeb]', b => { const bs = G.bases.find(x => x.id === b.dataset.tradeb); tradeAsk({ base: bs.id }, bs.trade, E.tradeLimitOwn(bs), `Trade at ${bs.name}?`); });
+  on('[data-npft]', b => { const k = b.dataset.npft, x = G.w[k]; tradeAsk({ w: k }, x.npfTrade, (D.FAC[G.f].rel[G.rel[x.npf]] || [0, 0])[1], `Trade with ${D.FAC[x.npf].n} at ${D.W[k].n}?`); });
+  on('[data-cb]', b => act(() => E.combatAct(G, E.combatOptions(G)[+b.dataset.cb])));
+  on('[data-pub]', b => act(() => E.answer(G, b.dataset.pub)));
+  on('[data-a="cargo"]', () => { const load = { ORE: +$('cf-ORE').value || 0, SUP: +$('cf-SUP').value || 0, FUEL: +$('cf-FUEL').value || 0 }, bs = G.bases.find(x => x.id === $('cf-base').value), lv = E.launchLVs(G, 'earth', 1)[0];
+    ask(`Cargo flight to ${bs.name}?`, `<p>${resHTML(load)} bought on Earth for <b>$${E.sum(load)}B</b>${lv ? `, on LV-${lv.n} ${lv.stock ? 'from stock' : `(new, $${lv.buy}B)`}` : ''}.</p><p class="dim">Engine failure ${E.engBase(G)}% loses the cargo.</p>`, () => E.shipCargo(G, bs.id, load), 'Launch'); });
+}
+boot().catch(e => { document.body.insertAdjacentHTML('beforeend', `<p style="position:fixed;left:16px;bottom:16px;color:#ef6b5b">The game failed to load: ${esc(e.message)}</p>`); console.error(e); });
+</script>
