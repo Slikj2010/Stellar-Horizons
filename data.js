@@ -194,6 +194,7 @@ D.TECH_POS = {
   icd: [10, 0], acd: [10, 1], qc: [10, 2], aqc: [10, 3], nano: [10, 4], ai: [10, 5],
   msl: [11, 0], amsl: [11, 1], fd: [11, 2], cc: [11, 3], bd: [11, 4],
 };
+// LV counters are two-sided: lvs.13 = LV-1/LV-3 counters, lvs.14 = LV-1/LV-4, lvs.24 = LV-2/LV-4
 D.TECHK = Object.fromEntries(D.TECH.map(t => [t.k, t]));
 
 // Policies: chain of 3 (basic, vigorous, unified)
@@ -210,13 +211,13 @@ D.POL_LV = ['', 'Vigorous ', 'Unified '];
 // Factions. lim = support limits [RE, CV, Base]; pr = Earth production [funds, Phy, Eng, Bio] for 2030/2060/2090/2120+
 // rel = foreign relations income/trade at Alliance, Collaboration, Free Trade, Neutral ([+$B, trade limit])
 D.FAC = {
-  na: { n: 'North America', pre: 'NA', c: '#5b8fd1', cash: 20, lim: [3, 1, 1], pr: [[30, 2, 3, 3], [33, 3, 4, 3], [37, 4, 4, 4], [40, 5, 6, 6]], rel: [[1, 6], [1, 4], [1, 4], [0, 2]], ab: 'Innovative: subtract 2 from the cost of a technology if you are the first to develop it.', st: ['suit', 'orb', 'astro', 'ion', 'cv', 'reuse', 'msl'], pol: [], lvs: { 1: 2, 2: 3, 3: 1, 4: 2 } },
-  ru: { n: 'Russia', pre: 'Ru', c: '#d4553a', cash: 30, lim: [1, 2, 2], pr: [[28, 3, 2, 4], [31, 3, 3, 4], [34, 4, 4, 4], [36, 5, 5, 6]], rel: [[1, 6], [1, 4], [1, 4], [0, 2]], ab: 'Robust Crews: crew recall rate -5%.', st: ['suit', 'orb', 'ion', 'cv', 'msl'], pol: [], lvs: { 1: 2, 2: 3, 3: 2, 4: 1 } },
-  eu: { n: 'Europe', pre: 'Eu', c: '#4d7fd6', cash: 30, lim: [2, 1, 1], pr: [[28, 5, 2, 2], [30, 5, 4, 3], [34, 7, 4, 4], [36, 8, 5, 5]], rel: [[2, 6], [1, 6], [1, 4], [0, 2]], ab: 'Astronomy: roll an extra die for space telescope exploration and keep the better.', st: ['ion'], pol: [], lvs: { 1: 2, 2: 3, 3: 2, 4: 1 } },
-  jp: { n: 'Japan', pre: 'Jp', c: '#e0574a', cash: 28, lim: [1, 1, 1], pr: [[27, 3, 4, 2], [28, 4, 5, 2], [32, 5, 6, 4], [35, 6, 8, 5]], rel: [[2, 6], [1, 6], [1, 4], [0, 4]], ab: 'Robotic Excellence: robotic malfunction rate -2%.', st: [], pol: [], lvs: { 1: 2, 2: 3, 3: 2, 4: 1 } },
-  cn: { n: 'China', pre: 'Ci', c: '#e2b33a', cash: 27, lim: [2, 2, 1], pr: [[29, 2, 3, 2], [32, 3, 4, 4], [36, 4, 5, 4], [40, 5, 7, 6]], rel: [[1, 6], [1, 4], [1, 4], [0, 0]], ab: 'Reverse Engineering: technology costs -4 (instead of -3) per other faction that has it.', st: ['orb', 'cv'], pol: [], lvs: { 1: 2, 2: 3, 3: 2, 4: 1 } },
-  as: { n: 'Asia', pre: 'As', c: '#e38a32', cash: 25, lim: [2, 3, 2], pr: [[25, 1, 2, 1], [28, 2, 3, 3], [32, 3, 4, 3], [34, 4, 5, 4]], rel: [[2, 6], [2, 6], [1, 6], [0, 4]], ab: 'Strategic Resources: +1 resource production at bases.', st: ['cv'], pol: [], lvs: { 1: 2, 2: 3, 3: 2, 4: 1 } },
-  sa: { n: 'South America & Africa', pre: 'SA', c: '#46a86a', cash: 26, lim: [2, 2, 2], pr: [[26, 2, 2, 1], [29, 3, 3, 3], [33, 4, 4, 4], [35, 6, 5, 5]], rel: [[2, 6], [2, 4], [1, 6], [0, 4]], ab: 'Equatorial Launch Sites: launch vehicles carry one extra resource from Earth.', st: [], pol: ['dip'], lvs: { 1: 2, 2: 3, 3: 2, 4: 1 } },
+  na: { n: 'North America', pre: 'NA', c: '#5b8fd1', cash: 20, lim: [3, 1, 1], pr: [[30, 2, 3, 3], [33, 3, 4, 3], [37, 4, 4, 4], [40, 5, 6, 6]], rel: [[1, 6], [1, 4], [1, 4], [0, 2]], ab: 'Innovative: subtract 2 from the cost of a technology if you are the first to develop it.', st: ['suit', 'orb', 'astro', 'ion', 'cv', 'reuse', 'msl'], pol: [], lvs: { 13: 1, 14: 1, 24: 3 } },
+  ru: { n: 'Russia', pre: 'Ru', c: '#d4553a', cash: 30, lim: [1, 2, 2], pr: [[28, 3, 2, 4], [31, 3, 3, 4], [34, 4, 4, 4], [36, 5, 5, 6]], rel: [[1, 6], [1, 4], [1, 4], [0, 2]], ab: 'Robust Crews: crew recall rate -5%.', st: ['suit', 'orb', 'ion', 'cv', 'msl'], pol: [], lvs: { 13: 2, 14: 0, 24: 3 } },
+  eu: { n: 'Europe', pre: 'Eu', c: '#4d7fd6', cash: 30, lim: [2, 1, 1], pr: [[28, 5, 2, 2], [30, 5, 4, 3], [34, 7, 4, 4], [36, 8, 5, 5]], rel: [[2, 6], [1, 6], [1, 4], [0, 2]], ab: 'Astronomy: roll an extra die for space telescope exploration and keep the better.', st: ['ion'], pol: [], lvs: { 13: 2, 14: 0, 24: 3 } },
+  jp: { n: 'Japan', pre: 'Jp', c: '#e0574a', cash: 28, lim: [1, 1, 1], pr: [[27, 3, 4, 2], [28, 4, 5, 2], [32, 5, 6, 4], [35, 6, 8, 5]], rel: [[2, 6], [1, 6], [1, 4], [0, 4]], ab: 'Robotic Excellence: robotic malfunction rate -2%.', st: [], pol: [], lvs: { 13: 2, 14: 0, 24: 3 } },
+  cn: { n: 'China', pre: 'Ci', c: '#e2b33a', cash: 27, lim: [2, 2, 1], pr: [[29, 2, 3, 2], [32, 3, 4, 4], [36, 4, 5, 4], [40, 5, 7, 6]], rel: [[1, 6], [1, 4], [1, 4], [0, 0]], ab: 'Reverse Engineering: technology costs -4 (instead of -3) per other faction that has it.', st: ['orb', 'cv'], pol: [], lvs: { 13: 2, 14: 0, 24: 3 } },
+  as: { n: 'Asia', pre: 'As', c: '#e38a32', cash: 25, lim: [2, 3, 2], pr: [[25, 1, 2, 1], [28, 2, 3, 3], [32, 3, 4, 3], [34, 4, 5, 4]], rel: [[2, 6], [2, 6], [1, 6], [0, 4]], ab: 'Strategic Resources: +1 resource production at bases.', st: ['cv'], pol: [], lvs: { 13: 2, 14: 0, 24: 3 } },
+  sa: { n: 'South America & Africa', pre: 'SA', c: '#46a86a', cash: 26, lim: [2, 2, 2], pr: [[26, 2, 2, 1], [29, 3, 3, 3], [33, 4, 4, 4], [35, 6, 5, 5]], rel: [[2, 6], [2, 4], [1, 6], [0, 4]], ab: 'Equatorial Launch Sites: launch vehicles carry one extra resource from Earth.', st: [], pol: ['dip'], lvs: { 13: 2, 14: 0, 24: 3 } },
 };
 D.FAC_ORDER = ['na', 'ru', 'eu', 'cn', 'as', 'jp', 'sa']; // initiative track order (drift roll 1..7)
 D.REL = ['Alliance', 'Collaboration', 'Free Trade', 'Neutral', 'Embargo', 'War'];

@@ -250,3 +250,9 @@ C-Class Asteroid 2 3 4 | Phy 4 | Minimal Gravity | +1 Orbiter/Flyby
 M-Class Asteroid 5 1 1 | Eng 6 | Rocky with Minimal Gravity | +2 Orbiter/Flyby
 S-Class Asteroid 3 2 2 | Eng 2 | Minimal Gravity | +2 Spectrometer
 (Production at a base = card value of chosen type + tile intrinsic of that type.)
+
+## Launch vehicle counters
+LV counters are two-sided: each faction has 2 LV-1/LV-3 counters and 3 LV-2/LV-4 counters. North America instead has 1 LV-1/LV-3 and 1 LV-1/LV-4 (so only one LV-3, and four LV-4s). A counter in play shows one side only. North America's LV-1s use the LV-1/LV-4 counter first (when it isn't showing LV-4); when an LV-1 leaves play its LV-1/LV-3 counter is freed first.
+
+## Optional rule: scrapping explorers and launch vehicles
+With "Scrap explorers and launch vehicles" on (Settings), robotic explorers and stocked launch vehicles scrap like crew vehicles: half their materials come back (to the base's stock, or sold for cash on Earth). Telescopes (Earth orbit) and unlaunched explorers scrap on Earth; orbiters scrap at your base on the world they orbit; rovers at your base on their surface. Choosing Destroy anywhere else (or a damaged CV) just destroys the unit. A CV that founds a base can scrap itself there afterwards.

@@ -23,7 +23,7 @@ const check = (G, where) => {
 const stats = {};
 for (let gi = 0; gi < games; gi++) {
   const f = facs[gi % facs.length];
-  const G = E.newGame(f);
+  const G = E.newGame(f, { scrapRE: gi % 2 === 1 });
   let steps = 0;
   try {
     while (!G.over && steps < 20000) {
@@ -52,7 +52,11 @@ for (let gi = 0; gi < games; gi++) {
           const opts = E.buildOptions(G, 'earth').filter(o => !o.why && G.cash >= E.sum(o.cost) + 6);
           if (opts.length && E.R.rnd() < .6) E.buildUnit(G, pick(opts).key, 'earth', E.R.rnd() < .1);
         }
-        if (E.R.rnd() < .5) E.buildLV(G, pick([1, 2, 3]), 'earth');
+        if (E.R.rnd() < .5) E.buildLV(G, pick([1, 2, 3, 4]), 'earth');
+        // optional scrapping: now and then scrap a stocked LV or an explorer/CV that is at a scrap site
+        if (E.R.rnd() < .05) { const z = pick([1, 2, 3, 4]); if (G.lv.earth[z]) E.scrapLV(G, 'earth', z); }
+        if (E.R.rnd() < .03) { const s = pick(G.ships.filter(x => E.scrapSite(G, x)).concat([null])); if (s) E.scrap(G, s); }
+        { const c = D.FAC[G.f].lvs, n = E.lvCount(G); if (n[1] + n[3] > (c[13] || 0) + (c[14] || 0) || n[2] + n[4] > (c[24] || 0) + (c[14] || 0) || n[3] > (c[13] || 0) || n[2] > (c[24] || 0)) throw new Error('LV counters over the limit ' + JSON.stringify(n)); }
         G.ships.filter(s => s.res).forEach(s => E.unreserve(G, s));
         G.ships.filter(s => s.loc === 'earth' && s.cap).forEach(s => E.buyCargo(G, s, 'SUP', 9));
         G.ships.filter(s => s.dmg).forEach(s => E.repair(G, s));

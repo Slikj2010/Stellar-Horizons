@@ -172,7 +172,7 @@ function readSlot(k) { try { const s = localStorage.getItem(k); if (!s) return n
 function slotInfo(g) { if (!g) return 'Empty'; return `${D.FAC[g.f].n} · ${g.over ? 'finished ' + g.endYear : g.y + ' · ' + E.PHASE_NAME[g.phase]} · ${g.savedAt ? new Date(g.savedAt).toLocaleString() : ''}`; }
 function saveSlot(k) { try { G.savedAt = Date.now(); localStorage.setItem(k, JSON.stringify(G)); save(); return true; } catch (e) { return false; } }
 const SET = (() => { try { return JSON.parse(localStorage.getItem('sh-settings')) || {}; } catch (e) { return {}; } })();
-SET.anim = SET.anim !== false; SET.rerolls = SET.rerolls !== false;
+SET.anim = SET.anim !== false; SET.rerolls = SET.rerolls !== false; SET.scrap = !!SET.scrap;
 function saveSettings() { try { localStorage.setItem('sh-settings', JSON.stringify(SET)); } catch (e) {} }
 
 // ---------------- boot ----------------
@@ -403,7 +403,7 @@ function showPicker() {
   $('pick').innerHTML = `<div class="in"><h1>Stellar Horizons</h1><p class="lede">Solo campaign, 2030 to as late as 2169. Lead one of seven space programs: explore the solar system, found bases, grow settlements and race to an interstellar colonizer. Pick your faction.</p>
   <div class="facs">${Object.entries(D.FAC).map(([k, f]) => `<button class="fc" data-f="${k}"><span class="sw" style="background:${f.c}"></span><b>${esc(f.n)}</b><small>Start with $${f.cash}B. Support limits: ${f.lim[0]} robotic, ${f.lim[1]} crewed, ${f.lim[2]} base.</small><small>${esc(f.ab)}</small></button>`).join('')}</div>
   <p class="dim" style="margin-top:18px">Your game autosaves in this browser as you play; use the pause menu to save to a slot.</p><button class="b" id="pickback" style="margin-top:8px">Back to main menu</button></div>`;
-  $('pick').querySelectorAll('[data-f]').forEach(b => b.onclick = async () => { await loadAtlas(b.dataset.f); G = E.newGame(b.dataset.f, { rerolls: SET.rerolls }); $('pick').hidden = true; hideMenu(); sel = null; tab = 'turn'; home(); save(); render(); });
+  $('pick').querySelectorAll('[data-f]').forEach(b => b.onclick = async () => { await loadAtlas(b.dataset.f); G = E.newGame(b.dataset.f, { rerolls: SET.rerolls, scrapRE: SET.scrap }); $('pick').hidden = true; hideMenu(); sel = null; tab = 'turn'; home(); save(); render(); });
   $('pickback').onclick = () => { $('pick').hidden = true; showMenu(); };
 }
 
@@ -461,7 +461,9 @@ function settingsPanel(host, inMenu) {
   host.innerHTML = `<div class="${inMenu ? 'panel' : ''}"><h2>Settings</h2>
   <label class="toggle"><span>Animated board<br><small class="dim">Spinning planets, twinkling stars and the sun's corona</small></span><input type="checkbox" id="set-anim" ${SET.anim ? 'checked' : ''}></label>
   <label class="toggle"><span>Improved engine reliability<br><small class="dim">Optional rule: two engine-failure rerolls per campaign (applies to new games)</small></span><input type="checkbox" id="set-rr" ${SET.rerolls ? 'checked' : ''}></label>
+  <label class="toggle"><span>Scrap explorers and launch vehicles<br><small class="dim">Optional rule: telescopes, orbiters over your bases, rovers on your base's surface and stocked launch vehicles can be scrapped at your bases and on Earth like crew vehicles (applies to new games${G && !$('menu').hidden ? '' : G ? ' and this one' : ''})</small></span><input type="checkbox" id="set-scrap" ${SET.scrap ? 'checked' : ''}></label>
   <div class="row" style="margin-top:12px"><button class="b" data-back>Back</button></div></div>`;
+  host.querySelector('#set-scrap').onchange = e => { SET.scrap = e.target.checked; saveSettings(); if (G && $('menu').hidden) { G.opts.scrapRE = SET.scrap; save(); render(); } };
   host.querySelector('#set-anim').onchange = e => { SET.anim = e.target.checked; saveSettings(); dirty = true; };
   host.querySelector('#set-rr').onchange = e => { SET.rerolls = e.target.checked; saveSettings(); };
   host.querySelector('[data-back]').onclick = () => inMenu ? menuHome() : pauseHome();
@@ -949,6 +951,8 @@ function panelBuild() {
   const opts = E.buildOptions(G, 'earth');
   let h = `<p class="dim">Units cost Ore, SUP and Fuel bought on Earth at $1B each. Launch vehicles are separate: LV-n costs 1 Ore plus n Fuel. Stock on Earth: ${lvTxt()}. Probes waiting: ${(G.probes.earth || []).join(', ') || 'none'}.</p>`;
   h += `<div class="row">${[1, 2, 3, 4].map(z => `<button class="b" data-lv="${z}">Build LV-${z} ${RS('ORE', 1)} ${RS('FUEL', z)}</button>`).join('')}</div>`;
+  h += `<p class="dim">Counters: ${esc(E.lvPoolTxt(G))}.</p>`;
+  if (E.scrapRule(G)) { const sc = [['earth', 'Earth'], ...G.bases.map(b => [b.id, b.name])].flatMap(([w, n]) => [1, 2, 3, 4].filter(z => G.lv[w] && G.lv[w][z]).map(z => `<button class="b" data-lvscrap="${z}" data-where="${w}">Scrap LV-${z} at ${esc(n)}</button>`)); if (sc.length) h += `<div class="row">${sc.join('')}</div>`; }
   h += `<h3>Earth shipyard</h3>` + opts.map(o => `<div class="item">${cssCounter(o.kind + '|' + o.u.n, 40)}<div class="t"><b>${esc(o.u.n)}</b><small>${o.kind} · search ${o.u.ev}${o.u.spec ? ', spectrometer' : ''}${o.u.lab ? ', mobile lab' : ''}${o.u.cargo ? ' · cargo ' + o.u.cargo + (o.u.prod ? ' (production)' : '') : ''}${o.u.cb ? ' · combat ' + o.u.cb : ''} · ${resHTML(o.cost)} = $${E.sum(o.cost)}B${o.why ? ' · ' + esc(o.why) : ''}</small></div><div class="row"><button class="b" data-build="${esc(o.key)}" ${o.why || G.cash < E.sum(o.cost) ? 'disabled' : ''}>Build</button>${o.cv && !o.why ? `<button class="b" data-buildr="${esc(o.key)}" title="Reserved: 1 SUP and 1 Fuel cheaper">Reserved</button>` : ''}</div></div>`).join('');
   const cvs = G.ships.filter(s => s.cls === 'CV');
   if (cvs.length) h += `<h3>Crew vehicles</h3>` + cvs.map(s => shipLine(s, (s.res ? `<button class="b" data-unres="${s.id}">Unreserve</button>` : `<button class="b" data-reserve="${s.id}">Reserve</button>`) + (s.dmg ? `<button class="b" data-repair="${s.id}">Repair</button>` : '') + (s.loc === 'earth' && s.cap ? `<button class="b" data-sel="${s.id}">Load cargo</button>` : ''))).join('');
@@ -1003,7 +1007,8 @@ function panelShip(s) {
   const b = E.atOwnBase(G, s);
   if (b && s.cap) h += `<h3>At ${esc(b.name)}</h3><div class="row"><button class="b" data-unload="${s.id}" ${E.sum(s.cargo) ? '' : 'disabled'}>Unload all</button>${['ORE', 'SUP', 'FUEL'].map(r => `<button class="b" data-loadr="${r}" ${b.stock[r] ? '' : 'disabled'}>Load ${r}</button>`).join('')}</div>`;
   if (G.phase === 'trade' && E.canFoundBase(G, s)) { const c = E.canFoundBase(G, s); h += `<div class="row"><button class="b pri" data-found="${s.id}" ${s.cargo.SUP < c.cost ? 'disabled' : ''}>Found a base here (${c.cost} SUP)</button></div>`; }
-  h += `<div class="row" style="margin-top:14px"><button class="b" data-scrap="${s.id}">${s.cls === 'CV' && E.atOwnBase(G, s) || s.loc === 'earth' ? 'Scrap' : 'Destroy'}</button></div>`;
+  { const site = !(s.cls === 'CV' && s.dmg) && E.scrapSite(G, s), at = site ? (site.where === 'earth' ? 'Earth' : G.bases.find(x => x.id === site.where).name) : '';
+    h += `<div class="row" style="margin-top:14px"><button class="b" data-scrap="${s.id}">Destroy</button><span class="dim">${site ? `Scrapped at ${esc(at)}: half its materials come back${site.where === 'earth' ? ' (sold for cash)' : ' to the base'}.` : s.cls === 'RE' && !E.scrapRule(G) ? 'Destroyed with nothing recovered (scrapping explorers is an optional rule in Settings).' : 'Not at one of your bases: destroyed with nothing recovered.'}</span></div>`; }
   return h;
 }
 function panelBase(b) {
@@ -1036,7 +1041,7 @@ function panelFac() {
   <h3>Foreign relations</h3><table>${Object.keys(G.rel).map(k => `<tr><td>${esc(D.FAC[k].n)}</td><td>${D.REL[G.rel[k]]}</td></tr>`).join('')}</table>
   <h3>Policies</h3><p class="dim">${D.POL.filter(p => E.polLv(G, p.k)).map(p => D.POL_LV[E.polLv(G, p.k) - 1] + p.n).join(', ') || 'none'}</p>
   <h3>Crew range ${E.range(G) >= 99 ? 'unlimited' : E.range(G)} · transfers ×${E.mult(G)} · recall ${E.recall(G)}% · malfunction ${E.malfBase(G)}% · engine ${E.engBase(G)}%</h3>
-  <h3>Launch vehicles on Earth</h3><p class="dim">${lvTxt()} (counters: ${Object.entries(F.lvs).map(([z, n]) => 'LV-' + z + ' ×' + n).join(', ')})</p>`;
+  <h3>Launch vehicles on Earth</h3><p class="dim">${lvTxt()}</p><p class="dim">Two-sided counters: ${esc(E.lvPoolTxt(G))}.</p>`;
 }
 function panelTech() {
   const can = G.estep === 'tech', n = D.TECH.filter(t => G.tech[t.k]).length;
@@ -1187,8 +1192,9 @@ function wire() {
   on('[data-tp]', b => { const f = b.dataset.tp, buy = b.dataset.d === 'buy'; ask(buy ? `Buy 1 ${E.FN[f]} point?` : `Sell 2 ${E.FN[f]} points?`, `<p>${buy ? `Pay <b>$1B</b> (you have $${G.cash}B) for 1 ${E.FN[f]} point.` : `Trade 2 of your ${G.bank[f]} ${E.FN[f]} points for <b>$1B</b>.`}</p>`, () => E.tradePoints(G, f, b.dataset.d), buy ? 'Buy' : 'Sell'); });
   on('[data-pol]', b => { const p = D.POL.find(x => x.k === b.dataset.pol), lv = E.polLv(G, p.k); ask(`Adopt ${D.POL_LV[lv]}${p.n}?`, `<p>${esc(p.d[lv])}.</p><p class="dim">You can adopt one policy per decade.</p>`, () => E.choosePolicy(G, p.k), 'Adopt'); });
   on('[data-dev]', b => { const t = D.TECHK[b.dataset.dev], c = E.techCost(G, t); ask(`Develop ${t.n}?`, `<p>${esc(t.d)}.</p><p>Costs <b>${c} ${E.FN[t.f]} points</b> (you have ${G.bank[t.f]}).</p><p class="dim">${esc(E.techCostTxt(G, t))}.</p>`, () => E.develop(G, t.k), 'Develop'); });
-  const lvAsk = (z, where) => { const bs = where === 'earth' ? null : G.bases.find(x => x.id === where); ask(`Build LV-${z}${bs ? ' at ' + bs.name : ''}?`, `<p>${costLine({ ORE: 1, FUEL: z }, bs)}</p><p class="dim">Launch vehicles in use: ${Object.entries(E.lvCount(G)).map(([k, n]) => 'LV-' + k + ' ' + n + '/' + (D.FAC[G.f].lvs[k] || 0)).join(', ')}.</p>`, () => E.buildLV(G, z, where), 'Build'); };
+  const lvAsk = (z, where) => { const bs = where === 'earth' ? null : G.bases.find(x => x.id === where); ask(`Build LV-${z}${bs ? ' at ' + bs.name : ''}?`, `<p>${costLine({ ORE: 1, FUEL: z }, bs)}</p><p class="dim">Two-sided counters: ${esc(E.lvPoolTxt(G))}.</p>`, () => E.buildLV(G, z, where), 'Build'); };
   on('[data-lv]', b => lvAsk(+b.dataset.lv, 'earth'));
+  on('[data-lvscrap]', b => { const z = +b.dataset.lvscrap, w = b.dataset.where; ask(`Scrap LV-${z}?`, `<p>Half its materials come back${w === 'earth' ? ', sold for cash' : ' to the base'}, and its two-sided counter is free again.</p>`, () => E.scrapLV(G, w, z), 'Scrap'); });
   on('[data-lvb]', b => lvAsk(+b.dataset.lvb, b.dataset.base));
   const unitAsk = (key, reserved) => { const o = E.buildOptions(G, 'earth').find(x => x.key === key); const cost = { ...o.cost }; if (reserved) { cost.SUP = Math.max(0, cost.SUP - 1); cost.FUEL = Math.max(0, cost.FUEL - 1); }
     ask(`Build ${o.kind} ${o.u.n}${reserved ? ' (reserved)' : ''}?`, `<div class="row">${cssCounter(key.split('|')[1] ? o.kind + '|' + o.u.n : '', 64)}<p class="dim" style="margin:0">Search ${o.u.ev}${o.u.spec ? ', spectrometer' : ''}${o.u.lab ? ', mobile lab' : ''}${o.u.cargo ? ' · cargo ' + o.u.cargo : ''}${o.u.cb ? ' · combat ' + o.u.cb : ''}</p></div><p>${costLine(cost, 'earth')}</p>${reserved ? '<p class="dim">Built on its reserved side: 1 SUP and 1 Fuel cheaper, and the first unreserve is included.</p>' : ''}${o.kind !== 'Probe' ? '<p class="dim">It still needs a launch vehicle to leave Earth.</p>' : ''}`, () => E.buildUnit(G, key, 'earth', reserved), 'Build'); };

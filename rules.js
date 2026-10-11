@@ -465,13 +465,43 @@ function buildUnit(G, key, where, reserved) {
   log(G, `Built ${opt.kind} ${opt.u.n}${reserved && opt.cv ? ' (reserved)' : ''} at ${where === 'earth' ? 'Earth' : G.bases.find(b => b.id === where).name} for ${where === 'earth' ? '$' + sum(cost) + 'B' : resTxt(cost)}.`, 'g');
   return null;
 }
+// two-sided LV counters. A faction has c13 LV-1/LV-3 counters, c24 LV-2/LV-4 counters, and (North America) c14 LV-1/LV-4.
+// LV-1s always use the LV-1/LV-4 counter first (North America's first LV-1 is the one with LV-4 on its back).
+// k = LV-1s showing on LV-1/LV-4 counters. A new LV-1 always goes on a free LV-1/LV-4 counter first (one not
+// showing LV-4); when an LV-1 leaves play its LV-1/LV-3 counter is freed first. Tracked in G.lv14 / G.lvN1.
+function lvK(G) {
+  const c = fac(G).lvs, c14 = c[14] || 0, c24 = c[24] || 0, n = lvCount(G);
+  if (!c14) return 0;
+  let k = Math.min(G.lv14 || 0, n[1]), prev = G.lvN1 || 0;
+  if (n[1] < prev) { let gone = prev - n[1]; const on13 = prev - (G.lv14 || 0); gone -= Math.min(gone, Math.max(0, on13)); k = Math.max(0, Math.min(n[1], (G.lv14 || 0) - gone)); }
+  for (let add = n[1] - Math.max(prev, k); add > 0; add--) if (k < c14 && n[2] + n[4] <= c24 + c14 - k - 1) k++;
+  G.lv14 = k; G.lvN1 = n[1];
+  return k;
+}
+function lvSplit(G, n) {
+  const c = fac(G).lvs, c13 = c[13] || 0, c14 = c[14] || 0, c24 = c[24] || 0;
+  let k = lvK(G);
+  // the LV-1 being added takes a free LV-1/LV-4 counter if there is one
+  const cur = lvCount(G); if (n[1] > cur[1] && k < c14 && cur[2] + cur[4] <= c24 + c14 - k - 1) k++;
+  return n[1] - k + n[3] <= c13 && n[2] <= c24 && n[2] + n[4] <= c24 + c14 - k ? k : -1;
+}
+const lvFits = (G, n) => lvSplit(G, n) >= 0;
+function lvCanAdd(G, z) { const n = lvCount(G); n[z]++; return lvFits(G, n); }
+function lvPoolTxt(G) {
+  const c = fac(G).lvs, n = lvCount(G), on14 = lvK(G);
+  const parts = [`LV-1/LV-3 counters: ${c[13]} (${n[1] - on14} as LV-1, ${n[3]} as LV-3)`];
+  if (c[14]) parts.push(`LV-1/LV-4 counter: ${c[14]} (${on14 ? 'in use as LV-1' : 'free'})`);
+  if (c[14]) parts[1] = `LV-1/LV-4 counter: ${c[14]} (${on14 ? 'in use as LV-1' : n[4] > c[24] - n[2] ? 'in use as LV-4' : 'free'})`;
+  parts.push(`LV-2/LV-4 counters: ${c[24]} (${n[2]} as LV-2, ${Math.min(n[4], c[24] - n[2])} as LV-4)`);
+  return parts.join('; ');
+}
 const lvCount = (G) => { let n = { 1: 0, 2: 0, 3: 0, 4: 0 }; [G.lv, G.lvCool || {}].forEach(L => Object.values(L).forEach(st => [1, 2, 3, 4].forEach(z => n[z] += st[z] || 0))); return n; };
 const lvRecover = (G, key, z) => { G.lvCool = G.lvCool || {}; G.lvCool[key] = G.lvCool[key] || { 1: 0, 2: 0, 3: 0, 4: 0 }; G.lvCool[key][z]++; };
 function lvReturn(G) { Object.entries(G.lvCool || {}).forEach(([k, st]) => { G.lv[k] = G.lv[k] || { 1: 0, 2: 0, 3: 0, 4: 0 }; [1, 2, 3, 4].forEach(z => G.lv[k][z] += st[z] || 0); }); G.lvCool = {}; }
 function buildLV(G, n, where) {
   if (G.phase !== 'build') return 'Launch vehicles are built in the build & service phase.';
   if (!lvTechOk(G, n)) return n === 3 ? 'LV-3 needs Crew Vehicles.' : 'LV-4 needs Ultra-Heavy Launch Vehicles.';
-  if (lvCount(G)[n] >= (fac(G).lvs[n] || 0)) return `All ${fac(G).lvs[n] || 0} of your LV-${n} counters are in use.`;
+  if (!lvCanAdd(G, n)) return `No free counter for an LV-${n}: ${n === 1 || n === 3 ? 'LV-1 and LV-3' : 'LV-2 and LV-4'} share two-sided counters, and all that can show LV-${n} are in use.`;
   const base = where === 'earth' ? null : G.bases.find(b => b.id === where);
   if (base && base.fac.sup - (base.dmg.sup ? 1 : 0) < (n <= 2 ? 1 : 2)) return `LV-${n} needs a ${n <= 2 ? 'small' : 'large'} Supply Station.`;
   const cost = { ORE: 1, FUEL: n };
@@ -518,17 +548,43 @@ function setReserve(G, s) {
   if (s.cls !== 'CV' || s.res) return null;
   s.res = true; log(G, `${s.name} is placed in reserve.`); return null;
 }
+// optional rule (G.opts.scrapRE): robotic explorers and launch vehicles can be scrapped at your bases and on Earth like crew vehicles
+const scrapRule = G => !!(G.opts && G.opts.scrapRE);
+function scrapSite(G, s) {
+  if (s.cls === 'RE') {
+    // telescopes (Earth orbit) and unlaunched explorers scrap on Earth; orbiters over a world with your base and
+    // rovers on the surface with your surface base scrap at that base
+    if (!scrapRule(G)) return null;
+    if (s.loc === 'earth' || (s.kind === 'Telescope' && s.loc === 'orbit:ear')) return { where: 'earth' };
+    const p = P(s.loc);
+    if (s.kind === 'Orbiter' && p.t === 'orbit') { const b = G.bases.find(x => x.w === p.w); return b ? { where: b.id } : null; }
+    if (s.kind === 'Rover' && p.t === 'surf') { const b = G.bases.find(x => baseLoc(x) === s.loc); return b ? { where: b.id } : null; }
+    return null;
+  }
+  return serviceSite(G, s);
+}
+function refundHalf(G, where, cost) {
+  const back = {}; RES.forEach(r => back[r] = Math.round((cost[r] || 0) / 2));
+  if (where === 'earth') { const cash = Math.floor(sum(back) / 2); G.cash += cash; return `materials sold for $${cash}B`; }
+  addRes(G.bases.find(b => b.id === where).stock, back); return `recovered ${resTxt(back)}`;
+}
 function scrap(G, s) {
-  if (s.dmg) return 'Only undamaged crew vehicles can be scrapped.';
-  const site = serviceSite(G, s);
-  if (s.cls === 'CV' && site) {
-    const c = { ...s.cost }; if (s.res) { c.SUP = Math.max(0, c.SUP - 1); c.FUEL = Math.max(0, c.FUEL - 1); }
-    const back = {}; RES.forEach(r => back[r] = Math.round(c[r] / 2));
-    if (site.where === 'earth') G.cash += Math.floor(sum(back) / 2); else addRes(G.bases.find(b => b.id === site.where).stock, back);
-    log(G, `${s.name} scrapped; ${site.where === 'earth' ? 'materials sold for $' + Math.floor(sum(back) / 2) + 'B' : 'recovered ' + resTxt(back)}.`);
-  } else log(G, `${s.name} is decommissioned.`);
-  addRes(cargoDump(G, s), s.cargo);
+  // only undamaged crew vehicles can be scrapped; a damaged one is simply destroyed
+  const site = s.cls === 'CV' && s.dmg ? null : scrapSite(G, s);
+  if (site) {
+    const c = { ...s.cost }; if (s.res) { c.SUP = Math.max(0, (c.SUP || 0) - 1); c.FUEL = Math.max(0, (c.FUEL || 0) - 1); }
+    log(G, `${s.name} scrapped at ${site.where === 'earth' ? 'Earth' : G.bases.find(b => b.id === site.where).name}; ${refundHalf(G, site.where, c)}.`);
+    if (s.probe && site.where === 'earth') (G.probes.earth = G.probes.earth || []).push(s.probe);
+  } else log(G, `${s.name} is ${s.cls === 'CV' ? 'decommissioned' : 'destroyed'}.`);
+  addRes(cargoDump(G, s), s.cargo || {});
   removeShip(G, s);
+  return null;
+}
+function scrapLV(G, where, z) {
+  if (!scrapRule(G)) return 'Scrapping launch vehicles is an optional rule (turn it on in Settings before starting a campaign).';
+  const st = G.lv[where]; if (!st || !st[z]) return `No LV-${z} ready at ${where === 'earth' ? 'Earth' : 'that base'}.`;
+  st[z]--;
+  log(G, `LV-${z} scrapped at ${where === 'earth' ? 'Earth' : G.bases.find(b => b.id === where).name}; ${refundHalf(G, where, { ORE: 1, FUEL: z })}. Its counter is free again.`);
   return null;
 }
 const cargoDump = (G, s) => { const b = atOwnBase(G, s); return b ? b.stock : {}; };
@@ -662,8 +718,7 @@ function launchLVs(G, loc, n) {
   const stock = lvStockAt(G, loc).filter(z => z >= n).map(z => ({ n: z, stock: true }));
   const out = [...stock];
   if (loc === 'earth') {
-    const cnt = lvCount(G);
-    [1, 2, 3, 4].filter(z => z >= n && lvTechOk(G, z) && cnt[z] < (fac(G).lvs[z] || 0) && !stock.some(x => x.n === z)).forEach(z => out.push({ n: z, buy: 1 + z }));
+    [1, 2, 3, 4].filter(z => z >= n && lvTechOk(G, z) && lvCanAdd(G, z) && !stock.some(x => x.n === z)).forEach(z => out.push({ n: z, buy: 1 + z }));
   }
   out.sort((a, b) => (a.stock ? 0 : 1) - (b.stock ? 0 : 1) || a.n - b.n);
   return out;
@@ -1182,7 +1237,7 @@ function finish(G, why) { G.over = true; G.endYear = G.y; const sc = score(G); l
 
 return {
   R, D, P, sysOf, worldOf, locName, worldsIn, RES, FIELDS, FN, PHASES, ESTEPS, PHASE_NAME, ESTEP_NAME, newGame, cvAllowed, advance, answer,
-  moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, shipCargo,
+  moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, scrapSite, scrapLV, lvCanAdd, lvPoolTxt, scrapRule, shipCargo,
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,
   canFoundBase, foundBase, unload, load, buyCargo, sellCargo, upgradeOptions, buildFacility, buildSettlement, repairFacility, terraform, trade, tradeLimitOwn,
   setDiplomacy, dipCost, develop, techState, techCost, techCostTxt, techHolders, convertPolitics, buyVictory, redrawMission, tradePoints, choosePolicy, transferRes, baseOutput, bestOutput,
