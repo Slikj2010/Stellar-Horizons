@@ -368,7 +368,17 @@ function growth(G) {
     if (gain) { b.set += gain; log(G, `${b.name} grows by ${gain} settlement(s) to ${b.set}.`, 'g'); }
   });
 }
-function techCost(G, t) { return Math.max(5, t.c - (G.f === 'na' ? 2 : 0)); }
+// cost = chart cost, -3 for each other faction that has the technology (the non-player factions keep their starting
+// technologies in solo play), China -4 each instead; North America -2 when it is the first to have it; minimum 5
+const techHolders = (G, t) => Object.keys(D.FAC).filter(f => f !== G.f && (D.FAC[f].st || []).includes(t.k));
+function techCost(G, t) { const n = techHolders(G, t).length; return Math.max(5, t.c - n * (G.f === 'cn' ? 4 : 3) - (G.f === 'na' && !n ? 2 : 0)); }
+function techCostTxt(G, t) {
+  const h = techHolders(G, t), per = G.f === 'cn' ? 4 : 3, parts = [`chart ${t.c}`];
+  if (h.length) parts.push(`-${h.length * per} (${h.map(f => D.FAC[f].n).join(', ')} ${h.length > 1 ? 'have' : 'has'} it)`);
+  if (G.f === 'na' && !h.length) parts.push('-2 (first to develop it)');
+  const raw = t.c - h.length * per - (G.f === 'na' && !h.length ? 2 : 0);
+  return parts.join(' ') + (raw < 5 ? ', minimum 5' : '');
+}
 function techState(G, t) {
   if (G.tech[t.k]) return 'have';
   if (t.r.some(x => !G.tech[x])) return 'locked';
@@ -1175,7 +1185,7 @@ return {
   moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, shipCargo,
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,
   canFoundBase, foundBase, unload, load, buyCargo, sellCargo, upgradeOptions, buildFacility, buildSettlement, repairFacility, terraform, trade, tradeLimitOwn,
-  setDiplomacy, dipCost, develop, techState, techCost, convertPolitics, buyVictory, redrawMission, tradePoints, choosePolicy, transferRes, baseOutput, bestOutput,
+  setDiplomacy, dipCost, develop, techState, techCost, techCostTxt, techHolders, convertPolitics, buyVictory, redrawMission, tradePoints, choosePolicy, transferRes, baseOutput, bestOutput,
   lvRecover, lvReturn, score, lims, nonProbeRE, nCV, nBase, range, recall, malfBase, malfRate, engRate, engBase, mult, transfer, misTxt, lvCount, lvStockAt, launchLVs, atOwnBase, baseLoc, cardFor, prodValue, has, polLv, setRow, cargoMul, resTxt, sum,
 };
 }

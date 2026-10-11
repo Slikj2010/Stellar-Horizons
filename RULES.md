@@ -9,7 +9,7 @@ Cash usable anywhere.
 
 ## Tech markers / points
 Marker pool per field (values; we use 1,1,1,2,2,2,3,3,3,5). At start of tech step (3.1.7) markers -> bank points.
-Develop: reverse initiative, one tech per round, repeat until pass. Cost = chart cost -3 per OTHER player who has it (min 5). NA: -2 if first.
+Develop: reverse initiative, one tech per round, repeat until pass. Cost = chart cost -3 per OTHER faction who has it (min 5); in solo the non-player factions keep their starting technologies, so these count (e.g. Crew Vehicles). China: -4 per faction instead. NA: -2 if first (no other faction has it).
 Prereqs: all connected techs to left. After tech step: convert politics markers (each -> $1B or 2 tech pts of a type (3 with Unified space diplomacy)), discard rest; then HALVE banked tech points.
 Connected benefits don't stack (use stated total).
 
