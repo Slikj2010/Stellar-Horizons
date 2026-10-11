@@ -236,7 +236,7 @@ function doEvent(G, e, r) {
   if (k === 'freight') { G.freight = 5; log(G, 'You may transfer up to 5 extra resources in the transport step.'); }
   if (k === 'immigration') { if (G.bases.length) G.ask.push({ k: 'immigration', text: 'Immigration: choose a base to receive 2 settlements.' }); else log(G, 'You have no base, so Immigration has no effect.'); }
   if (k === 'thaw') Object.keys(G.rel).forEach(x => G.rel[x] = toNeutral(G.rel[x]));
-  if (k === 'survey') { const wk = randomWorld(); const c = drawCardFor(wk); if (c) { G.w[wk].card = c; log(G, `Survey Error: ${W[wk].n} receives world card ${c}.`); } else log(G, `Survey Error at ${W[wk].n}: the card did not fit.`); }
+  if (k === 'survey') { const wk = randomWorld(); const c = drawCardFor(wk); if (c) { G.w[wk].card = c; log(G, `Survey Error: world card ${c} drawn and placed on ${W[wk].n}.`); } else log(G, `Survey Error: world card drawn for ${W[wk].n}, does not apply.`); }
   if (k === 'swarm') G.extraPirate = true;
   if (k === 'harvest') G.extraAsteroid = true;
   if (k === 'comet') G.w.com.v += 3;
@@ -863,7 +863,8 @@ function answer(G, choice, data) {
   if (a.k === 'immigration') { const b = G.bases.find(x => x.id === choice); if (!b) return 'Pick one of your bases.'; b.set += 2; G.ask.shift(); log(G, `Immigration: ${b.name} gains 2 settlements.`, 'g'); return null; }
   if (a.k === 'card') {
     G.ask.shift();
-    if (choice) { G.w[a.w].card = choice; log(G, `World card ${choice} placed on ${W[a.w].n}.`, 'g'); } else log(G, `World card returned to the deck; ${W[a.w].n} keeps ${G.w[a.w].card || 'no card'}.`);
+    if (choice) { const old = G.w[a.w].card; G.w[a.w].card = choice; log(G, `World card ${choice} drawn and placed on ${W[a.w].n}${old && old !== choice ? `, replacing ${old}` : ''}.`, 'g'); a.opts.filter(o => o !== choice).forEach(o => log(G, `World card ${o} returned to the deck.`)); }
+    else log(G, `World card${a.opts.length > 1 ? 's' : ''} ${a.opts.join(' and ')} returned to the deck; ${W[a.w].n} keeps ${G.w[a.w].card || 'no card'}.`);
     if (a.life) { const L = lifeSearch(G, a.w, a.life.base); log(G, `${W[a.w].n}:${L.msg || ' no search for life (' + L.info.skip + ').'}`, L.info.found ? 'g' : undefined); G.lastRoll = { kind: 'life', title: `Search for life on ${W[a.w].n}`, life: L.info, extra: [] }; }
     return null;
   }
@@ -1080,9 +1081,14 @@ function explore(G, s, opt) {
     // world card
     if (W[w].base || W[w].tags.includes('gas')) {
       const draws = (s.spec && !probe && s.cls === 'RE') ? 2 : 1;
-      const opts = []; for (let i = 0; i < draws; i++) { const c = pick(D.CARDS); if (D.cardOk(c, W[w]) && !opts.includes(c.n)) opts.push(c.n); }
+      const opts = [];
+      for (let i = 0; i < draws; i++) {
+        const c = pick(D.CARDS), fits = D.cardOk(c, W[w]), dup = fits && opts.includes(c.n);
+        if (fits && !dup) opts.push(c.n);
+        log(G, `World card ${c.n} drawn for ${W[w].n}${!fits ? ', does not apply.' : dup ? ' again (same card).' : '.'}`, fits ? '' : 'e');
+      }
       if (opts.length) G.ask.push({ k: 'card', w, opts, text: `Depletion at ${W[w].n}: you drew ${opts.join(' and ')}. Place a card on the world or return it to the deck.` });
-      else if (!ws.card && ws.v === 0) { const ok = D.CARDS.filter(c => D.cardOk(c, W[w])); if (ok.length) { const c = pick(ok); ws.card = c.n; msg += ` Final depletion: ${c.n} is placed.`; } }
+      else if (!ws.card && ws.v === 0) { const ok = D.CARDS.filter(c => D.cardOk(c, W[w])); if (ok.length) { const c = pick(ok); ws.card = c.n; msg += ` Final depletion: ${c.n} is placed.`; log(G, `World card ${c.n} drawn and placed on ${W[w].n} (final depletion).`, 'g'); } }
     }
     // search for life
     // search for life: if a world card is waiting to be placed, the roll waits for it (cards like Water Ice add to the chance)
