@@ -146,6 +146,7 @@ const IMG = {}; let cv, ctx, cam = { x: 0, y: 0, s: .2 }, dirty = true, hits = [
 const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Could not load ' + src)); i.src = src; });
 async function boot() {
   const j = u => fetch(u).then(r => { if (!r.ok) throw new Error('Could not load ' + u); return r.json(); });
+  IMG.life = await loadImg('lifemk.webp');
   [GEO, UNITS, MK, FX.bodies, FX.sun, FX.exp] = await Promise.all([j('geo.json'), j('units.json'), j('markers.json'), j('bodies.json'), j('sun.json'), j('expbox.json')]);
   E = window.SHE(D, UNITS);
   cv = document.createElement('canvas'); $('stage').prepend(cv); ctx = cv.getContext('2d');
@@ -280,6 +281,42 @@ function paintExplore() {
     if (v < 1) { ctx.fillStyle = 'rgba(10,0,0,.5)'; ctx.fillRect(-h, -h, sz, sz); ctx.strokeStyle = 'rgba(239,107,91,.9)'; ctx.lineWidth = 2.5; ctx.strokeRect(-h, -h, sz, sz); }
     if (since < 1) { ctx.strokeStyle = `rgba(255,255,255,${1 - since})`; ctx.lineWidth = 3; const gr = h * (1 + since * .8); ctx.strokeRect(-gr, -gr, gr * 2, gr * 2); }
     ctx.restore();
+  });
+}
+// world box layout (as on the physical board): world card under the World Box, life marker beside it,
+// bases in a row below the card with each base's trade marker beneath it. All in the box's own tilt.
+const STATION_ALT = { as: true, sa: true }; // factions whose alternate base image is the station
+function baseKey(b) {
+  const fr = ATL[G.f].fr, keys = Object.keys(fr).filter(k => k.startsWith('Base|' + b.name.slice(0, 4)));
+  const plain = keys.find(k => !/ (b|rv|bi|orbit)$/i.test(k)) || keys[0], alt = keys.find(k => k !== plain) || plain;
+  const station = D.W[b.w].tags.includes('station');
+  return (station !== !!STATION_ALT[G.f]) ? plain : alt;
+}
+function wboxFrame(k) {
+  const e = FX.exp && FX.exp[k];
+  if (e) { const m = GEO.maps[e.map]; return { x: m[0] + e.cx * .4, y: m[1] + e.cy * .4, a: e.ang * Math.PI / 180 }; }
+  const g = GEO.worlds[k], o = g.orbit || g.exp; return { x: o[0] - 60, y: o[1] + 20, a: 0 };
+}
+function drawRot(img, f, x, y, size, a) { if (!f) return; const k = size / Math.max(f[2], f[3]), w = f[2] * k, h = f[3] * k; ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.drawImage(img, f[0], f[1], f[2], f[3], -w / 2, -h / 2, w, h); ctx.restore(); }
+function paintWorldBoxes() {
+  const CW = 120, CH = 79, LS = 52, BS = CS + 14, TS = 42;
+  Object.keys(GEO.worlds).forEach(k => {
+    const ws = G.w[k]; if (!ws) return;
+    const bases = G.bases.filter(b => b.w === k);
+    if (!ws.card && !ws.sol && !ws.life && !bases.length) return;
+    const F = wboxFrame(k), ca = Math.cos(F.a), sa = Math.sin(F.a);
+    const at = (lx, ly) => [F.x + lx * ca - ly * sa, F.y + lx * sa + ly * ca];
+    const cy0 = 128;
+    if (ws.card) { const c = D.CARDS.find(x => x.n === ws.card), [x, y] = at(56, cy0); drawRot(IMG.markers, MK['card_' + c.img], x, y, CW, F.a); }
+    if (ws.sol || ws.life) { const [x, y] = at(56 + CW / 2 + LS / 2 + 6, cy0); drawRot(IMG.life, [ws.life ? 96 : 0, 0, 96, 96], x, y, LS, F.a); }
+    bases.forEach((b, i) => {
+      const [x, y] = at(56 - (bases.length - 1) * (BS + 6) / 2 + i * (BS + 6), cy0 + CH / 2 + BS / 2 + 8);
+      drawRot(ATL[G.f].img, uf(baseKey(b)), x, y, BS, F.a);
+      hits.push({ t: 'base', id: b.id, x, y, r: BS / 2 });
+      if (b.set) { const [sx, sy] = at(56 - (bases.length - 1) * (BS + 6) / 2 + i * (BS + 6) + BS / 2 - 6, cy0 + CH / 2 + BS + 2); txt(String(b.set), sx, sy, 15, '#f2a93b'); }
+      if (sel && sel.t === 'base' && sel.id === b.id) { ctx.save(); ctx.translate(x, y); ctx.rotate(F.a); ctx.strokeStyle = '#f2a93b'; ctx.lineWidth = 3; ctx.strokeRect(-BS / 2 - 3, -BS / 2 - 3, BS + 6, BS + 6); ctx.restore(); }
+      if (b.trade && b.set > 0) { const [tx, ty] = at(56 - (bases.length - 1) * (BS + 6) / 2 + i * (BS + 6), cy0 + CH / 2 + BS + 8 + TS / 2 + 4); drawRot(IMG.markers, MK[(b.trade.side === 'buy' ? 'buy_' : 'sell_') + b.trade.type], tx, ty, TS, F.a); }
+    });
   });
 }
 function paintSun() {
@@ -619,8 +656,6 @@ function paint() {
     const wx = g.orbit || g.exp;
     if (g.poly) hits.push({ t: 'world', k, poly: g.poly }); else hits.push({ t: 'world', k, x: wx[0], y: wx[1], rad: 60 });
     if (sel && sel.t === 'world' && sel.k === k) { ctx.lineWidth = 5; ctx.strokeStyle = '#f2a93b'; pathShape(g.poly ? { poly: g.poly } : { c: wx, r: 60 }); ctx.stroke(); }
-    if (ws.card) { const c = D.CARDS.find(x => x.n === ws.card); drawTex(IMG.markers, MK['card_' + c.img], wx[0], wx[1] + 58, 74); }
-    if (ws.sol || ws.life) drawTex(IMG.markers, MK[ws.life ? 'life' : 'sol'], wx[0] + 50, wx[1] - 44, 44);
     if (ws.npf) { const f = D.FAC[ws.npf]; ctx.fillStyle = f.c; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(wx[0] - 92, wx[1] - 2, 40, 24, 3); ctx.fill(); ctx.stroke(); txt('NPF', wx[0] - 72, wx[1] + 10, 13); if (ws.npfTrade) txt((ws.npfTrade.side === 'buy' ? 'BUY ' : 'SELL ') + ws.npfTrade.type, wx[0] - 72, wx[1] + 34, 11, '#f2a93b'); if (ws.blk) txt('BLOCKADED', wx[0] - 72, wx[1] + 48, 11, '#ef6b5b'); }
     if (D.TERRA[k] && ws.terra) txt(`Terraformed ${ws.terra}/${D.TERRA[k]}`, wx[0], wx[1] - 64, 14, '#5fcf8a');
   });
@@ -630,15 +665,7 @@ function paint() {
     f.pir.forEach((pr, i) => { drawTex(IMG.markers, MK[pr.strong ? 'pir_l' : 'pir_s'], p[0] - 26 + i * 22, p[1] - 34, 46); if (pr.dmg) txt('dmg ' + pr.dmg, p[0] - 26 + i * 22, p[1] - 4, 11, '#ef6b5b'); });
     for (let i = 0; i < f.ast; i++) drawTex(IMG.markers, MK.ast, p[0] + 26 + i * 16, p[1] + 34, 42);
   });
-  // bases
-  G.bases.forEach(b => {
-    const p = posOf(E.baseLoc(b)), x = p[0] - 64, y = p[1];
-    const key = Object.keys(ATL[G.f].fr).find(k => k === 'Base|' + b.name) || Object.keys(ATL[G.f].fr).find(k => k.startsWith('Base|' + b.name));
-    drawTex(ATL[G.f].img, uf(key), x, y, CS + 8);
-    hits.push({ t: 'base', id: b.id, x, y, r: (CS + 8) / 2 });
-    if (b.set) txt(String(b.set), x + 24, y + 24, 15, '#f2a93b');
-    if (sel && sel.t === 'base' && sel.id === b.id) { ctx.strokeStyle = '#f2a93b'; ctx.lineWidth = 3; ctx.strokeRect(x - 33, y - 33, 66, 66); }
-  });
+  paintWorldBoxes();
   // probes on Earth
   (G.probes.earth || []).forEach((n, i) => { const p = posOf('earth'); drawTex(ATL[G.f].img, uf('Probe|' + n), p[0] - 100 - i * 28, p[1] + 34, 30); });
   // ships

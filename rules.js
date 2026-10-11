@@ -372,6 +372,7 @@ function techState(G, t) {
   if (G.tech[t.k]) return 'have';
   if (t.r.some(x => !G.tech[x])) return 'locked';
   if ((t.k === 'sol') && !Object.values(G.w).some(w => w.sol)) return 'locked';
+  if ((t.k === 'exl') && !Object.values(G.w).some(w => w.life)) return 'locked';
   return 'open';
 }
 function develop(G, k) {
@@ -949,8 +950,8 @@ function explore(G, s, opt) {
     // search for life
     const lc = lifeChance + (cardFor(G, w) ? cardFor(G, w).lifeB : 0), lr = d100();
     if (lc && lr <= lc && !ws.life) {
-      if (!ws.sol) { ws.sol = true; const b = [drawMarker(G, 'Bio'), drawMarker(G, 'Bio')]; G.vm++; G.polm++; msg += ` Life search ${lr}: signs of life! ${markerTxt(b, 'Bio')}, +1 victory marker, +1 politics marker.`; }
-      else if (has(G, 'sol')) { ws.life = true; const b = []; for (let i = 0; i < 4; i++) b.push(drawMarker(G, 'Bio')); G.vm += 2; G.polm += 2; msg += ` Life search ${lr}: existing life! ${markerTxt(b, 'Bio')}, +2 victory markers, +2 politics markers.`; }
+      if (!ws.sol) { ws.sol = true; const b = [drawMarker(G, 'Bio'), drawMarker(G, 'Bio')]; G.vm++; G.polm++; msg += ` Life search ${lr}: signs of life! ${markerTxt(b, 'Bio')}, +1 victory marker, +1 politics marker.`; if (!has(G, 'sol')) { G.tech.sol = 1; msg += ' You gain the Signs of Life technology.'; } }
+      else if (has(G, 'sol')) { ws.life = true; const b = []; for (let i = 0; i < 4; i++) b.push(drawMarker(G, 'Bio')); G.vm += 2; G.polm += 2; msg += ` Life search ${lr}: existing life! ${markerTxt(b, 'Bio')}, +2 victory markers, +2 politics markers.`; if (!has(G, 'exl')) { G.tech.exl = 1; msg += ' You gain the Existing Life technology.'; } }
     }
     // missions on depleted worlds get replaced
     ['mine', 'common'].forEach(slot => { const id = G.mis[slot]; if (id != null && G.w[D.MIS[id].w].v < 1) { G.mis[slot] = drawMission(G); } });
