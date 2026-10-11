@@ -97,6 +97,37 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
   #bar { gap: 2px 12px; padding: 6px 16px; } #bar .yr { font-size: 18px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+/* technology tree (dark take on the printed Technology Tree) */
+#ttree { position: absolute; inset: 0; z-index: 20; overflow: auto; touch-action: pan-x pan-y; background: #070b11; overscroll-behavior: contain; }
+#ttree[hidden] { display: none !important; }
+#ttree .tt-wrap { position: relative; margin: 0 auto; }
+#ttree .band { position: absolute; left: 0; right: 0; }
+#ttree .band.Bio { background: linear-gradient(90deg, #1f2a12, #141b0e 40%, #10150c); }
+#ttree .band.Phy { background: linear-gradient(90deg, #13223a, #0e1829 40%, #0b1320); }
+#ttree .band.Eng { background: linear-gradient(90deg, #22262c, #191c21 40%, #131619); }
+#ttree .band + .band { border-top: 1px solid #2a3a4c; }
+#ttree .blabel { position: absolute; left: 0; width: 64px; display: grid; place-items: center; }
+#ttree .blabel span { writing-mode: vertical-rl; transform: rotate(180deg); font: 700 30px var(--f-disp); letter-spacing: .14em; text-transform: uppercase; }
+#ttree .blabel.Bio span { color: #b5c46a; } #ttree .blabel.Phy span { color: #7fb2f0; } #ttree .blabel.Eng span { color: #b9c2cc; }
+#ttree svg { position: absolute; left: 0; top: 0; pointer-events: none; }
+#ttree .tcard { position: absolute; display: flex; flex-direction: column; gap: 3px; padding: 6px 8px 6px; border-radius: 6px; background: #0f1722; border: 1px solid #2b3d52; box-shadow: 0 2px 8px rgba(0,0,0,.5); cursor: pointer; text-align: left; color: var(--ink); font: 12px/1.25 var(--f-body); }
+#ttree .tcard .tn { display: flex; align-items: flex-start; gap: 6px; font: 700 12.5px/1.15 var(--f-disp); letter-spacing: .02em; }
+#ttree .tcard .tn b { flex: 1; font: inherit; }
+#ttree .tcard .tc { flex: none; min-width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 700 12px var(--f-mono); color: #fff; border: 2px solid rgba(255,255,255,.35); }
+#ttree .tcard.Bio .tc { background: #6f7d2c; } #ttree .tcard.Phy .tc { background: #2f69b3; } #ttree .tcard.Eng .tc { background: #59626d; }
+#ttree .tcard .tc s { font-size: 9px; opacity: .7; margin-right: 1px; }
+#ttree .tcard .td { color: var(--dim); font-size: 11.5px; flex: 1; }
+#ttree .tcard .tf { display: flex; gap: 3px; flex-wrap: wrap; }
+#ttree .tcard .tf i { font: 700 9px/1 var(--f-mono); font-style: normal; padding: 2px 3px; border-radius: 2px; color: #fff; }
+#ttree .tcard.have { border-color: var(--ok); background: #10201a; } #ttree .tcard.have .tn b::after { content: " ✓"; color: var(--ok); }
+#ttree .tcard.open { border-color: #4a6684; } #ttree .tcard.ready { border-color: var(--beacon); box-shadow: 0 0 0 1px var(--beacon), 0 0 14px rgba(242,169,59,.35); }
+#ttree .tcard.locked { opacity: .55; }
+#ttree .tcard:hover { border-color: var(--ion); opacity: 1; }
+#ttree .tt-top { position: sticky; left: 0; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; padding: 10px 16px; background: rgba(7,11,17,.92); border-bottom: 1px solid var(--line); font-size: 13px; }
+#ttree .tt-top h2 { margin: 0; font-size: 18px; letter-spacing: .2em; text-transform: uppercase; }
+#ttree .tt-top .sp { flex: 1; }
+#ttree .key { display: inline-flex; align-items: center; gap: 5px; color: var(--dim); }
+#ttree .key i { width: 14px; height: 10px; border-radius: 2px; border: 2px solid; display: inline-block; }
 </style>
 
 <div id="app">
@@ -105,6 +136,7 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
     <div id="stage"><div id="hint"></div>
       <div id="zoom"><button class="b" id="zin" aria-label="Zoom in">+</button><button class="b" id="zout" aria-label="Zoom out">−</button><button class="b" id="zfit">Whole map</button><button class="b" id="zme">My ships</button></div>
     </div>
+    <div id="ttree" hidden></div>
     <aside id="rail">
       <nav id="tabs" role="tablist"></nav>
       <div id="panel"></div>
@@ -806,6 +838,7 @@ function render() {
   const P = { turn: panelTurn, sel: panelSel, fac: panelFac, tech: panelTech, log: panelLog }[tab];
   $('panel').innerHTML = P();
   wire();
+  renderTree();
   const nx = $('next');
   nx.textContent = G.over ? 'New campaign' : G.ask.length ? 'Answer the question first' : nextLabel();
   nx.disabled = !G.over && !!G.ask.length;
@@ -1006,9 +1039,78 @@ function panelFac() {
   <h3>Launch vehicles on Earth</h3><p class="dim">${lvTxt()} (counters: ${Object.entries(F.lvs).map(([z, n]) => 'LV-' + z + ' ×' + n).join(', ')})</p>`;
 }
 function panelTech() {
-  const can = G.estep === 'tech';
-  return `<p class="dim">${can ? 'Develop technologies now.' : 'Technologies are developed in the economic phase (every decade from 2040).'} Bank: ${E.FIELDS.map(f => `<span class="f-${f}">${G.bank[f]} ${E.FN[f]}</span>`).join(', ')}. Each undeveloped technology costs 3 VP at the end.</p>` +
-    E.FIELDS.map(f => `<h3 class="f-${f}">${E.FN[f]}</h3>` + D.TECH.filter(t => t.f === f).map(t => { const st = E.techState(G, t), c = E.techCost(G, t); return `<div class="tech ${st}"><b>${esc(t.n)}</b><span>${st === 'have' ? '<span class="chip ok">Developed</span>' : `<button class="b" title="${esc(E.techCostTxt(G, t))}" data-dev="${t.k}" ${!can || st !== 'open' || G.bank[f] < c ? 'disabled' : ''}>${c} pts</button>`}</span><small>${esc(t.d)}${st === 'locked' && t.r.length ? ' · needs ' + t.r.filter(x => !G.tech[x]).map(x => D.TECHK[x].n).join(', ') : ''}</small></div>`; }).join('')).join('');
+  const can = G.estep === 'tech', n = D.TECH.filter(t => G.tech[t.k]).length;
+  return `<p class="dim">${can ? 'Develop technologies now: tap a highlighted technology in the tree.' : 'Technologies are developed in the economic phase (every decade from 2040). The tree shows what each one needs.'}</p>
+  <table><tr><th>Bank</th><th>Points</th></tr>${E.FIELDS.map(f => `<tr><td class="f-${f}">${E.FN[f]}</td><td class="mono">${G.bank[f]}</td></tr>`).join('')}</table>
+  <p class="dim">${n} of ${D.TECH.length} developed. Each undeveloped technology costs 3 VP at the end. Costs drop by 3 for each other faction that has a technology (shown by the faction tags on its card).</p>
+  <div class="row"><button class="b" data-a="treeclose">Back to the map</button></div>`;
+}
+// ---- technology tree overlay ----
+const TT = { lab: 64, cw: 178, ch: 92, gx: 30, gy: 16, pad: 14 };
+function techTreeHTML() {
+  const { lab, cw, ch, gx, gy, pad } = TT, colW = cw + gx, rowH = ch + gy;
+  const W = lab + pad + 7 * colW, H = 12 * rowH + pad * 2, can = G.estep === 'tech';
+  const X = c => lab + pad + c * colW, Y = r => pad + r * rowH + Math.floor(r / 4) * 0;
+  const P = k => D.TECH_POS[k];
+  const box = k => { const [r, c] = P(k); return { x: X(c), y: Y(r), w: cw, h: ch }; };
+  const cards = D.TECH.map(t => box(t.k));
+  const hitsCard = (x0, y0, x1, y1, skip) => cards.some((b, i) => !skip.includes(D.TECH[i].k) && Math.max(x0, x1) > b.x - 2 && Math.min(x0, x1) < b.x + b.w + 2 && Math.max(y0, y1) > b.y - 2 && Math.min(y0, y1) < b.y + b.h + 2);
+  // spread several lines entering / leaving the same card
+  const ins = {}, outs = {};
+  D.TECH.forEach(t => t.r.forEach(r => { (ins[t.k] = ins[t.k] || []).push(r); (outs[r] = outs[r] || []).push(t.k); }));
+  const sortBy = (arr, key) => arr.sort((a, b) => P(a)[0] - P(b)[0] || P(a)[1] - P(b)[1]);
+  Object.values(ins).forEach(a => sortBy(a)); Object.values(outs).forEach(a => sortBy(a));
+  const slot = (list, k, h) => { const n = list.length, i = list.indexOf(k); return n < 2 ? h / 2 : h / 2 + (i - (n - 1) / 2) * Math.min(14, (h - 24) / (n - 1)); };
+  let paths = '';
+  D.TECH.forEach(t => t.r.forEach(rk => {
+    const a = box(rk), b = box(t.k), skip = [rk, t.k], lit = !!G.tech[rk];
+    const col = lit ? (D.TECHK[rk].f === 'Bio' ? '#a9bd52' : D.TECHK[rk].f === 'Phy' ? '#5ea4f2' : '#c3ccd6') : '#3a4a5c';
+    let d;
+    if (P(rk)[1] === P(t.k)[1]) { const x = a.x + a.w / 2; d = `M${x},${a.y + a.h}V${b.y}`; }
+    else {
+      const y0 = a.y + slot(outs[rk], t.k, a.h), y1 = b.y + slot(ins[t.k], rk, b.h), x0 = a.x + a.w, x1 = b.x;
+      const gOut = x0 + gx / 2 + ((outs[rk].indexOf(t.k) % 3) - 1) * 4, gIn = x1 - gx / 2 + ((ins[t.k].indexOf(rk) % 3) - 1) * 4;
+      if (!hitsCard(x0, y0, gIn, y0, skip) && !hitsCard(gIn, y0, gIn, y1, skip)) d = `M${x0},${y0}H${gIn}V${y1}H${x1}`;
+      else if (!hitsCard(gOut, y0, gOut, y1, skip) && !hitsCard(gOut, y1, x1, y1, skip)) d = `M${x0},${y0}H${gOut}V${y1}H${x1}`;
+      else {
+        // through the gutter between rows next to the target
+        const gy0 = b.y + (y1 > y0 ? -gy / 2 : b.h + gy / 2);
+        d = `M${x0},${y0}H${gOut}V${gy0}H${gIn}V${y1}H${x1}`;
+      }
+    }
+    paths += `<path d="${d}" stroke="${col}" stroke-width="${lit ? 2.6 : 2}" fill="none" stroke-linejoin="round" ${lit ? '' : 'stroke-dasharray="1 0"'}/>`;
+    const ex = P(rk)[1] === P(t.k)[1] ? null : [b.x, b.y + slot(ins[t.k], rk, b.h)];
+    if (ex) paths += `<path d="M${ex[0] - 7},${ex[1] - 4.5}L${ex[0]},${ex[1]}L${ex[0] - 7},${ex[1] + 4.5}Z" fill="${col}"/>`;
+  }));
+  const bands = ['Bio', 'Phy', 'Eng'].map((f, i) => `<div class="band ${f}" style="top:${Y(i * 4) - pad / 2 + (i ? 0 : -pad / 2)}px;height:${4 * rowH + (i === 2 ? pad : 0)}px"></div><div class="blabel ${f}" style="top:${Y(i * 4)}px;height:${4 * rowH - gy}px"><span>${E.FN[f]}</span></div>`).join('');
+  const cardsH = D.TECH.map(t => {
+    const b = box(t.k), st = E.techState(G, t), c = E.techCost(G, t), ready = can && st === 'open' && G.bank[t.f] >= c;
+    const holders = E.techHolders(G, t).concat((D.FAC[G.f].st || []).includes(t.k) ? [G.f] : []);
+    const cost = st === 'have' ? '✓' : c < t.c ? `${c}` : t.c;
+    return `<button class="tcard ${t.f} ${st}${ready ? ' ready' : ''}" data-tt="${t.k}" style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px" title="${esc(t.n + ' — ' + t.d + (st === 'have' ? '' : '. Cost ' + c + ' (' + E.techCostTxt(G, t) + ')'))}">
+      <span class="tn"><b>${esc(t.n)}</b><span class="tc">${st !== 'have' && c < t.c ? `<s>${t.c}</s>` : ''}${cost}</span></span>
+      <span class="td">${esc(t.d)}</span>
+      ${holders.length ? `<span class="tf">${holders.map(f => `<i style="background:${D.FAC[f].c}" title="${esc(D.FAC[f].n)}">${esc(D.FAC[f].pre)}</i>`).join('')}</span>` : ''}
+    </button>`;
+  }).join('');
+  return `<div class="tt-top"><h2>Technology Tree</h2>${E.FIELDS.map(f => `<span class="f-${f}">${E.FN[f]} <b class="mono">${G.bank[f]}</b></span>`).join('')}<span class="sp"></span>
+    <span class="key"><i style="border-color:var(--ok)"></i>developed</span><span class="key"><i style="border-color:var(--beacon)"></i>can develop now</span><span class="key"><i style="border-color:#4a6684"></i>available</span><span class="key"><i style="border-color:#2b3d52;opacity:.55"></i>needs earlier tech</span>
+    <button class="b" data-tt-close>Back to the map</button></div>
+    <div class="tt-wrap" style="width:${W}px;height:${H}px">${bands}<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${paths}</svg>${cardsH}</div>`;
+}
+function renderTree() {
+  const el = $('ttree'), show = tab === 'tech' && !!G;
+  el.hidden = !show; if (!show) return;
+  const sx = el.scrollLeft, sy = el.scrollTop;
+  el.innerHTML = techTreeHTML(); el.scrollLeft = sx; el.scrollTop = sy;
+  el.querySelector('[data-tt-close]').onclick = () => { tab = 'turn'; render(); };
+  el.querySelectorAll('[data-tt]').forEach(b => b.onclick = () => {
+    const t = D.TECHK[b.dataset.tt], st = E.techState(G, t), c = E.techCost(G, t);
+    const needs = t.r.length ? `<p class="dim">Needs: ${t.r.map(x => `${G.tech[x] ? '✓' : '✗'} ${esc(D.TECHK[x].n)}`).join(', ')}.</p>` : '';
+    if (st === 'have') return ask(t.n, `<p>${esc(t.d)}.</p><p class="chip ok">Developed</p>`, () => null, 'OK');
+    if (G.estep !== 'tech' || st !== 'open' || G.bank[t.f] < c) return ask(t.n, `<p>${esc(t.d)}.</p>${needs}<p>Costs <b>${c} ${E.FN[t.f]} points</b> (you have ${G.bank[t.f]}).</p><p class="dim">${esc(E.techCostTxt(G, t))}.</p><p class="dim">${G.estep !== 'tech' ? 'Technologies are developed in the tech step of the economic phase.' : st !== 'open' ? 'Develop the technologies it needs first.' : 'Not enough points yet.'}</p>`, () => null, 'OK');
+    ask(`Develop ${t.n}?`, `<p>${esc(t.d)}.</p>${needs}<p>Costs <b>${c} ${E.FN[t.f]} points</b> (you have ${G.bank[t.f]}).</p><p class="dim">${esc(E.techCostTxt(G, t))}.</p>`, () => E.develop(G, t.k), 'Develop');
+  });
 }
 function panelLog() { return `<div id="log">${G.log.slice(0, 160).map(l => `<p class="${l.c}">${esc(l.t)}</p>`).join('')}</div>`; }
 
@@ -1076,6 +1178,7 @@ function wire() {
   on('[data-a="redraw"]', () => ask('Redraw your mission?', `<p>Return ${esc(E.misTxt(G.mis.mine))} to the pool and draw a new one for <b>2 politics markers</b> (you have ${G.polm}).</p>`, () => E.redrawMission(G), 'Redraw'));
   on('[data-a="buyvm"]', () => ask('Buy a victory marker?', `<p>Spend <b>4 politics markers</b> (you have ${G.polm}) for 1 victory marker, worth 1 VP at the end.</p>`, () => E.buyVictory(G), 'Buy'));
   on('[data-a="tabtech"]', () => { tab = 'tech'; render(); });
+  on('[data-a="treeclose"]', () => { tab = 'turn'; render(); });
   on('[data-dip]', b => act(() => E.setDiplomacy(G, b.dataset.dip, +b.dataset.d)));
   P.querySelectorAll('[data-out]').forEach(s => s.onchange = () => { G.bases.find(b => b.id === s.dataset.out).out = s.value; save(); render(); });
   on('[data-a="transfer"]', () => { const f = $('tf-from').value, t = $('tf-to').value, ty = $('tf-type').value, n = +$('tf-n').value, nm = v => v === 'earth' ? 'Earth' : G.bases.find(x => x.id === v).name;

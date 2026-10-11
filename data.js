@@ -179,6 +179,21 @@ D.TECH = [
   T('cc', 'Eng', 'Command & Control', 15, 'fd qc', '+2 combat tactics points'),
   T('bd', 'Eng', 'Bomber Drones', 20, 'cc', 'CVs and defense networks use bomber drones'),
 ];
+// tech tree layout [row, column]: rows 0-3 Biology, 4-7 Physics, 8-11 Engineering (after the printed Technology Tree)
+D.TECH_POS = {
+  sol: [0, 0], exl: [0, 1], terra: [0, 5], gen: [0, 6],
+  ag: [1, 0], hab: [1, 1], mine: [1, 2], ish: [1, 3], ref: [1, 4], ash: [1, 5], atm: [1, 6],
+  ops: [2, 1], iops: [2, 2], aops: [2, 3], ism: [2, 4], asm: [2, 5], ich: [2, 6],
+  suit: [3, 0], cp: [3, 1], als: [3, 2], aec: [3, 3], ccls: [3, 4], acv: [3, 5], sch: [3, 6],
+  orb: [4, 0], astro: [4, 1], tr: [4, 2], ldsf: [4, 3], psh: [4, 4], dse: [4, 5],
+  ars: [5, 2], itr: [5, 4], atr: [5, 5],
+  isw: [6, 1], asw: [6, 3], mec: [6, 4], ef: [6, 5], ice: [6, 6],
+  ion: [7, 0], pm: [7, 1], ff: [7, 2], fr: [7, 3], pam: [7, 4], aam: [7, 5], hap: [7, 6],
+  cv: [8, 0], lcv: [8, 1], frig: [8, 2], dest: [8, 3], cru: [8, 4], bat: [8, 5],
+  reuse: [9, 0], uhlv: [9, 1], elev: [9, 4], sht: [9, 5], ichull: [9, 6],
+  icd: [10, 0], acd: [10, 1], qc: [10, 2], aqc: [10, 3], nano: [10, 4], ai: [10, 5],
+  msl: [11, 0], amsl: [11, 1], fd: [11, 2], cc: [11, 3], bd: [11, 4],
+};
 D.TECHK = Object.fromEntries(D.TECH.map(t => [t.k, t]));
 
 // Policies: chain of 3 (basic, vigorous, unified)
