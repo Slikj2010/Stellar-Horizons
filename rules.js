@@ -553,6 +553,16 @@ function serviceSite(G, s) { // where a CV can be unreserved/repaired: returns {
   return { where: b.id, level: b.fac.sup - (b.dmg.sup ? 1 : 0) };
 }
 const unreserveLevel = sz => sz <= 2 ? 1 : sz === 3 ? 2 : sz <= 5 ? 3 : 4;
+// can this reserved crew vehicle be unreserved where it is? {ok, where, cost, why}
+function unreserveInfo(G, s) {
+  if (s.cls !== 'CV' || !s.res) return { ok: false, why: `${s.name} is not reserved.` };
+  const site = serviceSite(G, s), cost = { SUP: 1, FUEL: 1 };
+  if (!site) return { ok: false, why: s.loc === 'orbit:ear' ? 'Crew vehicles in Earth orbit must land on Earth to be unreserved (Space Elevator lets them stay in orbit).' : `${s.name} must be landed on Earth or at one of your bases with a Supply Station or Spaceport.` };
+  if (site.level < unreserveLevel(s.sz)) return { ok: false, why: `${s.name} (CV-${s.sz}) needs a ${['', 'small Supply Station', 'large Supply Station', 'small Spaceport', 'large Spaceport'][unreserveLevel(s.sz)]} at ${G.bases.find(b => b.id === site.where).name}.` };
+  const where = site.where === 'earth' ? 'Earth' : G.bases.find(b => b.id === site.where).name;
+  if (!payable(G, site.where, cost)) return { ok: false, where, why: site.where === 'earth' ? `Unreserving costs ${earthCostTxt(G, cost)}.` : `Unreserving costs 1 SUP and 1 FUEL from ${where}'s stock.` };
+  return { ok: true, where, cost, costTxt: site.where === 'earth' ? earthCostTxt(G, cost) : `1 SUP + 1 FUEL from ${where}'s stock` };
+}
 function unreserve(G, s) {
   if (G.phase !== 'build') return 'Crew vehicles are unreserved in the build & service phase.';
   if (!s.res) return `${s.name} is not reserved.`;
@@ -1340,7 +1350,7 @@ function resolveInitiative(world) {
 return {
   isLead, npfKeys, allBases, newWorld, attachWorld, serialize, revive, setInitBid, resolveInitiative, finish, log, baseCost,
   R, D, P, sysOf, worldOf, locName, worldsIn, RES, FIELDS, FN, PHASES, ESTEPS, PHASE_NAME, ESTEP_NAME, newGame, cvAllowed, advance, answer,
-  moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, scrapSite, scrapValue, scrapLV, estock, earthCash, earthCostTxt, lvCanAdd, lvPoolTxt, scrapRule, shipCargo,
+  moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, scrapSite, scrapValue, unreserveInfo, scrapLV, estock, earthCash, earthCostTxt, lvCanAdd, lvPoolTxt, scrapRule, shipCargo,
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,
   canFoundBase, foundBase, builtThisTurn, unload, load, buyCargo, sellCargo, upgradeOptions, buildFacility, buildSettlement, repairFacility, terraform, trade, tradeLimitOwn,
   setDiplomacy, dipCost, develop, techState, techCost, techCostTxt, techHolders, convertPolitics, buyVictory, redrawMission, tradePoints, choosePolicy, transferRes, baseOutput, bestOutput,
