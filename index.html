@@ -68,6 +68,8 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
 #toast { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); background: var(--hull2); border: 1px solid var(--bad); color: var(--ink); padding: 8px 14px; border-radius: 4px; font-size: 13px; max-width: 80%; z-index: 5; }
 #lvpick { position: absolute; z-index: 6; background: var(--hull); border: 1px solid var(--ion); border-radius: 6px; padding: 10px; display: grid; gap: 6px; }
 .die { display: inline-grid; place-items: center; width: 52px; height: 52px; border-radius: 10px; font: 700 28px var(--f-mono); background: var(--hull2); border: 2px solid var(--line); flex: none; }
+/* d100 face: round, smaller digits so 100 fits */
+.die.d100 { border-radius: 50%; font-size: 21px; }
 .die.ok { border-color: var(--ok); color: var(--ok); } .die.bad { border-color: var(--bad); color: var(--bad); }
 #menu { position: fixed; inset: 0; z-index: 40; background: #02040a; overflow: hidden; }
 #menu::before { content: ""; position: absolute; inset: -40px; background: url(menu.webp) center / cover; filter: blur(28px) brightness(.55); }
@@ -1015,7 +1017,7 @@ function exploreConfirm() {
 }
 function ask(title, body, fn, go) { ui = { k: 'gen', title, body, fn, go: go || 'Confirm' }; renderAsk(); }
 const costLine = (cost, where) => where === 'earth' || !where ? `Costs ${resHTML(cost)}, bought on Earth for <b>$${E.sum(cost)}B</b> (you have $${G.cash}B).` : `Costs ${resHTML(cost)} from ${esc(where.name)}'s stock (it has ${resHTML(where.stock)}).`;
-function dieFace(n, ok) { return `<span class="die ${ok ? 'ok' : 'bad'}">${n}</span>`; }
+function dieFace(n, ok, cls) { return `<span class="die ${ok ? 'ok' : 'bad'} ${cls || ''}" title="${cls || 'd10'}">${n}</span>`; }
 function exploreResult() {
   const L = G.lastRoll;
   if (L.kind) return `<h2>${esc(L.title)}</h2><div class="row" style="gap:14px;align-items:center">${dieFace(L.r, L.good)}<div><p style="margin:0"><b>${esc(L.head)}</b></p><p class="dim" style="margin:0">${esc(L.sub)}</p></div></div>${L.extra.map(t => `<p class="dim">${esc(t)}</p>`).join('')}<div class="row"><button class="b pri" data-ui="ok">Continue</button></div>`;
@@ -1023,7 +1025,15 @@ function exploreResult() {
   <div class="row" style="gap:14px;align-items:center">${L.rem ? dieFace(L.r, L.hit) + (L.r2 != null ? `<span class="dim">best of ${L.r1} and ${L.r2}</span>` : '') : ''}<div><p style="margin:0"><b>${L.ok ? 'Success' : 'Failure'}</b> at value ${L.val}${L.rem ? `: needed ${L.rem} or less, rolled ${L.r}` : ''}.</p>
   <p class="dim" style="margin:0">${L.got.length ? 'Earned ' + L.got.map(v => v + ' ' + E.FN[L.field]).join(', ') + '.' : 'No tech markers.'}</p></div></div>
   ${L.extra.map(t => `<p class="dim">${esc(t)}</p>`).join('')}
+  ${lifeBlock(L.life)}
   <div class="row"><button class="b pri" data-ui="ok">Continue</button></div>`;
+}
+// search for life (made after a depletion): d100 against the world's life chance
+function lifeBlock(f) {
+  if (!f) return '';
+  if (f.skip) return `<p class="dim">Search for life: no roll (${esc(f.skip)}).</p>`;
+  return `<div class="row" style="gap:14px;align-items:center;margin-top:6px">${dieFace(f.r, f.found, 'd100')}<div><p style="margin:0"><b>Search for ${esc(f.seek)}: ${f.found ? 'found!' : 'nothing found'}</b></p>
+    <p class="dim" style="margin:0">Rolled ${f.r} on d100, needed ${f.need} or less.${f.reward ? ' ' + esc(f.reward) + '.' : ''}</p></div></div>`;
 }
 function renderAsk() {
   const m = $('modal');

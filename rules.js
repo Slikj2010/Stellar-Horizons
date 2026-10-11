@@ -952,10 +952,16 @@ function explore(G, s, opt) {
       else if (!ws.card && ws.v === 0) { const ok = D.CARDS.filter(c => D.cardOk(c, W[w])); if (ok.length) { const c = pick(ok); ws.card = c.n; msg += ` Final depletion: ${c.n} is placed.`; } }
     }
     // search for life
-    const lc = lifeChance + (cardFor(G, w) ? cardFor(G, w).lifeB : 0), lr = d100();
-    if (lc && lr <= lc && !ws.life) {
-      if (!ws.sol) { ws.sol = true; const b = [drawMarker(G, 'Bio'), drawMarker(G, 'Bio')]; G.vm++; G.polm++; msg += ` Life search ${lr}: signs of life! ${markerTxt(b, 'Bio')}, +1 victory marker, +1 politics marker.`; if (!has(G, 'sol')) { G.tech.sol = 1; msg += ' You gain the Signs of Life technology.'; } }
-      else if (has(G, 'sol')) { ws.life = true; const b = []; for (let i = 0; i < 4; i++) b.push(drawMarker(G, 'Bio')); G.vm += 2; G.polm += 2; msg += ` Life search ${lr}: existing life! ${markerTxt(b, 'Bio')}, +2 victory markers, +2 politics markers.`; if (!has(G, 'exl')) { G.tech.exl = 1; msg += ' You gain the Existing Life technology.'; } }
+    const lc = lifeChance + (cardFor(G, w) ? cardFor(G, w).lifeB : 0);
+    if (ws.life) G.lastRoll.life = { skip: 'existing life already found here' };
+    else if (!lc) G.lastRoll.life = { skip: `${W[w].n} has no chance of life` };
+    else if (ws.sol && !has(G, 'sol')) G.lastRoll.life = { skip: 'searching for existing life needs the Signs of Life technology' };
+    else {
+      const lr = d100(), seek = ws.sol ? 'existing life' : 'signs of life', found = lr <= lc;
+      G.lastRoll.life = { r: lr, need: lc, seek, found };
+      if (!found) { msg += ` Search for life: rolled ${lr} on d100, needed ${lc} or less: no ${seek}.`; }
+      else if (!ws.sol) { ws.sol = true; const b = [drawMarker(G, 'Bio'), drawMarker(G, 'Bio')]; G.vm++; G.polm++; G.lastRoll.life.reward = `${markerTxt(b, 'Bio')}, +1 victory marker, +1 politics marker`; msg += ` Search for life: rolled ${lr} on d100, needed ${lc} or less: signs of life! ${G.lastRoll.life.reward}.`; if (!has(G, 'sol')) { G.tech.sol = 1; msg += ' You gain the Signs of Life technology.'; G.lastRoll.life.reward += '; you gain the Signs of Life technology'; } }
+      else { ws.life = true; const b = []; for (let i = 0; i < 4; i++) b.push(drawMarker(G, 'Bio')); G.vm += 2; G.polm += 2; G.lastRoll.life.reward = `${markerTxt(b, 'Bio')}, +2 victory markers, +2 politics markers`; msg += ` Search for life: rolled ${lr} on d100, needed ${lc} or less: existing life! ${G.lastRoll.life.reward}.`; if (!has(G, 'exl')) { G.tech.exl = 1; msg += ' You gain the Existing Life technology.'; G.lastRoll.life.reward += '; you gain the Existing Life technology'; } }
     }
     // missions on depleted worlds get replaced
     ['mine', 'common'].forEach(slot => { const id = G.mis[slot]; if (id != null && G.w[D.MIS[id].w].v < 1) { G.mis[slot] = drawMission(G); } });
