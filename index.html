@@ -658,7 +658,7 @@ function ringLayout(w, list) {
 function paintOrbitRings() {
   ctx.save(); ctx.fillStyle = 'rgba(150,132,214,.85)';
   Object.keys(GEO.worlds).forEach(w => {
-    if (!G.w[w] || !GEO.worlds[w].poly) return;
+    if (!G.w[w] || !GEO.worlds[w].poly || !DOTR[w]) return;
     const R = ringOf(w), n = Math.round(2 * Math.PI * R.r / 9);
     ctx.beginPath();
     for (let i = 0; i < n; i++) { const a = i / n * 2 * Math.PI, x = R.c[0] + Math.cos(a) * R.r, y = R.c[1] + Math.sin(a) * R.r; ctx.moveTo(x + 1.7, y); ctx.arc(x, y, 1.7, 0, 2 * Math.PI); }
