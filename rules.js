@@ -766,7 +766,17 @@ function move(G, s, dest, opt) {
   if (!m.length) return `${s.name} cannot move to ${locName(dest)} now.`;
   const mv = (opt.lvSize ? m.find(x => x.lv && x.lv.n === opt.lvSize) : null) || m[0];
   // pay for LV if buying
-  let lvPaid = null;
+  let lvPaid = null, loadPaid = null;
+  // a crew vehicle leaving Earth can be loaded with cargo paid on Earth (faction board first, then $1B each)
+  const load = s.cls === 'CV' && s.loc === 'earth' && opt.load ? Object.fromEntries(RES.map(r => [r, Math.max(0, Math.floor(opt.load[r] || 0))])) : null;
+  if (load && sum(load)) {
+    const room = s.cap * cargoMul(G) - sum(s.cargo);
+    if (sum(load) > room) return `${s.name} has room for ${room} cargo.`;
+    const all = { ...load }; if (mv.lv && mv.lv.buy) RES.forEach(r => all[r] += mv.lv.cost[r] || 0);
+    if (G.cash < earthCash(G, all)) return `The launch and cargo cost ${earthCostTxt(G, all)}.`;
+    loadPaid = payEarth(G, load); RES.forEach(r => s.cargo[r] += load[r]);
+    log(G, `${s.name} loads ${resTxt(load)} on Earth (${loadPaid.cash ? '$' + loadPaid.cash + 'B' : 'no cash'}${sum(loadPaid.used) ? ', ' + resTxt(loadPaid.used) + ' from the faction board' : ''}).`);
+  }
   if (mv.lv && mv.lv.buy) { if (G.cash < earthCash(G, mv.lv.cost)) return `A new LV-${mv.lv.n} costs ${earthCostTxt(G, mv.lv.cost)}.`; lvPaid = payEarth(G, mv.lv.cost); }
   else if (mv.lv) { const st = s.loc === 'earth' ? G.lv.earth : G.lv[G.bases.find(b => baseLoc(b) === s.loc).id]; st[mv.lv.n]--; }
   // probe
@@ -781,6 +791,7 @@ function move(G, s, dest, opt) {
   const pirSys = pf.t === 'fly' ? pf.s : sysOf(from);
   if (leavingFly && G.fly[pirSys].pir.length && !(s.cb - s.dmg > 0) && !opt.pirateDone) {
     G.ask.push({ k: 'pirate', ship: s.id, dest, opt: { ...opt, pirateDone: true }, sys: pirSys, roll: d10(), text: `A pirate in the ${SYS[pirSys].n} flyby box intercepts ${s.name}.` });
+    if (loadPaid) { RES.forEach(r => s.cargo[r] -= load[r]); unpayEarth(G, loadPaid); }
     if (lvPaid) unpayEarth(G, lvPaid); else if (mv.lv) { const st = s.loc === 'earth' ? G.lv.earth : G.lv[G.bases.find(b => baseLoc(b) === s.loc).id]; st[mv.lv.n]++; }
     return null;
   }

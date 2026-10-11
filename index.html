@@ -133,6 +133,10 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
 #pick .scen .sc:has(input:checked) { border-color: var(--beacon); }
 #pick .scen .sc input { margin-top: 3px; accent-color: var(--beacon); }
 #pick .scen .sc span { display: grid; gap: 2px; } #pick .scen small { color: var(--dim); font-size: 12.5px; }
+#mbox .cargo, #panel .cargo { margin: 8px 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--hull2); }
+.cargo .sl { display: grid; grid-template-columns: auto 44px 1fr 28px; align-items: center; gap: 8px; margin: 4px 0; font-size: 13px; }
+.cargo input[type=range] { width: 100%; accent-color: #e8892f; }
+.hexc { display: inline-grid; place-items: center; min-width: 26px; height: 22px; padding: 0 4px; font: 700 11px/1 var(--f-mono); color: #fff; background: #d9772a; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); vertical-align: middle; }
 </style>
 
 <div id="app">
@@ -164,6 +168,31 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 let ui = null, E, G = null, GEO, ATL = {}, MK, UNITS, sel = null, tab = 'turn', toastT;
 const CS = 62; // counter size on the board (world px)
 const RS = (r, n) => `<span class="rs ${r}" title="${r}">${n}</span>`;
+// orange hexagon = cargo capacity (gear when it can also produce), as on the counters
+const cargoHex = s => `<span class="hexc" title="Cargo capacity${s.prod ? ' and production' : ''}">${s.cap * E.cargoMul(G)}${s.prod ? '⚙' : ''}</span>`;
+// one slider per resource; the three together never exceed the hold's free room. extra() = other Earth costs to add (e.g. a new LV)
+function cargoSliders(s, id) {
+  const room = s.cap * E.cargoMul(G) - E.sum(s.cargo);
+  return `<div class="cargo" id="${id}" data-room="${room}"><p class="dim" style="margin:0 0 4px">${cargoHex(s)} Load cargo on Earth: ${room} free. Resources on your faction board are used first, the rest is bought at $1B each.</p>
+    ${['ORE', 'SUP', 'FUEL'].map(r => `<label class="sl">${RS(r, '')}<span>${r}</span><input type="range" min="0" max="${room}" value="0" data-r="${r}"><b class="mono" data-v="${r}">0</b></label>`).join('')}
+    <p class="dim" data-cost style="margin:4px 0 0"></p></div>`;
+}
+function wireCargo(box, extra, onChange) {
+  const el = box.querySelector('.cargo'); if (!el) return () => null;
+  const room = +el.dataset.room, ins = [...el.querySelectorAll('input[type=range]')];
+  const load = () => Object.fromEntries(ins.map(i => [i.dataset.r, +i.value]));
+  const upd = moved => {
+    let tot = ins.reduce((a, i) => a + +i.value, 0);
+    if (tot > room && moved) moved.value = +moved.value - (tot - room);
+    ins.forEach(i => el.querySelector(`[data-v="${i.dataset.r}"]`).textContent = i.value);
+    const L = load(), all = { ...L }, x = extra ? extra() : null; if (x) Object.keys(x).forEach(r => all[r] = (all[r] || 0) + x[r]);
+    const cash = E.earthCash(G, all), ok = cash <= G.cash;
+    el.querySelector('[data-cost]').innerHTML = E.sum(L) ? `Cargo ${resHTML(L)}${x && E.sum(x) ? ' plus the new launch vehicle' : ''}: <b style="color:${ok ? 'var(--ink)' : 'var(--bad)'}">${esc(E.earthCostTxt(G, all))}</b>${ok ? '' : ` (you have $${G.cash}B)`}` : 'No cargo.';
+    if (onChange) onChange(ok);
+  };
+  ins.forEach(i => i.oninput = () => upd(i)); upd();
+  return () => { upd(); return load(); };
+}
 const resHTML = o => ['ORE', 'SUP', 'FUEL'].filter(r => o[r]).map(r => RS(r, o[r])).join(' ') || '<span class="dim">none</span>';
 
 function toast(msg) { if (!msg) return; let t = $('toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; $('stage').appendChild(t); } t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 4200); }
@@ -829,10 +858,17 @@ function chooseAndMove(s, dest, opts, dropPt) {
   const body = `<p>${esc(s.name)} moves from ${esc(E.locName(s.loc))} to <b>${esc(E.locName(dest))}</b>${o0.eta ? `, a ${o0.eta}-turn transfer` : ', arriving this turn'}${o0.final ? '. This is its final move' : ''}.</p>
     ${lvs.length ? `<p class="dim">Launch vehicle:</p><div class="row">${lvs.map((o, i) => `<label class="chip" style="padding:4px 9px;cursor:pointer"><input type="radio" name="mvlv" value="${o.lv.n}" ${i ? '' : 'checked'}> LV-${o.lv.n} ${o.lv.stock ? 'from stock' : `(new: ${esc(o.lv.txt)})`}${o.eta && lvs.length > 1 ? `, ${o.eta} turn${o.eta > 1 ? 's' : ''}` : ''}</label>`).join('')}</div>` : ''}
     ${probes.length ? `<label class="dim"><input type="checkbox" id="mvprobe" checked> Carry probe ${esc(probes[0])}</label>` : ''}
+    ${s.cls === 'CV' && s.loc === 'earth' && s.cap && s.cap * E.cargoMul(G) > E.sum(s.cargo) ? cargoSliders(s, 'mvcargo') : ''}
     <p class="dim">Engine failure ${rate < 1 ? 'under 1%, no roll' : rate + '%'}${lvs.length ? (E.has(G, 'reuse') ? '; the LV is recovered on a roll above 25 and can launch again next turn' : '; the LV is used up') : ''}. Each unit moves once per turn.</p>`;
-  ui = { k: 'gen', title: `Move ${s.name}?`, body, go: 'Move', fn: () => {
+  let getLoad = () => null;
+  const newLV = () => { const el = document.querySelector('input[name="mvlv"]:checked'), o = el ? lvs.find(x => x.lv.n === +el.value) : lvs[0]; return o && o.lv.buy ? o.lv.cost : null; };
+  ui = { k: 'gen', title: `Move ${s.name}?`, body, go: 'Move', after: box => {
+    const go = box.querySelector('[data-ui="gen"]');
+    getLoad = wireCargo(box, newLV, ok => { go.disabled = !ok; });
+    box.querySelectorAll('input[name="mvlv"]').forEach(r => r.addEventListener('change', () => getLoad()));
+  }, fn: () => {
     const lvEl = document.querySelector('input[name="mvlv"]:checked'), pr = $('mvprobe');
-    const res = E.move(G, s, dest, { lvSize: lvEl ? +lvEl.value : undefined, probe: pr && pr.checked ? probes[0] : null });
+    const res = E.move(G, s, dest, { lvSize: lvEl ? +lvEl.value : undefined, probe: pr && pr.checked ? probes[0] : null, load: getLoad() });
     if (s.loc === dest) { const pp = E.P(dest); if (pp.t === 'orbit' && dropPt) { const R = ringOf(pp.w); s.ang = Math.atan2(dropPt.y - R.c[1], dropPt.x - R.c[0]); const others = G.ships.filter(o => o !== s && o.loc === dest); s.ang = freeAngle(s.ang, [...ringLayout(pp.w, others).values()], 2 * Math.asin(Math.min(1, (CS + 8) / 2 / R.r)), pp.w); } else if (pp.t !== 'orbit') delete s.ang; }
     return res;
   } };
@@ -1013,7 +1049,7 @@ function panelShip(s) {
     if (o.length) h += `<h3>Explore</h3>` + o.map((x, i) => `<div class="row"><button class="b" data-ex="${i}">${x.kind === 'probe' ? 'Probe ' : x.kind === 'produce' ? 'Produce ' + x.res + ' at ' : x.kind === 'harvest' ? 'Harvest asteroid' : ''}${x.w ? esc(D.W[x.w].n) : ''}</button><span class="dim">${x.kind === 'produce' ? 'production value ' + x.value : x.kind === 'harvest' ? '' : `${fieldTag(x.w)} · world ${G.w[x.w].v} · explore value <b class="mono" style="color:var(--ink)">${x.value}</b>${x.pen ? ' (−' + x.pen + ' distance)' : ''}`}</span></div>`).join('');
     if (s.kind === 'Flyby' && E.P(s.loc).t === 'fly' && o.length) h += `<div class="row"><button class="b" data-fskip="${s.id}">Transfer outward without exploring</button></div>`;
   }
-  if (G.phase === 'build' && s.loc === 'earth' && s.cap) h += `<h3>Load cargo on Earth (faction board first, then $1B each)</h3><div class="row">${['ORE', 'SUP', 'FUEL'].map(r => `<button class="b" data-buyc="${r}">+1 ${RS(r, '')}</button>`).join('')}<button class="b" data-buyc5="SUP">Fill with SUP</button>${E.sum(s.cargo) ? `<button class="b" data-sellc="1">Unload to the faction board</button>` : ''}</div>`;
+  if (s.loc === 'earth' && s.cap) h += `<h3>Cargo on Earth</h3>${s.cap * E.cargoMul(G) > E.sum(s.cargo) ? cargoSliders(s, 'selcargo') + `<div class="row"><button class="b" data-loadearth="${s.id}" disabled>Load</button></div>` : `<p class="dim">${cargoHex(s)} The hold is full.</p>`}${E.sum(s.cargo) ? `<div class="row"><button class="b" data-sellc="1">Unload to the faction board</button></div>` : ''}<p class="dim">Or load while launching: the move dialog has the same sliders.</p>`;
   const b = E.atOwnBase(G, s);
   if (b && s.cap) h += `<h3>At ${esc(b.name)}</h3><div class="row"><button class="b" data-unload="${s.id}" ${E.sum(s.cargo) ? '' : 'disabled'}>Unload all</button>${['ORE', 'SUP', 'FUEL'].map(r => `<button class="b" data-loadr="${r}" ${b.stock[r] ? '' : 'disabled'}>Load ${r}</button>`).join('')}</div>`;
   if (G.phase === 'trade' && E.canFoundBase(G, s)) { const c = E.canFoundBase(G, s); h += `<div class="row"><button class="b pri" data-found="${s.id}" ${s.cargo.SUP < c.cost ? 'disabled' : ''}>Found a base here (${c.cost} SUP)</button></div>`; }
@@ -1168,6 +1204,7 @@ function renderAsk() {
   const m = $('modal');
   if (ui) {
     $('mbox').innerHTML = ui.k === 'confirm' ? exploreConfirm() : ui.k === 'gen' ? `<h2>${esc(ui.title)}</h2>${ui.body}<div class="row"><button class="b pri" data-ui="gen">${esc(ui.go)}</button><button class="b" data-ui="cancel">Cancel</button></div>` : exploreResult(); m.hidden = false;
+    if (ui.k === 'gen' && ui.after) ui.after($('mbox'));
     $('mbox').querySelectorAll('[data-ui]').forEach(b => b.onclick = () => {
       const k = b.dataset.ui;
       if (k === 'gen') { const fn = ui.fn; ui = null; G.lastRoll = null; act(fn); if (G.lastRoll && G.lastRoll.kind) { ui = { k: 'result' }; render(); } return; }
@@ -1223,6 +1260,9 @@ function wire() {
     if (o.kind === 'produce') ask(`Produce ${o.res} at ${D.W[o.w].n}?`, `<p>${esc(s.name)} produces 1 ${o.res} automatically. Then roll a d10${E.has(G, 'ref') ? ' (−1 for Space Refining)' : ''}: ${o.value % 10 || o.value} or less adds 1 more, and a 1 adds another.</p><p class="dim">Production value ${o.value}. Cargo room ${room}. Then a recall check (${E.recall(G)}%).</p>`, () => E.explore(G, s, o), 'Produce');
     else ask('Harvest the asteroid?', `<p>${esc(s.name)} rolls a d10 on the asteroid harvest table: 1–3 SUP, 4–6 Fuel, 7–10 Ore (3 to 6 units), and earns 1 victory marker.</p><p class="dim">Cargo room ${room}. Then a recall check (${E.recall(G)}%).</p>`, () => E.explore(G, s, o), 'Harvest'); });
   on('[data-fskip]', b => act(() => E.flybySkip(G, ship())));
+  { const lb = P.querySelector('[data-loadearth]'); if (lb) {
+      let get = null; get = wireCargo(P, null, ok => { const L = get ? Object.fromEntries([...P.querySelectorAll('.cargo input[type=range]')].map(i => [i.dataset.r, +i.value])) : {}; lb.disabled = !ok || !E.sum(L); });
+      lb.onclick = () => { const s = ship(), L = get(); act(() => { for (const r of ['ORE', 'SUP', 'FUEL']) if (L[r]) { const e = E.buyCargo(G, s, r, L[r]); if (e) return e; } return null; }); }; } }
   on('[data-buyc]', b => { const s = ship(), r = b.dataset.buyc; ask(`Load 1 ${r} into ${s.name}?`, `<p>${RS(r, 1)}: <b>${esc(E.earthCostTxt(G, { [r]: 1 }))}</b> (you have $${G.cash}B). It goes into ${esc(s.name)}'s hold.</p>`, () => E.buyCargo(G, s, r, 1), 'Load'); });
   on('[data-buyc5]', b => { const s = ship(), n = Math.min(G.cash + E.estock(G).SUP, s.cap * E.cargoMul(G) - E.sum(s.cargo)); ask(`Fill ${s.name} with SUP?`, `<p>${RS('SUP', n)}: <b>${esc(E.earthCostTxt(G, { SUP: n }))}</b> (you have $${G.cash}B).</p>`, () => E.buyCargo(G, s, 'SUP', n), 'Load'); });
   on('[data-sellc]', () => { const s = ship(); const got = ['ORE', 'SUP', 'FUEL'].reduce((a, r) => a + Math.floor(s.cargo[r] / 2), 0); ask(`Sell ${s.name}'s cargo?`, `<p>Earth buys 2 of a type for $1B: ${resHTML(s.cargo)} sells for <b>$${got}B</b>. Odd leftovers stay aboard.</p>`, () => E.sellCargo(G, s), 'Sell'); });
