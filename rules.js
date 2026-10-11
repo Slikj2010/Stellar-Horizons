@@ -1083,9 +1083,11 @@ function explore(G, s, opt) {
   let msg = `${who} explores ${W[w].n}${o.pen ? ` from transfer box ${o.pen}` : ''} at value ${val}: ${res}`;
   G.lastRoll = { who, world: W[w].n, val, auto, rem, r, r1, r2, hit, got: got.slice(), field, ok: n > 0, extra: [] };
   const total = got.reduce((a, b) => a + b, 0);
+  // depletion (max one per exploration): robotic explorers and probes when any single marker earned is a '3' (the
+  // rulebook errata counts '3 or more', so the 5-point marker also depletes); crewed vehicles when the earned markers add up to 3 or more
   if (cv ? total >= 3 : got.some(v => v >= 3)) {
     ws.v = Math.max(0, ws.v - 1); G.polm++;
-    msg += ` Depletion: ${W[w].n} drops to ${ws.v}; +1 politics marker.`; G.lastRoll.extra.push(`Depletion: ${W[w].n} drops to ${ws.v}.`);
+    msg += ` Depletion (${cv ? `markers total ${total}` : `a ${got.find(v => v >= 3)}-point marker`}): ${W[w].n} drops to ${ws.v}; +1 politics marker.`; G.lastRoll.extra.push(`Depletion: ${W[w].n} drops to ${ws.v}.`);
     // missions (telescopes never count)
     if (s.kind !== 'Telescope') [['mine', 'your'], ['common', 'the common']].forEach(([slot, lbl]) => {
       const id = G.mis[slot]; if (id == null) return; const m = D.MIS[id];
