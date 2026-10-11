@@ -1060,7 +1060,9 @@ function confirmNext() {
 }
 function nextLabel() {
   if (G.phase === 'econ') { const i = E.ESTEPS.indexOf(G.estep); return i < E.ESTEPS.length - 1 ? 'Next: ' + E.ESTEP_NAME[E.ESTEPS[i + 1]] : 'Next: build & service'; }
-  const i = E.PHASES.indexOf(G.phase); return G.phase === 'trade' ? 'End ' + G.y : 'Next: ' + E.PHASE_NAME[E.PHASES[i + 1]];
+  const i = E.PHASES.indexOf(G.phase); let nx = E.PHASES[i + 1];
+  if (nx === 'combat' && !E.combatPossible(G)) nx = 'explore'; // nothing to fight: combat is skipped
+  return G.phase === 'trade' ? 'End ' + G.y : 'Next: ' + E.PHASE_NAME[nx];
 }
 function hintText() {
   if (G.over) return 'The campaign is over. See the Turn tab for the final score.';

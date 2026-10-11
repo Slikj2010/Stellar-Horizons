@@ -83,6 +83,7 @@ Engine failure: every move; launch roll covers LV+payload. Base 5% (UHLV 4%? tec
 Interception: pirates (1 per flyby box) always try to intercept fleets w/ CVs leaving their flyby box unless fleet has CV with combat value.
 
 ## 3.4 Combat (see fetch; combat table 11.0 not retrieved)
+The combat phase is skipped in any year with no possible combat: no pirate on the board, and no faction embargoing or at war with a faction on the board (an NPF with a base there, or a faction in play).
 Search: 4 or less succeeds; +1 per CV after first both sides. LV/RE-only fleets destroyed by any successful search.
 Pirate interception (3.4.8): roll d10: pay that $ (to cache) and pass / surrender / fight / pay double to remove.
 Destroy pirate: half pirate cache, 1 politics, 1 VM.

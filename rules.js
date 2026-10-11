@@ -161,7 +161,7 @@ function advance(G) {
   if (G.phase === 'trade') { endYear(G); return true; }
   G.phase = PHASES[i + 1];
   if (G.phase === 'move') startMovement(G);
-  if (G.phase === 'combat') startCombat(G);
+  if (G.phase === 'combat') { startCombat(G); if (!combatPossible(G)) { log(G, `${G.y}: no combat possible (no pirates, and no embargo or war with a faction on the board); combat phase skipped.`); G.phase = 'explore'; } }
   if (G.phase === 'explore') startExplore(G);
   if (G.phase === 'trade') startTrade(G);
   return true;
@@ -886,6 +886,14 @@ function answer(G, choice, data) {
 }
 
 // ================= COMBAT (pirates, NPF raids & blockades) =================
+// combat can happen this year if any pirate is on the board, or if any faction in play has an embargo or war with a
+// faction that is on the board: an NPF with a base, or another faction in play with ships or bases
+function combatPossible(G) {
+  if (Object.values(G.fly).some(f => f.pir.length)) return true;
+  const facs = G.world ? Object.values(G.world.facs) : [G];
+  const onBoard = k => Object.values(G.w).some(x => x.npf === k) || !!(G.world && G.world.facs[k] && (G.world.facs[k].ships.length || G.world.facs[k].bases.length));
+  return facs.some(g => Object.entries(g.rel).some(([k, v]) => v >= 4 && onBoard(k)));
+}
 function startCombat(G) {
   // blockades lapse unless a CV with combat value stays at an NPF base world with embargo or worse
   Object.keys(G.w).forEach(k => { const x = G.w[k]; if (!x.npf) return; const still = x.blk && G.ships.some(s => s.cls === 'CV' && !s.res && worldOf(s.loc) === k && s.cb > s.dmg) && G.rel[x.npf] >= 4; if (x.blk && !still) { x.blk = false; } });
@@ -1348,7 +1356,7 @@ function resolveInitiative(world) {
 }
 
 return {
-  isLead, npfKeys, allBases, newWorld, attachWorld, serialize, revive, setInitBid, resolveInitiative, finish, log, baseCost,
+  isLead, npfKeys, combatPossible, allBases, newWorld, attachWorld, serialize, revive, setInitBid, resolveInitiative, finish, log, baseCost,
   R, D, P, sysOf, worldOf, locName, worldsIn, RES, FIELDS, FN, PHASES, ESTEPS, PHASE_NAME, ESTEP_NAME, newGame, cvAllowed, advance, answer,
   moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, scrapSite, scrapValue, unreserveInfo, scrapLV, estock, earthCash, earthCostTxt, lvCanAdd, lvPoolTxt, scrapRule, shipCargo,
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,
