@@ -144,6 +144,11 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
 .hexc { display: inline-grid; place-items: center; min-width: 26px; height: 22px; padding: 0 4px; font: 700 11px/1 var(--f-mono); color: #fff; background: #d9772a; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); vertical-align: middle; }
 .initord { margin: 6px 0 10px; padding-left: 22px; } .initord li { margin: 2px 0; font-weight: 600; }
 p.order { margin: -2px 0 10px; }
+.cardpick { display: flex; flex-wrap: wrap; gap: 14px; margin: 10px 0; }
+.cardpick.small { opacity: .8; margin-top: 0; }
+.cardopt { display: grid; gap: 6px; justify-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--hull2); color: var(--ink); font: 600 13px var(--f-body); cursor: pointer; }
+.cardopt:hover, .cardopt:focus-visible { border-color: var(--beacon); }
+.cardimg { display: block; background-repeat: no-repeat; max-width: 100%; }
 </style>
 
 <div id="app">
@@ -883,6 +888,12 @@ function nearestTarget(moves, p) {
 // ---------------- painting ----------------
 function drawTex(img, f, x, y, size) { if (!f) return; const k = size / Math.max(f[2], f[3]); const w = f[2] * k, h = f[3] * k; ctx.drawImage(img, f[0], f[1], f[2], f[3], x - w / 2, y - h / 2, w, h); }
 const uf = key => ATL[G.f].fr[key];
+// a world card from the markers sheet, drawn as a cropped background at the given width
+function cardImg(name, w) {
+  const c = D.CARDS.find(x => x.n === name), f = c && MK['card_' + c.img]; if (!f || !IMG.markers) return `<b>${esc(name)}</b>`;
+  const k = w / f[2], h = Math.round(f[3] * k);
+  return `<span class="cardimg" role="img" aria-label="${esc(name)}" style="width:${w}px;height:${h}px;background-image:url(markers.webp);background-size:${IMG.markers.width * k}px auto;background-position:-${f[0] * k}px -${f[1] * k}px"></span>`;
+}
 const otherFacs = () => G && G.world ? Object.values(G.world.facs).filter(g => g !== G) : [];
 function txt(t, x, y, size, color, align) { ctx.font = `600 ${size}px "IBM Plex Sans Condensed", "Arial Narrow", sans-serif`; ctx.textAlign = align || 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = Math.max(2, size / 5); ctx.strokeStyle = '#000'; ctx.strokeText(t, x, y); ctx.fillStyle = color || '#fff'; ctx.fillText(t, x, y); }
 function pathShape(z) { ctx.beginPath(); const tr = poly => { poly.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); }; if (z.poly) { tr(z.poly); if (z.hole) tr(z.hole); } else ctx.arc(z.c[0], z.c[1], z.r, 0, Math.PI * 2); }
@@ -1341,7 +1352,12 @@ function renderAsk() {
   if (!a) { m.hidden = true; return; }
   let h = `<h2>Decision</h2><p>${esc(a.text)}</p>`;
   if (a.k === 'pirate') h += `<p class="dim">Pirate demand roll: ${a.roll}.</p><div class="row"><button class="b" data-ans="pay">Pay $${a.roll}B and pass</button><button class="b" data-ans="remove">Pay $${a.roll * 2}B to drive it off</button><button class="b" data-ans="fight">Fight</button><button class="b" data-ans="surrender">Surrender</button><button class="b" data-ans="stay">Stay put</button></div>`;
-  if (a.k === 'card') h += `<div class="row">${a.opts.map(o => `<button class="b" data-ans="${esc(o)}">Place ${esc(o)}</button>`).join('')}<button class="b" data-ans="">Return to deck</button></div>`;
+  if (a.k === 'card') {
+    const cur = G.w[a.w] && G.w[a.w].card;
+    h += `<div class="cardpick">${a.opts.map(o => `<button class="cardopt" data-ans="${esc(o)}" title="Place ${esc(o)} on ${esc(D.W[a.w].n)}">${cardImg(o, a.opts.length > 1 ? 196 : 260)}<span>Place ${esc(o)}</span></button>`).join('')}</div>
+    ${cur ? `<p class="dim">${esc(D.W[a.w].n)} already holds ${esc(cur)}; placing a new card replaces it.</p><div class="cardpick small">${cardImg(cur, 130)}</div>` : ''}
+    <div class="row"><button class="b" data-ans="">Return ${a.opts.length > 1 ? 'both' : 'it'} to the deck</button></div>`;
+  }
   if (a.k === 'flyby') h += `<div class="row">${a.opts.map(o => `<button class="b" data-ans="${o.sys}">${D.SYS[o.sys].n} (${o.eta} turns)</button>`).join('')}</div>`;
   if (a.k === 'immigration') h += `<div class="row">${G.bases.map(b => `<button class="b" data-ans="${b.id}">${esc(b.name)}</button>`).join('')}</div>`;
   if (a.k === 'publicity') h += `<p class="dim">Tap a world on the board, then use the button in the Selected tab. Or pick one here:</p><select id="pubsel">${Object.keys(G.w).filter(k => G.w[k].v > 0).map(k => `<option value="${k}">${esc(D.W[k].n)} (${G.w[k].v})</option>`).join('')}</select> <button class="b" data-ans="__pub">Raise by 2</button>`;
