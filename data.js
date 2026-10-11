@@ -195,6 +195,11 @@ D.TECH_POS = {
   msl: [11, 0], amsl: [11, 1], fd: [11, 2], cc: [11, 3], bd: [11, 4],
 };
 // LV counters are two-sided: lvs.13 = LV-1/LV-3 counters, lvs.14 = LV-1/LV-4, lvs.24 = LV-2/LV-4
+// optional scenarios offered when starting a new game
+D.SCEN = {
+  std: { n: 'Standard campaign (2030)', d: 'The full campaign from 2030.' },
+  fut2060: { n: 'Futuristic start (2060)', d: 'Start after the 2060 economic phase. You have every technology in the first two columns of the tree (except Signs of Life and Existing Life), and an extra $40B plus $3B for each technology you would have started a 2030 campaign with. Choose policies for the three missed economic phases. Every world starts with its exploration value reduced by 1.' },
+};
 D.TECHK = Object.fromEntries(D.TECH.map(t => [t.k, t]));
 
 // Policies: chain of 3 (basic, vigorous, unified)

@@ -101,9 +101,26 @@ function newGame(f, opts) {
     if (probe) s.probe = probe;
     if (s.cls === 'CV' && loc === 'earth') s.launched = false;
   });
+  if (opts.scenario === 'fut2060') { futuristicStart(G, F); return G; }
   log(G, `2030: ${F.n} begins the campaign with $${F.cash}B. Your mission: ${misTxt(G.mis.mine)}. Common mission: ${misTxt(G.mis.common)}.`, 'g');
   startMovement(G);
   return G;
+}
+// FUTURISTIC START (2060): start after the 2060 economic phase with the first two tech columns (not Signs of Life / Existing
+// Life), +$40B and $3B per 2030 starting technology on top of the starting cash, three policies to choose for the missed
+// economic phases (2040, 2050, 2060), and every world's exploration value reduced by 1.
+function futuristicStart(G, F) {
+  G.y = 2060; G.scenario = 'fut2060';
+  const bonus = 40 + 3 * F.st.length;
+  D.TECH.filter(t => D.TECH_POS[t.k] && D.TECH_POS[t.k][1] <= 1 && t.k !== 'sol' && t.k !== 'exl').forEach(t => G.tech[t.k] = 1);
+  G.cash += bonus;
+  Object.values(G.w).forEach(w => { w.v = Math.max(0, w.v - 1); });
+  D.MIS.forEach(m => { if (m.yr && m.yr <= 2060) G.mis.pool.push(m.id); });
+  if (G.mis.common == null) G.mis.common = drawMission(G);
+  log(G, `2060 (Futuristic start): ${F.n} begins with $${G.cash}B ($${F.cash}B + $40B + $3B × ${F.st.length} starting technologies) and every technology in the first two columns. All worlds' exploration values are reduced by 1. Your mission: ${misTxt(G.mis.mine)}. Common mission: ${misTxt(G.mis.common)}.`, 'g');
+  // finish the 2060 economic phase: policies for the three missed decades, then build & service
+  G.phase = 'econ'; G.estep = 'policy'; G.policyPicked = false; G.policyLeft = 3;
+  log(G, '2060: choose policies for the three missed economic phases (2040, 2050, 2060).', 'h');
 }
 function makeShip(G, name) {
   const u = unitData(G.f + '|' + name);
@@ -201,7 +218,8 @@ function endEstep(G) {
     FIELDS.forEach(f => G.bank[f] = Math.round(G.bank[f] / 2 + 1e-9));
     log(G, `Tech bank halved: ${FIELDS.map(f => G.bank[f] + ' ' + FN[f]).join(', ')}.`);
   }
-  if (s === 'policy' && !G.policyPicked) log(G, 'No new policy chosen this decade.');
+  if (s === 'policy' && !G.policyPicked) log(G, G.policyLeft > 1 ? `${G.policyLeft} missed policies not chosen.` : 'No new policy chosen this decade.');
+  if (s === 'policy') G.policyLeft = 0;
 }
 const toNeutral = v => v < 3 ? v + 1 : v > 3 ? v - 1 : 3;
 function doEvent(G, e, r) {
@@ -418,7 +436,8 @@ function choosePolicy(G, k) {
   if (lv >= 3) return 'That policy is already Unified.';
   if (lv === 2 && Object.values(G.pol).includes(3)) return 'You can hold only one Unified policy.';
   if (Object.values(G.pol).reduce((a, b) => a + b, 0) >= 10) return 'You already hold 10 policies.';
-  G.pol[k] = lv + 1; G.policyPicked = true;
+  G.pol[k] = lv + 1;
+  if (G.policyLeft > 0) { G.policyLeft--; G.policyPicked = G.policyLeft <= 0; } else G.policyPicked = true;
   const p = D.POL.find(x => x.k === k);
   log(G, `Adopted ${D.POL_LV[lv]}${p.n}: ${p.d[lv]}.`, 'g');
   return null;

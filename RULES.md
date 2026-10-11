@@ -259,3 +259,6 @@ With "Scrap explorers and launch vehicles" on (Settings), robotic explorers and 
 
 ## Faction board resources (Earth)
 Nothing is sold for cash. Resources that reach Earth (scrapping, unloading a ship on Earth, Trade Route transfers to Earth) sit on the faction board. Anything paid on Earth (units, LVs, unreserving, repairs, cargo, transfers from Earth) uses faction-board resources first, and the rest is bought at $1B each. Bases never use money, only their own resources.
+
+## Optional scenario: Futuristic start (2060)
+Start after the 2060 economic phase. You have all technologies in the first two columns of the tree (except Signs of Life / Existing Life), plus $40B and $3B for each technology you would have started a 2030 campaign with, on top of your normal starting cash (e.g. North America: $20B + $40B + 7 × $3B = $81B). Choose policies for the 3 missed economic phases (2040, 2050, 2060). Every world's initial exploration value is reduced by 1. Dated missions up to 2060 are in the pool.

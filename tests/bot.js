@@ -23,7 +23,7 @@ const check = (G, where) => {
 const stats = {};
 for (let gi = 0; gi < games; gi++) {
   const f = facs[gi % facs.length];
-  const G = E.newGame(f, { scrapRE: gi % 2 === 1 });
+  const G = E.newGame(f, { scrapRE: gi % 2 === 1, scenario: gi % 3 === 2 ? 'fut2060' : 'std' });
   let steps = 0;
   try {
     while (!G.over && steps < 20000) {
