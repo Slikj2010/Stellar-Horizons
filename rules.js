@@ -868,8 +868,10 @@ function exploreOptions(G, s) {
   if (p.t === 'fly') { if (s.prod && has(G, 'mine') && G.fly[p.s].ast) out.push({ w: null, kind: 'harvest', value: 0 }); return out; }
   if (atOwnBase(G, s) && !has(G, 'elev')) return out;
   const w = worldOf(s.loc);
-  if (!W[w].tags.includes('gas') && !W[w].tags.includes('tele') && s.ev - s.dmg > 0) add(w, 'explore');
-  if (s.prod && has(G, 'mine') && !G.bases.some(b => b.w === w)) RES.forEach(r => { const v = prodValue(G, w, r); if (v >= 1) out.push({ w, kind: 'produce', res: r, value: v }); });
+  // severe atmospheres (Venus, gas giants) need Pressure Shell for any crewed exploration or production; gas giants are never explored by crew
+  const atmOk = !W[w].tags.includes('severeAtm') || has(G, 'psh');
+  if (atmOk && !W[w].tags.includes('gas') && !W[w].tags.includes('tele') && s.ev - s.dmg > 0) add(w, 'explore');
+  if (atmOk && s.prod && has(G, 'mine') && !G.bases.some(b => b.w === w)) RES.forEach(r => { const v = prodValue(G, w, r); if (v >= 1) out.push({ w, kind: 'produce', res: r, value: v }); });
   return out;
 }
 function cardFor(G, w) { const c = G.w[w].card; return c ? D.CARDS.find(x => x.n === c) : null; }
