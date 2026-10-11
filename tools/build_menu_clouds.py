@@ -1,9 +1,9 @@
 """Menu Earth: split the painted clouds off the title-screen Earth so they can drift around the globe.
 Clouds = small bright, low-saturation structures: a grey-scale morphological opening removes them (that is the
 cloud-free globe) and the difference is the cloud layer, drawn back additively at a slowly turning longitude.
-Writes menu_earth.webp (cloud-free globe, alpha = disc), menu_clouds.png (equirectangular cloud brightness,
-normalised by sunlight; far side is a cross-faded copy of the near side) and menu_earth.json.
-Usage: python3 tools/build_menu_clouds.py [preview_dir]"""
+Writes menu_earth.webp (cloud-free globe, alpha = disc) and menu_earth.json. The moving clouds come from
+tools/gen_clouds.py (menu_clouds.webp).
+Usage: python3 tools/build_menu_clouds.py"""
 import json, math, sys
 import numpy as np, cv2
 from PIL import Image
@@ -39,31 +39,5 @@ cloud = diff * keep[..., None]                                       # additive 
 base = crop - cloud                                                  # globe without those clouds
 disc_a = np.clip((.995 - d) / .012, 0, 1)
 Image.fromarray(np.dstack([np.clip(base, 0, 255), disc_a * 255]).astype(np.uint8), 'RGBA').save('menu_earth.webp', 'WEBP', quality=90, method=6)
-# cloud brightness per unit sunlight, greyscale (clouds take the local light when drawn)
-cb = np.clip(cloud.mean(2) / light, 0, 255)
-TW, TH = 2048, 1024
-lon = (np.arange(TW) + .5) / TW * 2 * math.pi - math.pi
-lat = (np.arange(TH) + .5) / TH * math.pi - math.pi / 2
-LON, LAT = np.meshgrid(lon, lat)
-def samp(f):
-    fs = np.clip(f, -math.pi / 2 * .96, math.pi / 2 * .96)
-    px = (ex + np.cos(LAT) * np.sin(fs) * er - x0 - .5).astype(np.float32); py = (ey + np.sin(LAT) * er - y0 - .5).astype(np.float32)
-    return cv2.remap(cb.astype(np.float32), px, py, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
-wrap = lambda a: (a + math.pi) % (2 * math.pi) - math.pi
-fa, fb = wrap(LON), wrap(LON - math.pi)
-def wgt(f): t = np.clip((np.degrees(np.abs(f)) - 55) / 40, 0, 1); return 1 - t * t * (3 - 2 * t)
-wa, wb = wgt(fa), wgt(fb); tot = np.maximum(wa + wb, 1e-6)
-cl = samp(fa) * wa / tot + samp(fb) * wb / tot
-vis = (ey + np.sin(LAT) * er) < H - 2
-cl = np.where(vis, cl, np.flipud(cl))
-Image.fromarray(np.clip(cl, 0, 255).astype(np.uint8), 'L').save('menu_clouds.png', optimize=True)
 json.dump({'x0': x0, 'y0': y0, 'w': x1 - x0, 'h': y1 - y0, 'sun': SUN.tolist()}, open('menu_earth.json', 'w'))
 print('earth crop', x0, y0, x1 - x0, y1 - y0)
-if len(sys.argv) > 1:
-    out = sys.argv[1]
-    def render(rot):
-        lonp = np.arcsin(np.clip(u / np.maximum(np.sqrt(1 - v * v), 1e-6), -1, 1)); latp = np.arcsin(np.clip(v, -1, 1))
-        tx = ((wrap(lonp - rot) + math.pi) / (2 * math.pi) * TW - .5).astype(np.float32); ty = ((latp + math.pi / 2) / math.pi * TH - .5).astype(np.float32)
-        c = cv2.remap(cl.astype(np.float32), tx, ty, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP) * light * (d < .97)
-        return np.clip(base + c[..., None] * np.array([1, 1.02, 1.06]), 0, 255).astype(np.uint8)
-    Image.fromarray(np.hstack([crop.astype(np.uint8), np.clip(base, 0, 255).astype(np.uint8), render(0), render(.5)])).resize((4 * (x1 - x0) // 2, (y1 - y0) // 2)).save(out + '/mc_cmp.png')
