@@ -24,9 +24,9 @@ function makeAI(E, D) {
     cn_rob: { fw: { Eng: 1.4, Bio: 1.2, Phy: 1 }, re: 1.2, cv: 1.1, kinds: { Orbiter: 1.1, Rover: 1.1, Flyby: .9, Telescope: .6 }, lab: false, bases: .9, init: 0,
       tech: ['icd', 'acd', 'hab', 'lcv', 'frig', 'cp', 'als', 'mine', 'ish', 'qc', 'aqc', 'ops', 'iops', 'pm', 'ff', 'ars', 'tr'], pol: ['rob', 'hum', 'set', 'eco'], dip: .2, trade: .3 },
     as: { fw: { Bio: 1.45, Eng: 1.1, Phy: .8 }, re: .7, cv: 1.5, kinds: { Orbiter: 1, Rover: 1, Flyby: .8, Telescope: .3 }, lab: false, bases: 1.6, init: 0,
-      tech: ['orb', 'hab', 'mine', 'astro', 'ish', 'ref', 'ash', 'ag', 'ops', 'iops', 'cp', 'als', 'lcv', 'frig', 'tr', 'itr', 'psh', 'ars'], pol: ['set', 'hum', 'eco'], dip: .2, trade: .5 },
+      tech: ['orb', 'lcv', 'hab', 'mine', 'astro', 'frig', 'ish', 'ref', 'ash', 'ag', 'ops', 'iops', 'cp', 'als', 'lcv', 'frig', 'tr', 'itr', 'psh', 'ars'], pol: ['set', 'hum', 'eco'], dip: .2, trade: .5 },
     sa: { fw: { Bio: 1.15, Eng: 1.15, Phy: 1.15 }, re: 1.1, cv: 1.1, kinds: { Orbiter: 1.1, Rover: 1.1, Flyby: 1, Telescope: .5 }, lab: false, bases: 1.4, init: 0,
-      tech: ['orb', 'hab', 'mine', 'astro', 'cp', 'icd', 'acd', 'lcv', 'ish', 'tr', 'itr', 'atr', 'als', 'pm', 'ff', 'ars', 'qc'], pol: ['dip', 'set', 'eco', 'hum'], dip: 1, trade: 1 },
+      tech: ['orb', 'lcv', 'hab', 'mine', 'astro', 'cp', 'icd', 'acd', 'ish', 'tr', 'itr', 'atr', 'als', 'pm', 'ff', 'ars', 'qc'], pol: ['dip', 'set', 'eco', 'hum'], dip: 1, trade: 1 },
   };
   const prof = G => P[G.f === 'cn' ? 'cn_' + (G.variant || 'mil') : G.f];
   const fieldOf = w => W[w].f || 'Phy';
@@ -65,14 +65,32 @@ function makeAI(E, D) {
   const baseLocType = w => W[w].tags.includes('station') ? 'orbit' : 'surf';
   // a crew vehicle that can found a base there right away (exploration value, enough supplies on board)
   const canBaseAt = (G, s, dest, sup) => { const p = E.P(dest); return s.cls === 'CV' && s.ev > 0 && p.w && p.t === baseLocType(p.w) && baseSpotOk(G, p.w) && wantBase(G) && sup >= E.baseCost(G, p.w); };
+  // a crew vehicle holding the supplies for a base it intends to found: it skips exploring and producing (both make
+  // recall checks, and a recalled crew cannot found a base)
+  // base spots this crew may reach and found with sup supplies: [{w, dest, cost}]
+  function baseSpots(G, s, sup) {
+    if (s.cls !== 'CV' || !(s.ev > 0) || !s.cap || !wantBase(G)) return [];
+    return Object.keys(G.w).filter(w => baseSpotOk(G, w) && sup >= E.baseCost(G, w)).map(w => ({ w, dest: baseLocType(w) + ':' + w, cost: E.baseCost(G, w) })).filter(x => !E.cvAllowed(G, s, x.dest));
+  }
+  function planningBase(G, s) {
+    if (s.cls !== 'CV' || s.res || !(s.ev > 0) || !s.cap || !wantBase(G) || !s.cargo.SUP) return false;
+    const here = E.worldOf(s.loc);
+    if (here && canBaseAt(G, s, s.loc, s.cargo.SUP)) return true;
+    // or a spot it can reach (in this system, or any system its crew range allows) whose base cost it carries
+    return baseSpots(G, s, s.cargo.SUP).length > 0;
+  }
   function destScore(G, s, dest, eta, sup) {
     const p = E.P(dest), kind = s.cls === 'CV' ? 'CV' : s.kind;
     if (dest === 'orbit:ear' && kind === 'Telescope') return 50;
     let v;
-    if (p.t === 'box' || p.t === 'fly') v = sysScore(G, p.s, kind) / (1 + .5 * crowd(G, p.s, kind));
+    if (kind === 'CV' && p.t === 'fly') v = (G.fly[p.s].ast && s.prod && E.has(G, 'mine') && s.cap * E.cargoMul(G) > E.sum(s.cargo)) ? 4 : 0;   // nothing to research in a flyby box
+    else if (kind === 'CV' && p.t === 'box' && p.s === E.sysOf(s.loc)) v = 0;
+    else if (p.t === 'box' || p.t === 'fly') v = sysScore(G, p.s, kind) / (1 + .5 * crowd(G, p.s, kind));
     else if (p.w) v = worldScore(G, p.w, kind) / (1 + G.ships.filter(x => x !== s && x.kind === s.kind && E.worldOf(x.loc) === p.w).length);
     else v = 0;
-    if (canBaseAt(G, s, dest, sup == null ? s.cargo.SUP : sup)) v += 6 + 6 * prof(G).bases;
+    const su = sup == null ? s.cargo.SUP : sup;
+    if (canBaseAt(G, s, dest, su)) v += 6 + 6 * prof(G).bases;
+    else if (kind === 'CV' && p.t === 'box' && baseSpots(G, s, su).some(x => W[x.w].sys === p.s)) v += 4 + 4 * prof(G).bases;
     return v / (1 + .2 * (eta || 0));
   }
   const best = (arr, f) => { let b = null, bv = -Infinity; arr.forEach(x => { const v = f(x); if (v > bv) { bv = v; b = x; } }); return bv > 0 ? b : null; };
@@ -136,14 +154,15 @@ function makeAI(E, D) {
     const idle = G.ships.some(s => s.loc === 'earth' && !s.res && E.moves && s.cls === 'CV');
     for (let n = 0; n < 2; n++) {
       const opts = E.buildOptions(G, 'earth').filter(o => !o.why && G.cash - E.earthCash(G, o.cost) >= reserve);
-      const reOpts = opts.filter(o => !o.cv && E.nonProbeRE(G) < lre), cvOpts = idle ? [] : opts.filter(o => o.cv && E.nCV(G) < lcv);
+      const reOpts = opts.filter(o => !o.cv && E.nonProbeRE(G) < lre), cvOpts = idle && G.ships.some(x => x.cls === 'CV' && x.ev > 0 && x.cap) ? [] : opts.filter(o => o.cv && E.nCV(G) < lcv);
       const teles = G.ships.filter(s => s.kind === 'Telescope').length;
       const scoreRE = o => {
         let k = (pr.kinds[o.kind] || .5);
         if (o.kind === 'Telescope') k *= teles < (pr.teles || 1) ? 1.6 : .25;
         return k * (o.u.ev + (o.u.spec ? 2 : 0)) / Math.max(1, E.sum(o.cost)) * pr.re;
       };
-      const scoreCV = o => (o.u.ev > 0 || (G.bases.length && G.ships.filter(x => x.cls === 'CV' && !(x.ev > 0)).length < G.bases.length) ? 1 : 0) * pr.cv * ((o.u.ev || 0) + (o.u.ev > 0 ? (o.u.cargo || 0) * pr.bases : 0) + (pr.armed ? (o.u.cb || 0) * 1.5 : 0)) / Math.max(1, E.sum(o.cost));
+      const canFound = G.ships.some(x => x.cls === 'CV' && x.ev > 0 && x.cap);
+      const scoreCV = o => (o.u.ev > 0 && o.u.cargo && !canFound && wantBase(G) ? 2.5 : 1) * (o.u.ev > 0 || (G.bases.length && G.ships.filter(x => x.cls === 'CV' && !(x.ev > 0)).length < G.bases.length) ? 1 : 0) * pr.cv * ((o.u.ev || 0) + (o.u.ev > 0 ? (o.u.cargo || 0) * pr.bases : 0) + (pr.armed ? (o.u.cb || 0) * 1.5 : 0)) / Math.max(1, E.sum(o.cost));
       const cands = reOpts.map(o => [o, scoreRE(o)]).concat(cvOpts.map(o => [o, scoreCV(o)]));
       if (!cands.length) break;
       cands.sort((a, b) => b[1] - a[1]);
@@ -174,15 +193,18 @@ function makeAI(E, D) {
           return;
         }
         // an explorer that should found a base but has no supplies goes down to Earth to load them
-        const needSup = s.cap && s.ev > 0 && wantBase(G) && s.cargo.SUP < 3;
+        const needSup = s.cap && s.ev > 0 && wantBase(G) && s.cargo.SUP < 3 && baseSpots(G, s, s.cap * E.cargoMul(G)).length > 0;
         if (needSup && s.loc !== 'earth' && E.sysOf(s.loc) === 'ear' && m.some(x => x.dest === 'earth')) { E.move(G, s, 'earth', {}); return; }
         // stay while there is still exploring worth doing here, or while a base could be founded here
-        const canExploreHere = here && here !== 'ear' && wv(G, here) >= 2 && s.ev > s.dmg && !isGas(here);
+        const canExploreHere = here && wv(G, here) >= (here === 'ear' ? 1 : 2) && s.ev > s.dmg && !isGas(here) && E.P(s.loc).t !== 'fly';
         if (s.launched && here && s.loc !== 'earth' && (canExploreHere || canBaseAt(G, s, s.loc, s.cargo.SUP))) return;
         // go somewhere else worth it (not just hop between this world's orbit and surface), unless a base goes here
-        const load = s.loc === 'earth' && s.cap ? Math.max(0, Math.min(room, G.cash - 8)) : 0, sup = s.cargo.SUP + load;
+        const maxLoad = s.loc === 'earth' && s.cap ? Math.max(0, Math.min(room, G.cash - 8)) : 0;
+        // only pay for supplies when there is a base spot this crew can reach and afford with them
+        const spots = baseSpots(G, s, s.cargo.SUP + maxLoad);
+        const load = spots.length ? Math.min(maxLoad, Math.max(0, Math.min(...spots.map(x => x.cost)) - s.cargo.SUP) + (maxLoad > 3 ? 1 : 0)) : 0, sup = s.cargo.SUP + load;
         const foundHere = x => canBaseAt(G, s, x.dest, sup);
-        const o = best(m.filter(x => x.dest !== 'earth' && (E.worldOf(x.dest) !== here || foundHere(x))), x => destScore(G, s, x.dest, x.eta, sup));
+        const o = best(m.filter(x => x.dest !== 'earth' && (E.worldOf(x.dest) !== here || foundHere(x) || s.loc === 'earth')), x => destScore(G, s, x.dest, x.eta, sup) + (s.loc === 'earth' && x.dest === 'orbit:ear' ? .6 : 0));
         if (!o || (destScore(G, s, o.dest, o.eta, sup) < 1.5 && !foundHere(o))) return;
         const opt = load > 0 ? { load: { SUP: load } } : {};
         if (typeof E.move(G, s, o.dest, opt) === 'string' && opt.load) E.move(G, s, o.dest, {});
@@ -220,7 +242,8 @@ function makeAI(E, D) {
     const pr = prof(G);
     G.ships.slice().forEach(s => {
       if (!G.ships.includes(s) || G.ask.length) return;
-      const opts = E.exploreOptions(G, s); if (!opts.length) return;
+      let opts = E.exploreOptions(G, s); if (!opts.length) return;
+      if (planningBase(G, s)) { E.log(G, `${s.name} holds ${s.cargo.SUP} SUP for a base and skips exploring (no recall check).`); return; }
       const o = best(opts, o => {
         if (o.kind === 'explore' || o.kind === 'probe') return o.value * fw(G, o.w);
         if (o.kind === 'produce') return (s.cap * E.cargoMul(G) - E.sum(s.cargo) > 0 ? 1 : 0) * o.value * (o.res === 'SUP' ? 1.4 : 1) * (pr.bases > 1 ? 1.5 : .6);
@@ -270,7 +293,7 @@ function makeAI(E, D) {
   function mirror(H, g, mark) {
     if (H === g) return;
     const fresh = []; for (const l of g.log) { if (l === mark) break; fresh.push(l); }
-    fresh.reverse().forEach(l => { if (l.c === 'g' || l.c === 'x') E.log(H, `${D.FAC[g.f].pre}: ${l.t}`, 'bot'); });
+    fresh.reverse().forEach(l => { if (l.c === 'g' || l.c === 'x' || /moves from|transfer box|launch|recalled|reserve|skips exploring|founds|cargo flight|loads /i.test(l.t)) E.log(H, `${D.FAC[g.f].pre}: ${l.t}`, 'bot'); });
   }
   function runBots(H, when) {
     const world = H.world; if (!world) return;
@@ -311,7 +334,7 @@ function makeAI(E, D) {
     }
     return n;
   }
-  return { profiles: P, prof, botPhase, answerAsks, runBots, begin, advanceWorld, autoPlay, baseSpotOk };
+  return { profiles: P, prof, botPhase, answerAsks, runBots, begin, advanceWorld, autoPlay, baseSpotOk, planningBase, baseSpots };
 }
 if (typeof module !== 'undefined' && module.exports) module.exports = makeAI; else root.SHAI = makeAI;
 })(typeof window !== 'undefined' ? window : globalThis);

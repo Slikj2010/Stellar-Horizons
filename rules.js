@@ -682,6 +682,8 @@ function cvAllowed(G, s, loc) {
     if (p.t === 'surf' && w.tags.includes('reentry') && s.sz > 4) return 're-entry is limited to CV-4 and smaller';
     if (w.sys === 'ear' && p.w !== 'ear' && !has(G, 'orb')) return 'the Moon and Near Earth Asteroids need Orbital Rendezvous';
   }
+  // without Orbital Rendezvous crews stay on Earth or in Earth orbit (no flyby box, Moon, NEA or transfer boxes)
+  if (!has(G, 'orb') && !(loc === 'earth' || loc === 'orbit:ear' || loc === 'surf:ear')) return 'leaving Earth orbit needs Orbital Rendezvous';
   if (sy !== 'ear' || p.t === 'box') {
     // range from Earth or a base able to unreserve this CV
     const r = range(G), need = unreserveLevel(s.sz);
