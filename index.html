@@ -94,7 +94,7 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
 #dev .dr > span { width: 74px; color: var(--dim); }
 #dev select, #dev input { background: #0d1520; color: var(--ink); border: 1px solid #2b3d52; border-radius: 4px; padding: 4px 6px; font: inherit; min-width: 0; }
 #dev input[type=number] { width: 64px; }
-#dev .dr select { flex: 1 1 0; max-width: 100%; } #dev .dr select[data-dv="pl"] { flex: 0 0 auto; }
+#dev .dr select { flex: 1 1 0; max-width: 100%; } #dev .dr select[data-dv="pl"], #dev .dr select[data-dv="rl"] { flex: 0 0 auto; }
 #dev .dout { height: 140px; overflow: auto; background: #03060b; border: 1px solid #1c2a3a; border-radius: 4px; padding: 6px; font: 11.5px/1.4 var(--f-mono); white-space: pre-wrap; }
 #dev .dout .e { color: #f08a7a; } #dev .dout .c { color: #7fd0f5; }
 #dev .dcmd { width: 100%; font-family: var(--f-mono) !important; }
@@ -713,6 +713,14 @@ function devTech(g, k, off) {
   if (g.tech[k]) return `${D.FAC[g.f].n} already has ${t.n}.`;
   g.tech[k] = 1; devDone(g, `${D.FAC[g.f].n}: granted ${t.n}.`);
 }
+const devRelKey = v => { if (v == null) return null; const n = parseInt(v, 10); if (n >= 0 && n < D.REL.length) return n; const i = D.REL.findIndex(r => r.toLowerCase().replace(/\s+/g, '') === String(v).toLowerCase().replace(/[\s_-]+/g, '')); return i >= 0 ? i : null; };
+function devRel(g, k, lv) {
+  if (!g) return 'No such faction in play.';
+  if (!k || !(k in g.rel)) return `Unknown faction "${k}" (codes: ${Object.keys(g.rel).join(', ')}).`;
+  if (lv == null) return `Relation must be 0-5 or one of: ${D.REL.join(', ')}.`;
+  E.setRel(g, k, lv);
+  devDone(g, `${D.FAC[g.f].n} and ${D.FAC[k].n}: relations set to ${D.REL[lv]}${G.world && G.world.facs[k] ? ' (both sides)' : ''}.`);
+}
 function devPol(g, k, lv) {
   if (!g) return 'No such faction in play.';
   const p = D.POL.find(x => x.k === k); if (!p) return `Unknown policy "${k}" (try: list pols).`;
@@ -724,6 +732,7 @@ const DEV_HELP = `Commands (faction: me, ${Object.keys(D.FAC).join(', ')}):
   give <faction> <res> <n>   res: cash ore sup fuel phy eng bio pol vm (negative n takes away)
   tech <faction> <key|all>   grant a technology   ·  untech <faction> <key>  remove one
   pol <faction> <key> <0-3>  set a policy level (0 removes)
+  rel <faction> <other> <level>  level: 0-5 or alliance, collaboration, freetrade, neutral, embargo, war
   list techs | list pols | list facs  ·  show <faction>  ·  clear  ·  help`;
 function devRun(line) {
   line = line.trim(); if (!line) return;
@@ -736,13 +745,14 @@ function devRun(line) {
   else if (lc === 'give') err = devGive(devFac(a[0]), resKey(a[1]), parseInt(a[2], 10));
   else if (lc === 'tech' || lc === 'untech') err = devTech(devFac(a[0]), a[1], lc === 'untech');
   else if (lc === 'pol') err = devPol(devFac(a[0]), a[1], parseInt(a[2], 10));
+  else if (lc === 'rel') err = devRel(devFac(a[0]), (a[1] === 'me' ? G.f : a[1] || '').toLowerCase(), devRelKey(a.slice(2).join('')));
   else if (lc === 'list') {
     const w = (a[0] || '').toLowerCase();
     if (w.startsWith('tech')) devPrint(D.TECH.map(t => `${t.k.padEnd(6)} ${t.n} (${E.FN[t.f]} ${t.c})`).join('\n'));
     else if (w.startsWith('pol')) devPrint(D.POL.map(p => `${p.k.padEnd(4)} ${p.n}`).join('\n'));
     else devPrint(devFacs().map(g => `${g.f.padEnd(3)} ${D.FAC[g.f].n}${g === G ? ' (you)' : ' (bot)'}`).join('\n'));
   }
-  else if (lc === 'show') { const g = devFac(a[0]); if (!g) err = 'No such faction in play.'; else { const st = E.estock(g); devPrint(`${D.FAC[g.f].n}: $${g.cash}B · ORE ${st.ORE} SUP ${st.SUP} FUEL ${st.FUEL} · Phy ${g.bank.Phy} Eng ${g.bank.Eng} Bio ${g.bank.Bio} · politics ${g.polm} · VM ${g.vm || 0}\nTechs (${Object.keys(g.tech).length}): ${Object.keys(g.tech).join(' ')}\nPolicies: ${Object.entries(g.pol).map(([k, v]) => k + ' ' + v).join(', ') || 'none'}`); } }
+  else if (lc === 'show') { const g = devFac(a[0]); if (!g) err = 'No such faction in play.'; else { const st = E.estock(g); devPrint(`${D.FAC[g.f].n}: $${g.cash}B · ORE ${st.ORE} SUP ${st.SUP} FUEL ${st.FUEL} · Phy ${g.bank.Phy} Eng ${g.bank.Eng} Bio ${g.bank.Bio} · politics ${g.polm} · VM ${g.vm || 0}\nTechs (${Object.keys(g.tech).length}): ${Object.keys(g.tech).join(' ')}\nPolicies: ${Object.entries(g.pol).map(([k, v]) => k + ' ' + v).join(', ') || 'none'}\nRelations: ${Object.entries(g.rel).map(([k, v]) => k + ' ' + D.REL[v]).join(', ')}`); } }
   else err = `Unknown command "${cmd}". Type help.`;
   if (err) devPrint(err, 'e');
 }
@@ -757,6 +767,7 @@ function devRender() {
     <div class="dr"><span>Resources</span><select data-dv="r">${Object.entries(DEV_RES).map(([k, n]) => `<option value="${k}">${n}</option>`).join('')}</select><input type="number" data-dv="n" value="5" step="1" aria-label="Amount"><button class="b pri" data-dv="give">Grant</button></div>
     <div class="dr"><span>Technology</span><select data-dv="t">${D.TECH.filter(t => !g.tech[t.k]).map(t => `<option value="${t.k}">${esc(t.n)} (${E.FN[t.f]})</option>`).join('') || '<option value="">All developed</option>'}</select><button class="b pri" data-dv="tech">Grant</button><button class="b" data-dv="techall">Grant all</button></div>
     <div class="dr"><span>Policy</span><select data-dv="p">${D.POL.map(p => `<option value="${p.k}">${esc(p.n)} (now ${['none', 'Basic', 'Vigorous', 'Unified'][E.polLv(g, p.k)]})</option>`).join('')}</select><select data-dv="pl">${['None', 'Basic', 'Vigorous', 'Unified'].map((n, i) => `<option value="${i}" ${i === 1 ? 'selected' : ''}>${n}</option>`).join('')}</select><button class="b pri" data-dv="pol">Set</button></div>
+    <div class="dr"><span>Relations</span><select data-dv="rk">${Object.keys(g.rel).map(k => `<option value="${k}" ${k === DEV.rk ? 'selected' : ''}>${esc(D.FAC[k].n)} (now ${D.REL[g.rel[k]]})</option>`).join('')}</select><select data-dv="rl">${D.REL.map((n, i) => `<option value="${i}" ${i === g.rel[DEV.rk in g.rel ? DEV.rk : Object.keys(g.rel)[0]] ? 'selected' : ''}>${n}</option>`).join('')}</select><button class="b pri" data-dv="rel">Set</button></div>
     <div class="dout"></div>
     <input class="dcmd" placeholder="Type a command, e.g. give me cash 20 (help)" aria-label="Developer command" spellcheck="false" autocomplete="off">
     <div class="dim">Changes are written to the game log as [Developer]. Toggle with the \` key.</div>
@@ -768,6 +779,8 @@ function devRender() {
   q('tech').onclick = () => q('t').value && out(devTech(g, q('t').value));
   q('techall').onclick = () => out(devTech(g, 'all'));
   q('pol').onclick = () => out(devPol(g, q('p').value, +q('pl').value));
+  q('rk').onchange = e => { DEV.rk = e.target.value; q('rl').value = g.rel[DEV.rk]; };
+  q('rel').onclick = () => { DEV.rk = q('rk').value; out(devRel(g, DEV.rk, +q('rl').value)); };
   const c = el.querySelector('.dcmd'); c.value = typed; if (focus) c.focus();
   c.onkeydown = e => {
     e.stopPropagation();

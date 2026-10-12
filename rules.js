@@ -199,8 +199,8 @@ function startEstep(G) {
       const r = d10();
       if (r >= 8) { log(G, `Diplomatic drift roll ${r}: no effect.`); continue; }
       const k = D.FAC_ORDER[r - 1];
-      if (k === G.f) { Object.keys(G.rel).forEach(x => G.rel[x] = toNeutral(G.rel[x])); log(G, `Diplomatic drift roll ${r}: all your relations drift one step toward Neutral.`); }
-      else { const b = G.rel[k]; G.rel[k] = toNeutral(b); if (b !== G.rel[k]) log(G, `Diplomatic drift roll ${r}: relations with ${D.FAC[k].n} drift to ${D.REL[G.rel[k]]}.`); else log(G, `Diplomatic drift roll ${r} (${D.FAC[k].n}): already Neutral.`); }
+      if (k === G.f) { Object.keys(G.rel).forEach(x => setRel(G, x, toNeutral(G.rel[x]))); log(G, `Diplomatic drift roll ${r}: all your relations drift one step toward Neutral.`); }
+      else { const b = G.rel[k]; setRel(G, k, toNeutral(b)); if (b !== G.rel[k]) log(G, `Diplomatic drift roll ${r}: relations with ${D.FAC[k].n} drift to ${D.REL[G.rel[k]]}.`); else log(G, `Diplomatic drift roll ${r} (${D.FAC[k].n}): already Neutral.`); }
     }
     G.dipl = {}; // attempts queued by the UI: {fac: +n/-n}
   }
@@ -235,7 +235,7 @@ function doEvent(G, e, r) {
   if (k === 'race') log(G, 'In solo play every player is tied, so Space Race has no effect.');
   if (k === 'freight') { G.freight = 5; log(G, 'You may transfer up to 5 extra resources in the transport step.'); }
   if (k === 'immigration') { if (G.bases.length) G.ask.push({ k: 'immigration', text: 'Immigration: choose a base to receive 2 settlements.' }); else log(G, 'You have no base, so Immigration has no effect.'); }
-  if (k === 'thaw') Object.keys(G.rel).forEach(x => G.rel[x] = toNeutral(G.rel[x]));
+  if (k === 'thaw') Object.keys(G.rel).forEach(x => setRel(G, x, toNeutral(G.rel[x])));
   if (k === 'survey') { const wk = randomWorld(); const c = drawCardFor(wk); if (c) { G.w[wk].card = c; log(G, `Survey Error: world card ${c} drawn and placed on ${W[wk].n}.`); } else log(G, `Survey Error: world card drawn for ${W[wk].n}, does not apply.`); }
   if (k === 'swarm') G.extraPirate = true;
   if (k === 'harvest') G.extraAsteroid = true;
@@ -262,6 +262,12 @@ function setDiplomacy(G, k, delta) {
   if (!cur) delete G.dipl[k];
   return null;
 }
+// relations are mutual: a change between two factions in play applies to both sides
+function setRel(G, k, v) {
+  G.rel[k] = v;
+  const o = G.world && G.world.facs[k];
+  if (o && o.rel) o.rel[G.f] = v;
+}
 function resolveDiplomacy(G) {
   const cost = dipCost(G);
   if (!cost) return;
@@ -273,8 +279,8 @@ function resolveDiplomacy(G) {
     let nv = Math.max(0, Math.min(5, before - net));
     if (nv >= 4 && polLv(G, 'mil') < 1) nv = Math.min(nv, 3);
     if (nv >= 5 && polLv(G, 'mil') < 2) nv = Math.min(nv, 4);
-    G.rel[k] = nv;
-    log(G, `Diplomacy with ${D.FAC[k].n}: ${Math.abs(d)} attempt(s) ${d > 0 ? 'to improve' : 'to worsen'} relations, net ${net >= 0 ? '+' : ''}${net}. Now ${D.REL[nv]}.`, 'g');
+    setRel(G, k, nv);
+    log(G, `Diplomacy with ${D.FAC[k].n}: ${Math.abs(d)} attempt(s) ${d > 0 ? 'to improve' : 'to worsen'} relations, net ${net >= 0 ? '+' : ''}${net}. Now ${D.REL[nv]}${G.world && G.world.facs[k] ? ' for both sides' : ''}.`, 'g');
   });
   log(G, `Diplomacy cost ${cost} politics markers.`);
   G.dipl = {};
@@ -1368,7 +1374,7 @@ function resolveInitiative(world) {
 }
 
 return {
-  isLead, npfKeys, combatPossible, allBases, newWorld, attachWorld, serialize, revive, setInitBid, resolveInitiative, finish, log, baseCost,
+  isLead, setRel, npfKeys, combatPossible, allBases, newWorld, attachWorld, serialize, revive, setInitBid, resolveInitiative, finish, log, baseCost,
   R, D, P, sysOf, worldOf, locName, worldsIn, RES, FIELDS, FN, PHASES, ESTEPS, PHASE_NAME, ESTEP_NAME, newGame, cvAllowed, advance, answer,
   moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, scrapSite, scrapValue, unreserveInfo, scrapLV, estock, earthCash, earthCostTxt, lvCanAdd, lvPoolTxt, scrapRule, shipCargo,
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,
