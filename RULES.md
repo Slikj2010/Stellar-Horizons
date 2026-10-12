@@ -264,6 +264,11 @@ Nothing is sold for cash. Resources that reach Earth (scrapping, unloading a shi
 ## Optional scenario: Futuristic start (2060)
 Start after the 2060 economic phase. You have all technologies in the first two columns of the tree (except Signs of Life / Existing Life), plus $40B and $3B for each technology you would have started a 2030 campaign with, on top of your normal starting cash (e.g. North America: $20B + $40B + 7 × $3B = $81B). Choose policies for the 3 missed economic phases (2040, 2050, 2060). Every world's initial exploration value is reduced by 1. Dated missions up to 2060 are in the pool.
 
+## Non-player faction bases and enhanced trading
+
+NPF bases appear like any faction base: a random unused base of that faction (e.g. Japan's Ginga) placed in the world's base row, with its trade marker beside it. Select it for its faction, your relations, your trade limit at each relation level, the trade marker and a Trade button (needs an unreserved crew vehicle fleet at that world in the trade & base phase).
+Optional rule — Enhanced trading (Settings): instead of being removed after one trade, an NPF base's trade marker stays until every faction in play has traded there once (traders show as coloured dots under the marker and in its panel). Markers still on the board are replaced with new ones in the economic phase's NPF bases & trade markers step.
+
 ## Bots and initiative (multi-faction games)
 New game: pick your faction and 0-6 bots (each bot's faction chosen; China as Military or Robotic variant). Factions nobody plays stay NPFs. Worlds, cards, life and flyby boxes are shared; each faction has its own fleet, bases, cash, technology and missions.
 Each phase is played by every faction in initiative order (movement and technology in reverse); bots ahead of you act when the phase opens, the rest when you press Next. Economic phase gains an Initiative step (after politics): every faction declares (in the previous order) politics markers to spend (+10% each, max = its slot number); all roll d100 + markers + Military Policy (+20/40/50%); the order is reset from highest to lowest, ties to whoever was ahead before. The log shows the markers spent, every roll and the new order. NPF bases, asteroids, pirates and the end-of-game roll are rolled once for everyone. Technology discounts count the techs other factions in play actually have.

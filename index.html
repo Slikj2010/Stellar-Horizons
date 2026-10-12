@@ -253,7 +253,7 @@ function readSlot(k) { try { const s = localStorage.getItem(k); if (!s) return n
 function slotInfo(g) { if (!g) return 'Empty'; return `${D.FAC[g.f].n}${g.world ? ' + ' + (factionsOf(g).length - 1) + ' bot(s)' : ''} · ${g.over ? 'finished ' + g.endYear : g.y + ' · ' + E.PHASE_NAME[g.phase]} · ${g.savedAt ? new Date(g.savedAt).toLocaleString() : ''}`; }
 function saveSlot(k) { try { G.savedAt = Date.now(); localStorage.setItem(k, E.serialize(G)); save(); return true; } catch (e) { return false; } }
 const SET = (() => { try { return JSON.parse(localStorage.getItem('sh-settings')) || {}; } catch (e) { return {}; } })();
-SET.anim = SET.anim !== false; SET.rerolls = SET.rerolls !== false; SET.scrap = !!SET.scrap;
+SET.anim = SET.anim !== false; SET.rerolls = SET.rerolls !== false; SET.scrap = !!SET.scrap; SET.enhTrade = !!SET.enhTrade;
 function saveSettings() { try { localStorage.setItem('sh-settings', JSON.stringify(SET)); } catch (e) {} }
 
 // ---------------- boot ----------------
@@ -428,6 +428,8 @@ function paintWorldBoxes() {
   Object.keys(GEO.worlds).forEach(k => {
     const ws = G.w[k]; if (!ws) return;
     const bases = G.bases.filter(b => b.w === k).map(b => [b, G.f]).concat(otherFacs().flatMap(g => g.bases.filter(b => b.w === k).map(b => [b, g.f])));
+    // a non-player faction's base looks like any faction base (its own counter art); select it for the details
+    if (ws.npf) { if (!ATL[ws.npf]) loadAtlas(ws.npf).then(() => dirty = true, () => null); bases.push([{ id: 'npf:' + k, name: E.npfName(G, k), w: k, set: 0, npf: true, trade: ws.npfTrade, blk: ws.blk }, ws.npf]); }
     if (!ws.card && !ws.sol && !ws.life && !bases.length) return;
     const F = wcardFrame(k); if (!F) return;
     const { CW, CH, at } = F;
@@ -438,6 +440,17 @@ function paintWorldBoxes() {
       const lx = -CW / 2 + BS / 2 + i * unit, [x, y] = at(lx, rowY);
       if (!ATL[bf]) return;
       drawRot(ATL[bf].img, ATL[bf].fr[baseKey(b, bf)], x, y, BS, F.a);
+      if (b.npf) {
+        hits.push({ t: 'npf', k, x, y, r: BS / 2 });
+        if (sel && sel.t === 'npf' && sel.k === k) { ctx.save(); ctx.translate(x, y); ctx.rotate(F.a); ctx.strokeStyle = '#f2a93b'; ctx.lineWidth = 3; ctx.strokeRect(-BS / 2 - 3, -BS / 2 - 3, BS + 6, BS + 6); ctx.restore(); }
+        if (b.trade) {
+          const [tx, ty] = at(lx + BS / 2 + 8 + TS / 2, rowY); drawRot(IMG.markers, MK[(b.trade.side === 'buy' ? 'buy_' : 'sell_') + b.trade.type], tx, ty, TS, F.a);
+          // enhanced trading: who has already traded here (faction colour tags under the marker)
+          (b.trade.by || []).forEach((f, j) => { const [dx, dy] = at(lx + BS / 2 + 8 + 6 + j * 13, rowY + TS / 2 + 9); ctx.fillStyle = D.FAC[f].c; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(dx, dy, 5.5, 0, 7); ctx.fill(); ctx.stroke(); });
+        }
+        if (b.blk) { const [bx, by] = at(lx, rowY + BS / 2 + 12); txt('BLOCKADED', bx, by, 11, '#ef6b5b'); }
+        return;
+      }
       if (bf !== G.f) { ctx.save(); ctx.translate(x, y); ctx.rotate(F.a); ctx.strokeStyle = D.FAC[bf].c; ctx.lineWidth = 3; ctx.strokeRect(-BS / 2 - 2, -BS / 2 - 2, BS + 4, BS + 4); ctx.restore(); hits.push({ t: 'obase', f: bf, id: b.id, x, y, r: BS / 2 }); }
       else hits.push({ t: 'base', id: b.id, x, y, r: BS / 2 });
       if (b.set) { const [sx, sy] = at(lx + BS / 2 - 8, rowY + BS / 2 + 10); txt(String(b.set), sx, sy, 15, '#f2a93b'); }
@@ -513,7 +526,7 @@ function showPicker() {
     st.bots.forEach((b, i) => { const el = $('vbot' + i); if (el) el.onchange = () => { b.variant = el.value; keep(); draw(); }; });
     $('pickgo').onclick = async () => {
       if (!st.me) return;
-      const opts = { rerolls: SET.rerolls, scrapRE: SET.scrap, scenario: scen(), variant: st.me === 'cn' ? st.vme : undefined };
+      const opts = { rerolls: SET.rerolls, scrapRE: SET.scrap, enhTrade: SET.enhTrade, scenario: scen(), variant: st.me === 'cn' ? st.vme : undefined };
       await Promise.all([st.me, ...st.bots.map(b => b.f)].map(loadAtlas));
       G = st.bots.length ? E.newWorld({ ...opts, human: st.me, bots: st.bots.map(b => ({ f: b.f, variant: b.f === 'cn' ? b.variant || 'mil' : undefined })) }) : E.newGame(st.me, opts);
       if (G.world) AI.begin(G);
@@ -588,7 +601,9 @@ function settingsPanel(host, inMenu) {
   <label class="toggle"><span>Animated board<br><small class="dim">Spinning planets, twinkling stars and the sun's corona</small></span><input type="checkbox" id="set-anim" ${SET.anim ? 'checked' : ''}></label>
   <label class="toggle"><span>Improved engine reliability<br><small class="dim">Optional rule: two engine-failure rerolls per campaign (applies to new games)</small></span><input type="checkbox" id="set-rr" ${SET.rerolls ? 'checked' : ''}></label>
   <label class="toggle"><span>Scrap explorers and launch vehicles<br><small class="dim">Optional rule: telescopes, orbiters over your bases, rovers on your base's surface and stocked launch vehicles can be scrapped at your bases and on Earth like crew vehicles (applies to new games${G && !$('menu').hidden ? '' : G ? ' and this one' : ''})</small></span><input type="checkbox" id="set-scrap" ${SET.scrap ? 'checked' : ''}></label>
+  <label class="toggle"><span>Enhanced trading<br><small class="dim">Optional rule: a trade marker at a non-player faction's base stays until every faction in play has traded there once (traders are marked on it); markers still there in the next economic phase are replaced (applies to new games${G && !$('menu').hidden ? ' and this one' : ''})</small></span><input type="checkbox" id="set-enh" ${SET.enhTrade ? 'checked' : ''}></label>
   <div class="row" style="margin-top:12px"><button class="b" data-back>Back</button></div></div>`;
+  host.querySelector('#set-enh').onchange = e => { SET.enhTrade = e.target.checked; saveSettings(); if (G && $('menu').hidden) { (G.world ? Object.values(G.world.facs) : [G]).forEach(g => g.opts.enhTrade = SET.enhTrade); save(); render(); } };
   host.querySelector('#set-scrap').onchange = e => { SET.scrap = e.target.checked; saveSettings(); if (G && $('menu').hidden) { G.opts.scrapRE = SET.scrap; save(); render(); } };
   host.querySelector('#set-anim').onchange = e => { SET.anim = e.target.checked; saveSettings(); dirty = true; };
   host.querySelector('#set-rr').onchange = e => { SET.rerolls = e.target.checked; saveSettings(); };
@@ -903,6 +918,7 @@ function tap(h) {
   else if (h.t === 'base') sel = { t: 'base', id: h.id };
   else if (h.t === 'world') sel = { t: 'world', k: h.k };
   else if (h.t === 'oship' || h.t === 'obase') sel = { t: h.t, f: h.f, id: h.id };
+  else if (h.t === 'npf') sel = { t: 'npf', k: h.k };
   tab = 'sel'; render();
 }
 function cancelDrag() { dragS = null; targets = null; dirty = true; }
@@ -1054,7 +1070,6 @@ function paint() {
     const wx = g.orbit || g.exp;
     if (g.poly) hits.push({ t: 'world', k, poly: g.poly }); else hits.push({ t: 'world', k, x: wx[0], y: wx[1], rad: 60 });
     if (sel && sel.t === 'world' && sel.k === k) { ctx.lineWidth = 5; ctx.strokeStyle = '#f2a93b'; pathShape(g.poly ? { poly: g.poly } : { c: wx, r: 60 }); ctx.stroke(); }
-    if (ws.npf) { const f = D.FAC[ws.npf]; ctx.fillStyle = f.c; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(wx[0] - 92, wx[1] - 2, 40, 24, 3); ctx.fill(); ctx.stroke(); txt('NPF', wx[0] - 72, wx[1] + 10, 13); if (ws.npfTrade) txt((ws.npfTrade.side === 'buy' ? 'BUY ' : 'SELL ') + ws.npfTrade.type, wx[0] - 72, wx[1] + 34, 11, '#f2a93b'); if (ws.blk) txt('BLOCKADED', wx[0] - 72, wx[1] + 48, 11, '#ef6b5b'); }
     if (D.TERRA[k] && ws.terra) txt(`Terraformed ${ws.terra}/${D.TERRA[k]}`, wx[0], wx[1] - 64, 14, '#5fcf8a');
   });
   // flyby boxes
@@ -1300,8 +1315,8 @@ function panelTrade() {
   if (founders.length) h += `<h3>Found a base</h3>` + founders.map(s => { const c = E.canFoundBase(G, s); return shipLine(s, `<button class="b" data-found="${s.id}" ${s.cargo.SUP < c.cost ? 'disabled' : ''}>Found base (${c.cost} SUP)</button>`); }).join('');
   else h += `<p class="dim">To found a base, bring an unreserved crew vehicle carrying enough SUP to a world with a base cost (orbit for Earth and the gas giants, surface elsewhere).</p>`;
   h += G.bases.length ? `<h3>Your bases</h3>` + G.bases.map(b => `<div class="item"><span></span><div class="t"><b>${esc(b.name)}</b><small>${esc(D.W[b.w].n)} · ${b.set} settlement(s) · stock ${E.resTxt(b.stock)}</small></div><button class="b" data-selb="${b.id}">Open</button></div>`).join('') : '';
-  const npf = Object.keys(G.w).filter(k => G.w[k].npf && G.w[k].npfTrade && G.ships.some(s => s.cls === 'CV' && E.worldOf(s.loc) === k));
-  if (npf.length) h += `<h3>NPF trade</h3>` + npf.map(k => { const t = G.w[k].npfTrade; return `<div class="row"><span>${esc(D.FAC[G.w[k].npf].n)} at ${esc(D.W[k].n)}: ${t.side === 'buy' ? 'buy 2 ' + t.type + ' per $1B' : 'sell ' + t.type + ' for $2B each'}</span><button class="b" data-npft="${k}">Trade</button></div>`; }).join('');
+  const npf = Object.keys(G.w).filter(k => G.w[k].npf && G.w[k].npfTrade && !(G.w[k].npfTrade.by || []).includes(G.f) && G.ships.some(s => s.cls === 'CV' && E.worldOf(s.loc) === k));
+  if (npf.length) h += `<h3>NPF trade</h3>` + npf.map(k => { const t = G.w[k].npfTrade, I = E.npfTradeInfo(G, k); return `<div class="row"><span>${esc(I.name)} (${esc(D.FAC[G.w[k].npf].n)}, ${esc(D.W[k].n)}): ${t.side === 'buy' ? 'buy 2 ' + t.type + ' per $1B' : 'sell ' + t.type + ' for $2B each'}, up to ${I.limit}</span><button class="b" data-npft="${k}" ${I.why ? 'disabled title="' + esc(I.why) + '"' : ''}>Trade</button></div>`; }).join('');
   return h;
 }
 function panelSel() {
@@ -1309,6 +1324,7 @@ function panelSel() {
   if (sel.t === 'ship') { const s = G.ships.find(x => x.id === sel.id); return s ? panelShip(s) : '<p class="dim">That ship is gone.</p>'; }
   if (sel.t === 'base') { const b = G.bases.find(x => x.id === sel.id); return b ? panelBase(b) : ''; }
   if (sel.t === 'world') return panelWorld(sel.k);
+  if (sel.t === 'npf') return panelNPF(sel.k);
   if (sel.t === 'oship' || sel.t === 'obase') {
     const g = G.world && G.world.facs[sel.f]; if (!g) return '';
     const F = D.FAC[sel.f];
@@ -1316,6 +1332,20 @@ function panelSel() {
     const b = g.bases.find(x => x.id === sel.id); return b ? `<h2 style="color:${F.c}">${esc(b.name)}</h2><p class="dim">${esc(F.n)} (bot) base at ${esc(D.W[b.w].n)} · ${b.set} settlement(s) · ${Object.entries(b.fac).filter(([, v]) => v).map(([c, v]) => D.FACIL[c][v - 1].n).join(', ') || 'no facilities yet'}</p>` : '';
   }
   return '';
+}
+function panelNPF(k) {
+  const I = E.npfTradeInfo(G, k); if (!I) return '<p class="dim">That base is gone.</p>';
+  const F = D.FAC[I.f], t = I.tm, rows = F.rel ? D.FAC[G.f].rel : [];
+  const offer = t ? (t.side === 'buy' ? `Buy ${t.type}: 2 per $1B, up to ${I.limit}` : `Sell ${t.type}: $2B each, up to ${I.limit}`) : 'none';
+  const relTable = D.REL.map((r, i) => { const row = D.FAC[G.f].rel[i], lim = i > 3 ? 0 : row ? row[1] : 0; return `<tr${i === I.rel ? ' style="color:var(--beacon)"' : ''}><td>${r}${i === I.rel ? ' (now)' : ''}</td><td class="mono">${lim || '—'}</td></tr>`; }).join('');
+  return `<h2 style="color:${F.c}">${esc(I.name)}</h2>
+  <p class="dim">Non-player faction base · ${esc(F.n)} · ${esc(D.W[k].n)}${G.w[k].blk ? ' · <span class="chip bad">blockaded</span>' : ''}</p>
+  <p>Relations with ${esc(F.n)}: <b>${D.REL[I.rel]}</b> · trade limit <b class="mono">${I.limit}</b> resource${I.limit === 1 ? '' : 's'}.</p>
+  <p>Trade marker: <b>${esc(offer)}</b>${t ? '' : ' (a new one is placed in the next economic phase)'}</p>
+  ${I.enh && t ? `<p class="dim">Enhanced trading: each faction trades here once. ${I.by.length ? 'Already traded: ' + I.by.map(f => `<span style="color:${D.FAC[f].c}">${esc(D.FAC[f].n)}</span>`).join(', ') + '.' : 'Nobody has traded here yet.'}</p>` : ''}
+  ${t && !I.why ? `<div class="row"><button class="b pri" data-npft="${k}">Trade here</button></div>` : `<p class="dim">${esc(I.why || '')}</p>`}
+  <h3>Trade limit by relations</h3><table><tr><th>Relation</th><th>Limit</th></tr>${relTable}</table>
+  <p class="dim">Trading needs an unreserved crew vehicle fleet at this world (orbit or surface) in the trade &amp; base phase; bought resources go into its cargo, sold ones come out of it.</p>`;
 }
 function panelShip(s) {
   let h = `<div class="row">${cssCounter(s.res ? s.img + '|back' : s.img, 72)}<div><h2>${esc(s.name)}</h2><p class="dim">${s.cls === 'CV' ? 'Crew vehicle CV-' + s.sz : s.kind} at ${esc(E.locName(s.loc))}${s.hold ? ' (' + s.hold + ' turns beyond box 6)' : ''}</p></div></div>`;
@@ -1354,7 +1384,7 @@ function panelWorld(k) {
   h += `<p>Intrinsic production ${resHTML(w.prod)}</p>`;
   if (c) h += `<h3>World card: ${esc(c.n)}</h3><p class="dim">Production ${resHTML(c.prod)} · research ${c.rv} ${E.FN[c.rf]} · exploration bonus ${esc(Object.entries(c.bonus).map(([a, v]) => '+' + v + ' ' + a).join(', '))}</p>`;
   if (ws.sol || ws.life) h += `<p><span class="chip ok">${ws.life ? 'Existing life' : 'Signs of life'}</span></p>`;
-  if (ws.npf) h += `<p>${esc(D.FAC[ws.npf].n)} NPF base (relations ${D.REL[G.rel[ws.npf]]})${ws.npfTrade ? ' · trade marker: ' + (ws.npfTrade.side === 'buy' ? 'buy 2 ' : 'sell ') + ws.npfTrade.type : ''}${ws.blk ? ' · blockaded' : ''}</p>`;
+  if (ws.npf) h += `<p><button class="b" data-npfsel="${k}">${esc(E.npfName(G, k))}</button>: ${esc(D.FAC[ws.npf].n)} base, non-player faction (relations ${D.REL[G.rel[ws.npf]]})${ws.npfTrade ? ' · trade marker: ' + (ws.npfTrade.side === 'buy' ? 'buy 2 ' : 'sell ') + ws.npfTrade.type : ''}${ws.blk ? ' · blockaded' : ''}</p>`;
   if (D.TERRA[k]) h += `<p class="dim">Terraforming ${ws.terra}/${D.TERRA[k]}</p>`;
   const tags = { rad: 'Severe radiation', severeAtm: 'Severe atmosphere', gas: 'Gas giant', minimal: 'Minimal gravity' };
   const t = w.tags.filter(x => tags[x]).map(x => tags[x]); if (t.length) h += `<p class="dim">${t.join(' · ')}</p>`;
@@ -1702,9 +1732,10 @@ function wire() {
   on('[data-rf]', b => { const bs = base(); ask(`Repair at ${bs.name}?`, `<p>Removes 1 damage marker for 1 Ore from ${esc(bs.name)}'s stock (it has ${bs.stock.ORE}).</p>`, () => E.repairFacility(G, bs, b.dataset.rf), 'Repair'); });
   on('[data-settle]', () => { const bs = base(); ask(`Add a settlement at ${bs.name}?`, `<p>${costLine(D.SETTLE_COST, bs)}</p><p class="dim">${bs.name} has ${bs.set} settlement(s).</p>`, () => E.buildSettlement(G, bs), 'Build'); });
   on('[data-terra]', () => { const bs = base(), c = (E.has(G, 'atm') ? 3 : 4) + (G.turn.terraBuys[bs.id] || 0); ask(`Buy a terraforming point for ${D.W[bs.w].n}?`, `<p>Costs <b>${c} SUP</b> from ${esc(bs.name)} (it has ${bs.stock.SUP}). Each extra point this turn costs 1 SUP more.</p>`, () => E.terraform(G, bs), 'Buy'); });
-  const tradeAsk = (where, tm, limit, title) => ask(title, `<p>${tm.side === 'buy' ? `Buy up to ${limit} ${tm.type} at 2 per $1B (you have $${G.cash}B).` : `Sell up to ${limit} ${tm.type} at $2B each.`}</p><p class="dim">The trade marker is used up after this trade.</p>`, () => E.trade(G, where, 99), tm.side === 'buy' ? 'Buy' : 'Sell');
+  const tradeAsk = (where, tm, limit, title) => ask(title, `<p>${tm.side === 'buy' ? `Buy up to ${limit} ${tm.type} at 2 per $1B (you have $${G.cash}B).` : `Sell up to ${limit} ${tm.type} at $2B each.`}</p><p class="dim">${where.w && E.enhTrade(G) ? 'Enhanced trading: you trade here once; the marker stays until every faction has traded.' : 'The trade marker is used up after this trade.'}</p>`, () => E.trade(G, where, 99), tm.side === 'buy' ? 'Buy' : 'Sell');
   on('[data-tradeb]', b => { const bs = G.bases.find(x => x.id === b.dataset.tradeb); tradeAsk({ base: bs.id }, bs.trade, E.tradeLimitOwn(bs), `Trade at ${bs.name}?`); });
-  on('[data-npft]', b => { const k = b.dataset.npft, x = G.w[k]; tradeAsk({ w: k }, x.npfTrade, (D.FAC[G.f].rel[G.rel[x.npf]] || [0, 0])[1], `Trade with ${D.FAC[x.npf].n} at ${D.W[k].n}?`); });
+  on('[data-npfsel]', b => { sel = { t: 'npf', k: b.dataset.npfsel }; tab = 'sel'; render(); });
+  on('[data-npft]', b => { const k = b.dataset.npft, x = G.w[k]; tradeAsk({ w: k }, x.npfTrade, (D.FAC[G.f].rel[G.rel[x.npf]] || [0, 0])[1], `Trade at ${E.npfName(G, k)} (${D.FAC[x.npf].n}, ${D.W[k].n})?`); });
   on('[data-cb]', b => act(() => E.combatAct(G, E.combatOptions(G)[+b.dataset.cb])));
   on('[data-pub]', b => act(() => E.answer(G, b.dataset.pub)));
   { const sl = $('cf-sl'), lvSel = $('cf-lv');

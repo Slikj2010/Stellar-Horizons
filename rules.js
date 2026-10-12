@@ -358,12 +358,25 @@ function transferRes(G, from, to, type, n) {
   log(G, `Transferred ${n} ${type} from ${src ? src.name : 'Earth'} to ${dst ? dst.name : 'Earth (faction board)'}.`);
   return null;
 }
+// an NPF base takes one of its faction's base names (not one already on the board)
+function npfName(G, w) {
+  const x = G.w[w]; if (!x || !x.npf) return null;
+  if (x.npfName) return x.npfName;
+  const used = new Set(Object.values(G.w).map(y => y.npfName).filter(Boolean).concat(allBases(G).map(b => b.name)));
+  const names = D.BASE_NAMES[x.npf] || ['Outpost'], free = names.filter(n => !used.has(n));
+  x.npfName = free.length ? pick(free) : names[0];
+  return x.npfName;
+}
+// optional rule: enhanced trading. A trade marker stays until every faction in play has traded there once
+// (traders are listed on it); markers left at the next placement step are replaced with new ones
+const enhTrade = G => !!(G.opts && G.opts.enhTrade);
+const facsInPlay = G => G.world ? Object.keys(G.world.facs) : [G.f];
 function placement(G) {
   const dec = Math.floor(G.y / 10) * 10;
-  if (G.world && !isLead(G)) { const tm = () => ({ side: pick(['buy', 'sell']), type: pick(RES) }); G.bases.forEach(b => { if (b.set > 0 && !b.trade) b.trade = tm(); }); return; }
+  if (G.world && !isLead(G)) { const tm = () => ({ side: pick(['buy', 'sell']), type: pick(RES) }); G.bases.forEach(b => { if (b.set > 0 && (!b.trade || enhTrade(G))) b.trade = tm(); }); return; }
   const r = d100(); const wk = Object.keys(W).find(k => W[k].rng && r >= W[k].rng[0] && r <= W[k].rng[1]);
   if (wk && SYS[W[wk].sys].dec && SYS[W[wk].sys].dec <= dec && !G.w[wk].npf && W[wk].base) {
-    const npf = pick(npfKeys(G)); if (!npf) { log(G, `NPF base roll ${r}: no non-player faction to found it.`); } else { G.w[wk].npf = npf; log(G, `NPF base roll ${r}: ${D.FAC[npf].n} founds a base at ${W[wk].n}.`, 'e'); }
+    const npf = pick(npfKeys(G)); if (!npf) { log(G, `NPF base roll ${r}: no non-player faction to found it.`); } else { G.w[wk].npf = npf; G.w[wk].npfName = null; npfName(G, wk); log(G, `NPF base roll ${r}: ${D.FAC[npf].n} founds the base ${G.w[wk].npfName} at ${W[wk].n}.`, 'e'); }
   } else log(G, `NPF base roll ${r}: no new base.`);
   const place = (what) => {
     const r2 = d100(), k = Object.keys(W).find(x => W[x].rng && r2 >= W[x].rng[0] && r2 <= W[x].rng[1]);
@@ -382,8 +395,10 @@ function placement(G) {
   G.extraAsteroid = G.extraPirate = false;
   // trade markers: NPF bases and player bases with settlements
   const tm = () => ({ side: pick(['buy', 'sell']), type: pick(RES) });
-  Object.keys(G.w).forEach(k => { if (G.w[k].npf && !G.w[k].npfTrade && !G.w[k].blk) G.w[k].npfTrade = tm(); });
-  G.bases.forEach(b => { if (b.set > 0 && !b.trade) b.trade = tm(); });
+  const enh = enhTrade(G); let rep = 0;
+  Object.keys(G.w).forEach(k => { const x = G.w[k]; if (x.npf && !x.blk && (!x.npfTrade || enh)) { if (x.npfTrade) rep++; x.npfTrade = tm(); npfName(G, k); } });
+  G.bases.forEach(b => { if (b.set > 0 && (!b.trade || enh)) b.trade = tm(); });
+  if (enh && rep) log(G, `Enhanced trading: ${rep} unused NPF trade marker(s) replaced with new ones.`);
 }
 function growth(G) {
   G.bases.forEach(b => {
@@ -1301,6 +1316,7 @@ function trade(G, where, qty) {
   }
   const w = where.w, x = G.w[w];
   if (!x.npf || !x.npfTrade) return 'That NPF base has no trade marker.';
+  if ((x.npfTrade.by || []).includes(G.f)) return `You have already traded at ${npfName(G, w) || 'that base'}; each faction trades there once.`;
   if (G.rel[x.npf] > 3) return `Relations with ${D.FAC[x.npf].n} are too poor to trade.`;
   const fleet = G.ships.filter(s => s.cls === 'CV' && worldOf(s.loc) === w && P(s.loc).t !== 'fly' && P(s.loc).t !== 'box');
   if (!fleet.length || fleet.some(s => s.res)) return 'You need an unreserved crew vehicle fleet at that base.';
@@ -1318,7 +1334,21 @@ function trade(G, where, qty) {
     let left = n; fleet.forEach(s => { const r = Math.min(left, s.cargo[tm.type]); s.cargo[tm.type] -= r; left -= r; });
     G.cash += 2 * n; log(G, `Sold ${n} ${tm.type} to the ${D.FAC[x.npf].n} base at ${W[w].n} for $${2 * n}B.`, 'g');
   }
-  x.npfTrade = null; return null;
+  if (enhTrade(G)) {
+    tm.by = (tm.by || []).concat(G.f);
+    if (facsInPlay(G).every(f => tm.by.includes(f))) { x.npfTrade = null; log(G, `Every faction has traded at ${npfName(G, w)}: its trade marker is removed.`); }
+    else log(G, `Enhanced trading: the trade marker at ${npfName(G, w)} stays for the factions that have not traded there yet.`);
+  } else x.npfTrade = null;
+  return null;
+}
+// what an NPF base offers this faction: limit by relations, and why it cannot trade right now
+function npfTradeInfo(G, w) {
+  const x = G.w[w]; if (!x || !x.npf) return null;
+  const rel = G.rel[x.npf], row = fac(G).rel[rel], limit = rel > 3 ? 0 : row ? row[1] : 0;
+  const fleet = G.ships.filter(s => s.cls === 'CV' && worldOf(s.loc) === w && P(s.loc).t !== 'fly' && P(s.loc).t !== 'box');
+  const tm = x.npfTrade, by = (tm && tm.by) || [];
+  const why = x.blk ? 'Blockaded.' : !tm ? 'No trade marker until the next economic phase.' : by.includes(G.f) ? 'You have already traded here.' : rel > 3 ? `Relations (${D.REL[rel]}) are too poor to trade.` : !limit ? `${D.FAC[x.npf].n} will not trade at ${D.REL[rel]}.` : !fleet.length ? 'Bring a crew vehicle here (orbit or surface) to trade.' : fleet.some(s => s.res) ? 'Your crew vehicles here must be unreserved.' : G.phase !== 'trade' ? 'Trading happens in the trade & base phase.' : null;
+  return { name: npfName(G, w), f: x.npf, rel, limit, tm, by, why, enh: enhTrade(G) };
 }
 // Earth market
 function earthSell(G, r) { // sell 2 of a type for $1B from a base in Earth orbit with elevator, else nothing
@@ -1400,7 +1430,7 @@ function resolveInitiative(world) {
 }
 
 return {
-  isLead, setRel, techRT, techTurn, techPass, npfKeys, combatPossible, allBases, newWorld, attachWorld, serialize, revive, setInitBid, resolveInitiative, finish, log, baseCost,
+  isLead, setRel, npfName, npfTradeInfo, enhTrade, facsInPlay, techRT, techTurn, techPass, npfKeys, combatPossible, allBases, newWorld, attachWorld, serialize, revive, setInitBid, resolveInitiative, finish, log, baseCost,
   R, D, P, sysOf, worldOf, locName, worldsIn, RES, FIELDS, FN, PHASES, ESTEPS, PHASE_NAME, ESTEP_NAME, newGame, cvAllowed, advance, answer,
   moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, scrapSite, scrapValue, unreserveInfo, scrapLV, estock, earthCash, earthCostTxt, lvCanAdd, lvPoolTxt, scrapRule, shipCargo,
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,
