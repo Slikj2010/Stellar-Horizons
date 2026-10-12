@@ -1342,21 +1342,29 @@ function newWorld(opts) { // {human, variant, bots: [{f, variant}], scenario, re
 }
 const serialize = G => JSON.stringify(G.world ? { v: 3, world: G.world.meta, facs: G.world.facs } : G);
 function revive(obj) { if (!obj) return null; if (obj.v === 3 && obj.facs) return attachWorld(obj.facs, obj.world); return obj.v === 2 ? obj : null; }
-// initiative (3.1.2): from the last slot up, each faction may spend politics markers (+10% each, at most its slot number)
-// plus its Military Policy bonus (20/40/50%) on a d100; success swaps it with the faction above
+// initiative (3.1.2): every faction declares (in the previous initiative order) how many politics markers it spends,
+// +10% each, at most its current slot number; then all roll d100 + markers + Military Policy (+20/40/50%).
+// The new order runs from the highest result down; ties go to the faction that was ahead before.
 function setInitBid(G, n) { const slot = G.world ? G.world.meta.order.indexOf(G.f) + 1 : 1; G.initBid = Math.max(0, Math.min(n, G.polm, slot)); return null; }
 function resolveInitiative(world) {
-  const o = world.meta.order, H = world.facs[world.meta.human], lines = [];
-  for (let i = o.length - 1; i >= 1; i--) {
-    const g = world.facs[o[i]], bid = Math.max(0, Math.min(g.initBid || 0, g.polm, i + 1)), mil = [0, 20, 40, 50][polLv(g, 'mil')], ch = bid * 10 + mil;
+  const o = world.meta.order, H = world.facs[world.meta.human], nm = f => D.FAC[f].n + (f === world.meta.human ? ' (you)' : '');
+  const rows = o.map((f, i) => {
+    const g = world.facs[f], bid = Math.max(0, Math.min(g.initBid || 0, g.polm, i + 1)), mil = [0, 20, 40, 50][polLv(g, 'mil')];
     g.polm -= bid; g.initBid = 0;
-    if (!ch) continue;
-    const r = d100();
-    if (r <= ch) { [o[i - 1], o[i]] = [o[i], o[i - 1]]; lines.push(`${D.FAC[g.f].n} rolls ${r} against ${ch}% and moves up to slot ${i}.`); }
-    else lines.push(`${D.FAC[g.f].n} rolls ${r} against ${ch}% and keeps slot ${i + 1}.`);
-  }
+    return { f, prev: i, bid, mil };
+  });
+  const spent = rows.filter(r => r.bid);
+  log(H, `Initiative: politics markers declared in the previous order (${o.map(nm).join(', ')}): ${rows.map(r => `${nm(r.f)} ${r.bid ? `spends ${r.bid} (+${r.bid * 10}%)` : 'spends none'}`).join('; ')}.`, 'h');
+  rows.forEach(r => {
+    r.roll = d100(); r.tot = r.roll + r.bid * 10 + r.mil;
+    log(H, `Initiative roll: ${nm(r.f)} rolls ${r.roll}${r.bid ? ` +${r.bid * 10}% (${r.bid} politics marker${r.bid > 1 ? 's' : ''})` : ''}${r.mil ? ` +${r.mil}% (${['', '', 'Vigorous ', 'Unified '][polLv(world.facs[r.f], 'mil')]}Military Policy)` : ''} = ${r.tot}.`);
+  });
+  rows.sort((a, b) => b.tot - a.tot || a.prev - b.prev);
+  world.meta.order = rows.map(r => r.f);
+  const ties = rows.some((r, i) => i && r.tot === rows[i - 1].tot);
+  log(H, `New initiative order: ${rows.map((r, i) => `${i + 1}. ${nm(r.f)} (${r.tot}${r.prev !== i ? (r.prev > i ? ', up from ' : ', down from ') + (r.prev + 1) : ''})`).join(', ')}.${ties ? ' Ties go to the faction that was ahead before.' : ''}`, 'h');
   Object.values(world.facs).forEach(g => g.initBid = 0);
-  log(H, `Initiative: ${lines.join(' ') || 'nobody bid.'} Order: ${o.map(f => D.FAC[f].n).join(', ')}.`, 'h');
+  return spent;
 }
 
 return {

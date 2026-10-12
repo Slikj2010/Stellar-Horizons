@@ -1221,9 +1221,9 @@ function panelEcon() {
   if (s === 'politics') return `<p>You drew politics markers and rolled for events; see the log. Next comes ${G.world ? 'initiative' : 'diplomacy'}.</p>`;
   if (s === 'initiative') {
     const o = G.world.meta.order, slot = o.indexOf(G.f) + 1, mil = [0, 20, 40, 50][E.polLv(G, 'mil')], bid = G.initBid || 0;
-    return `<p class="dim">Factions act in initiative order (movement and technology go in reverse). From the last slot up, each faction may spend politics markers: +10% each (at most its slot number) plus its Military Policy bonus; a d100 at or under that moves it up one slot.</p>
+    return `<p class="dim">Factions act in initiative order (movement and technology go in reverse). Every faction declares politics markers to spend (in the current order): +10% each, at most its slot number. Then all roll d100, add markers and Military Policy (+20/40/50%), and the order is reset from the highest result down; ties go to whoever was ahead.</p>
     <ol class="initord">${o.map(f => `<li style="color:${D.FAC[f].c}">${esc(D.FAC[f].n)}${f === G.f ? ' (you)' : ' (bot)'}</li>`).join('')}</ol>
-    ${slot > 1 ? `<div class="row"><span>Markers to spend: <b class="mono">${bid}</b> → ${bid * 10 + mil}% to move up</span><button class="b" data-ib="-1" ${bid ? '' : 'disabled'}>−</button><button class="b" data-ib="1" ${bid < Math.min(G.polm, slot) ? '' : 'disabled'}>+</button><span class="dim">You have ${G.polm}.</span></div>` : '<p>You hold the first slot.</p>'}`;
+    ${slot > 1 ? `<div class="row"><span>Markers to spend: <b class="mono">${bid}</b> → d100 +${bid * 10 + mil}%</span><button class="b" data-ib="-1" ${bid ? '' : 'disabled'}>−</button><button class="b" data-ib="1" ${bid < Math.min(G.polm, slot) ? '' : 'disabled'}>+</button><span class="dim">You have ${G.polm}.</span></div>` : `<div class="row"><span>You hold the first slot. Markers to spend: <b class="mono">${bid}</b> → d100 +${bid * 10 + mil}%</span><button class="b" data-ib="-1" ${bid ? '' : 'disabled'}>−</button><button class="b" data-ib="1" ${bid < Math.min(G.polm, 1) ? '' : 'disabled'}>+</button></div>`}`;
   }
   if (s === 'diplomacy') {
     const cost = E.dipCost(G);
