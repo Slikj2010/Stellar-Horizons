@@ -116,7 +116,7 @@ function futuristicStart(G, F) {
   D.TECH.filter(t => D.TECH_POS[t.k] && D.TECH_POS[t.k][1] <= 1 && t.k !== 'sol' && t.k !== 'exl').forEach(t => G.tech[t.k] = 1);
   G.cash += bonus;
   Object.values(G.w).forEach(w => { w.v = Math.max(0, w.v - 1); });
-  D.MIS.forEach(m => { if (m.yr && m.yr <= 2060) G.mis.pool.push(m.id); });
+  D.MIS.forEach(m => { if (m.yr && m.yr <= 2060) placeDated(G, m, true); });
   if (G.mis.common == null) G.mis.common = drawMission(G);
   log(G, `2060 (Futuristic start): ${F.n} begins with $${G.cash}B ($${F.cash}B + $40B + $3B × ${F.st.length} starting technologies) and every technology in the first two columns. All worlds' exploration values are reduced by 1. Your mission: ${misTxt(G.mis.mine)}. Common mission: ${misTxt(G.mis.common)}.`, 'g');
   // finish the 2060 economic phase: policies for the three missed decades, then build & service
@@ -134,6 +134,32 @@ function makeShip(G, name) {
   return s;
 }
 const misTxt = id => { if (id == null) return 'none'; const m = D.MIS[id]; return `${W[m.w].n}${m.cv ? ' (crewed)' : ''}, ${m.vp} VP`; };
+// a dated mission token sits on its world (shared board): the first faction to deplete that world (with a crew vehicle when
+// marked CV) completes it; it is not replaced. A world already at 0 cannot take it.
+function placeDated(G, m, quiet) {
+  const ws = G.w[m.w]; if (!ws) return;
+  if (G.world && !isLead(G)) return;
+  if (ws.v < 1) { if (!quiet) log(G, `Dated mission ${misTxt(m.id)} is not placed: ${W[m.w].n} is fully depleted.`); return; }
+  ws.dmis = m.id;
+}
+// missions on a world, as this faction sees them: its own mission, the common mission, a dated mission
+function missionsAt(G, w) {
+  const out = [];
+  if (G.mis.mine != null && D.MIS[G.mis.mine].w === w) out.push({ id: G.mis.mine, kind: 'mine' });
+  if (G.mis.common != null && D.MIS[G.mis.common].w === w) out.push({ id: G.mis.common, kind: 'common' });
+  if (G.w[w] && G.w[w].dmis != null) out.push({ id: G.w[w].dmis, kind: 'dated' });
+  return out;
+}
+// complete a mission: +1 politics marker; keep it if there is room, otherwise the player picks a mission to return
+function completeMission(G, id, label) {
+  G.polm++; G.mis.done++;
+  const cap = misCap(G);
+  if (G.mis.kept.length < cap) { G.mis.kept.push(id); return ` ${label} mission (${misTxt(id)}) is complete: +1 politics marker, mission kept.`; }
+  G.vm++; G.mis.kept.push(id);
+  G.ask.push({ k: 'mission', opts: G.mis.kept.slice(), cap, text: `Mission ${misTxt(id)} complete, but you can keep only ${cap} mission${cap > 1 ? 's' : ''} this decade (+1 politics marker and +1 victory marker). Choose the mission to give up.` });
+  return ` ${label} mission (${misTxt(id)}) is complete, but you can keep only ${cap}: +1 politics marker and +1 victory marker; choose a mission to give up.`;
+}
+const misCap = G => Math.max(1, Math.floor((G.y - 2020) / 10));
 function drawMission(G) {
   const ok = G.mis.pool.filter(id => G.w[D.MIS[id].w].v > 0 && id !== G.mis.mine && id !== G.mis.common && !G.mis.kept.includes(id));
   if (!ok.length) return null;
@@ -177,8 +203,9 @@ function endYear(G) {
   G.turn = { moved: {}, acted: {}, built: {}, terraBuys: {} };
   G.freight = 0;
   lvReturn(G);
-  // dated missions join the pool
-  D.MIS.forEach(m => { if (m.yr === G.y) { G.mis.pool.push(m.id); log(G, `New mission available: ${misTxt(m.id)}.`); if (G.mis.common == null) G.mis.common = drawMission(G); } });
+  // dated missions (turn track): placed on their world, open to every faction
+  D.MIS.forEach(m => { if (m.yr === G.y) placeDated(G, m); });
+  D.MIS.forEach(m => { if (m.yr === G.y && G.w[m.w] && G.w[m.w].dmis === m.id) log(G, `Dated mission placed on ${W[m.w].n}: ${misTxt(m.id)}${m.cv ? ' (crew vehicles only)' : ''}. Open to every faction: the first to deplete ${W[m.w].n} completes it.`, 'g'); });
   if (G.y >= 2040 && G.y % 10 === 0) { G.phase = 'econ'; G.estep = 'politics'; log(G, `${G.y}: economic phase.`, 'h'); startEstep(G); }
   else { G.phase = 'build'; startBuild(G); }
 }
@@ -927,6 +954,13 @@ function answer(G, choice, data) {
     if (a.life) { const L = lifeSearch(G, a.w, a.life.base); log(G, `${W[a.w].n}:${L.msg || ' no search for life (' + L.info.skip + ').'}`, L.info.found ? 'g' : undefined); G.lastRoll = { kind: 'life', title: `Search for life on ${W[a.w].n}`, life: L.info, extra: [] }; }
     return null;
   }
+  if (a.k === 'mission') {
+    const id = +choice; if (!G.mis.kept.includes(id)) return 'Pick one of your kept missions.';
+    G.ask.shift(); G.mis.kept = G.mis.kept.filter(x => x !== id);
+    if (!D.MIS[id].yr) G.mis.pool.push(id);
+    log(G, `Mission ${misTxt(id)} given up${D.MIS[id].yr ? ' (dated missions leave the game)' : ' and returned to the pool'}. Kept: ${G.mis.kept.map(misTxt).join(', ')}.`);
+    return null;
+  }
   if (a.k === 'flyby') {
     const s = G.ships.find(x => x.id === a.ship); G.ask.shift(); if (!s) return null;
     return flybyTransfer(G, s, choice);
@@ -1138,15 +1172,20 @@ function explore(G, s, opt) {
     ws.v = Math.max(0, ws.v - 1); G.polm++;
     msg += ` Depletion (${cv ? `markers total ${total}` : `a ${got.find(v => v >= 3)}-point marker`}): ${W[w].n} drops to ${ws.v}; +1 politics marker.`; G.lastRoll.extra.push(`Depletion: ${W[w].n} drops to ${ws.v}.`);
     // missions (telescopes never count)
-    if (s.kind !== 'Telescope') [['mine', 'your'], ['common', 'the common']].forEach(([slot, lbl]) => {
-      const id = G.mis[slot]; if (id == null) return; const m = D.MIS[id];
-      if (m.w !== w || (m.cv && !cv)) return;
-      G.polm++; G.mis.done++;
-      const cap = Math.max(1, Math.floor((G.y - 2020) / 10));
-      if (G.mis.kept.length < cap) { G.mis.kept.push(id); msg += ` ${lbl === 'your' ? 'Your' : 'The common'} mission (${misTxt(id)}) is complete: +1 politics marker, mission kept.`; }
-      else { G.vm++; const ret = G.mis.kept.shift(); G.mis.pool.push(ret); G.mis.kept.push(id); msg += ` Mission complete but you can keep only ${cap}: +1 politics marker and +1 victory marker; ${misTxt(ret)} returns to the pool.`; }
-      G.mis[slot] = drawMission(G);
-    });
+    if (s.kind !== 'Telescope') {
+      [['mine', 'Your'], ['common', 'The common']].forEach(([slot, lbl]) => {
+        const id = G.mis[slot]; if (id == null) return; const m = D.MIS[id];
+        if (m.w !== w || (m.cv && !cv)) return;
+        msg += completeMission(G, id, lbl);
+        G.mis[slot] = drawMission(G);
+      });
+      const did = ws.dmis; if (did != null && (!D.MIS[did].cv || cv)) { ws.dmis = null; msg += completeMission(G, did, 'The dated'); }
+    }
+    // a mission token on a world that has dropped to 0 is removed (personal / common ones are redrawn)
+    if (ws.v === 0) {
+      if (ws.dmis != null) { msg += ` The dated mission ${misTxt(ws.dmis)} is removed (${W[w].n} is fully depleted).`; ws.dmis = null; }
+      ['mine', 'common'].forEach(slot => { const id = G.mis[slot]; if (id != null && D.MIS[id].w === w) { G.mis[slot] = drawMission(G); msg += ` ${misTxt(id)} can no longer be completed and is replaced.`; } });
+    }
     // world card
     if (W[w].base || W[w].tags.includes('gas')) {
       const draws = (s.spec && !probe && s.cls === 'RE') ? 2 : 1;
@@ -1430,7 +1469,7 @@ function resolveInitiative(world) {
 }
 
 return {
-  isLead, setRel, npfName, npfTradeInfo, enhTrade, facsInPlay, techRT, techTurn, techPass, npfKeys, combatPossible, allBases, newWorld, attachWorld, serialize, revive, setInitBid, resolveInitiative, finish, log, baseCost,
+  isLead, setRel, missionsAt, misCap, npfName, npfTradeInfo, enhTrade, facsInPlay, techRT, techTurn, techPass, npfKeys, combatPossible, allBases, newWorld, attachWorld, serialize, revive, setInitBid, resolveInitiative, finish, log, baseCost,
   R, D, P, sysOf, worldOf, locName, worldsIn, RES, FIELDS, FN, PHASES, ESTEPS, PHASE_NAME, ESTEP_NAME, newGame, cvAllowed, advance, answer,
   moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, scrapSite, scrapValue, unreserveInfo, scrapLV, estock, earthCash, earthCostTxt, lvCanAdd, lvPoolTxt, scrapRule, shipCargo,
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,

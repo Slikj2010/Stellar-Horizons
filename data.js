@@ -265,6 +265,9 @@ D.MIS = [
   ['cal', 3], ['cer', 3], ['eur', 4], ['gan', 3], ['hyg', 3], ['io', 4], ['jup', 4], ['mar', 2], ['mer', 2], ['mim', 4], ['nep', 4], ['pho', 2], ['plu', 4], ['sat', 4], ['tit', 4], ['tri', 4], ['ura', 4], ['ven', 2], ['ves', 3],
   ['cal', 3, 1, 2100], ['cer', 3, 1, 2080], ['cha', 4, 1, 2120], ['com', 3, 1, 2040], ['eri', 5, 0, 2060], ['mar', 3, 1, 2040], ['mer', 4, 1, 2080], ['plu', 5, 1, 2130], ['sed', 5, 0, 2070], ['tit', 4, 1, 2110], ['ven', 4, 1, 2120],
 ].map(([w, vp, cv, yr], i) => ({ id: i, w, vp, cv: !!cv, yr: yr || 0 }));
+// mission token art (markers.webp): regular tokens by world name, dated ones carry 'CV-year' (crew only) or just the year
+D.MIS_NAME = { cal: 'Callisto', cer: 'Ceres', eur: 'Europa', gan: 'Ganymede', hyg: 'Hygeia', io: 'Io', jup: 'Jupiter', mar: 'Mars', mer: 'Mercury', mim: 'Mimas', nep: 'Neptune', pho: 'Phobos', plu: 'Pluto', sat: 'Saturn', tit: 'Titan', tri: 'Triton', ura: 'Uranus', ven: 'Venus', ves: 'Vesta', cha: 'Chariklo', com: 'Comet', eri: 'Eris', sed: 'Sedna' };
+D.MIS.forEach(m => { const n = D.MIS_NAME[m.w]; m.mk = 'mis_' + n + (m.yr ? (m.cv ? ' CV-' : ' ') + m.yr : ''); });
 
 // Pirates: weak (before 2120) and strong side
 D.PIRATE = { weak: { size: 2, cb: 1 }, strong: { size: 4, cb: 3 } };

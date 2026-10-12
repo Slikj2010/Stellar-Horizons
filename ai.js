@@ -105,6 +105,7 @@ function makeAI(E, D) {
       else if (a.k === 'card') r = E.answer(G, a.opts[0]);
       else if (a.k === 'flyby') { const o = best(a.opts, o => sysScore(G, o.sys, 'Flyby') / (1 + .2 * o.eta)) || a.opts[0]; r = E.answer(G, o.sys); }
       else if (a.k === 'publicity') { const w = best(Object.keys(G.w), w => G.ships.some(s => E.worldOf(s.loc) === w) ? worldScore(G, w, 'Orbiter') + 1 : 0) || Object.keys(G.w).find(k => G.w[k].v > 0); r = E.answer(G, w); }
+      else if (a.k === 'mission') { const id = a.opts.slice().sort((x, y) => D.MIS[x].vp - D.MIS[y].vp)[0]; r = E.answer(G, id); }
       else if (a.k === 'immigration') r = E.answer(G, G.bases[0] && G.bases[0].id);
       else G.ask.shift();
       if (typeof r === 'string' && G.ask[0] === a) G.ask.shift();
