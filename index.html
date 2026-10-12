@@ -164,6 +164,7 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
 #pick .scen .sc input { margin-top: 3px; accent-color: var(--beacon); }
 #pick .scen .sc span { display: grid; gap: 2px; } #pick .scen small { color: var(--dim); font-size: 12.5px; }
 #mbox .cargo, #panel .cargo { margin: 8px 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--hull2); }
+.pcd .sl { grid-template-columns: 96px 1fr 28px 74px !important; }
 .cargo .sl { display: grid; grid-template-columns: auto 44px 1fr 28px; align-items: center; gap: 8px; margin: 4px 0; font-size: 13px; }
 .cargo input[type=range] { width: 100%; accent-color: #e8892f; }
 .hexc { display: inline-grid; place-items: center; min-width: 26px; height: 22px; padding: 0 4px; font: 700 11px/1 var(--f-mono); color: #fff; background: #d9772a; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); vertical-align: middle; }
@@ -1216,7 +1217,7 @@ const lvTxt = () => ([1, 2, 3, 4].filter(z => G.lv.earth[z]).map(z => `LV-${z} �
 // politics markers can be converted at any time: 1 → $1B, or 1 → 2 points of any field (3 with Unified Space Diplomacy)
 function politicsBlock() {
   const n = E.polLv(G, 'dip') >= 3 ? 3 : 2;
-  return `<h3>Politics markers: ${G.polm}</h3><div class="row"><button class="b" data-pc="cash" ${G.polm ? '' : 'disabled'}>1 → $1B</button>${E.FIELDS.map(f => `<button class="b" data-pc="${f}" ${G.polm ? '' : 'disabled'}>1 → ${n} <span class="f-${f}">${E.FN[f]}</span></button>`).join('')}<button class="b" data-pc="allcash" ${G.polm ? '' : 'disabled'}>All to cash</button></div>
+  return `<h3>Politics markers: ${G.polm}</h3><div class="row"><button class="b" data-pc="open" ${G.polm ? '' : 'disabled'}>Convert politics markers…</button><span class="dim">1 → $1B or ${n} tech points</span></div>
   <p class="dim">Convert at any time. Points go to your tech bank (spent in the tech step; the bank is halved after it).</p>`;
 }
 function panelTurn() {
@@ -1397,8 +1398,8 @@ function rtStatus() {
 // every faction's tech bank (multi-faction games), in this step's turn order
 // politics markers → cash or tech points, right on the tech tree
 function pcStrip() {
-  const n = E.polLv(G, 'dip') >= 3 ? 3 : 2, d = G.polm ? '' : 'disabled';
-  return `<div class="pcs"><span>Politics markers <b class="mono">${G.polm}</b>:</span><button class="b" data-pc="cash" ${d}>1 → $1B</button>${E.FIELDS.map(f => `<button class="b" data-pc="${f}" ${d}>1 → ${n} <span class="f-${f}">${E.FN[f]}</span></button>`).join('')}<button class="b" data-pc="allcash" ${d}>All to cash</button><span class="dim">Cash $${G.cash}B</span></div>`;
+  const n = E.polLv(G, 'dip') >= 3 ? 3 : 2;
+  return `<div class="pcs"><span>Politics markers <b class="mono">${G.polm}</b></span><button class="b" data-pc="open" ${G.polm ? '' : 'disabled'}>Convert…</button><span class="dim">1 → $1B or ${n} tech points · Cash $${G.cash}B</span></div>`;
 }
 function facBanks() {
   if (!G.world) return '';
@@ -1467,7 +1468,7 @@ function renderTree() {
   el.innerHTML = tab === 'pol' ? polTreeHTML() : techTreeHTML(); el.scrollLeft = sx; el.scrollTop = sy;
   el.querySelector('[data-tt-close]').onclick = () => { tab = 'turn'; render(); };
   const rp = el.querySelector('[data-rt-pass]'); if (rp) rp.onclick = rtPass;
-  el.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => pcClick(b.dataset.pc));
+  el.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => pcClick());
   el.querySelectorAll('[data-pt]').forEach(b => b.onclick = () => {
     const p = D.POL.find(x => x.k === b.dataset.pt), lv = +b.dataset.lv, my = E.polLv(G, p.k), name = D.POL_LV[lv - 1] + p.n, why = polWhy(p.k);
     if (my >= lv) return ask(name, `<p>${esc(p.d[lv - 1])}.</p><p class="chip ok">Held</p>`, () => null, 'OK');
@@ -1623,10 +1624,30 @@ function renderAsk() {
   $('mbox').querySelectorAll('[data-ans]').forEach(b => b.onclick = () => { let v = b.dataset.ans; if (v === '__pub') v = $('pubsel').value; if (a.k === 'card' && v === '') v = null; G.lastRoll = null; act(() => E.answer(G, v)); if (G.lastRoll && G.lastRoll.kind === 'life') { ui = { k: 'result' }; render(); } });
 }
 
-function pcClick(k) {
-  const n = E.polLv(G, 'dip') >= 3 ? 3 : 2;
-    if (k === 'allcash') ask(`Convert all ${G.polm} politics markers to cash?`, `<p>${G.polm} politics markers become <b>$${G.polm}B</b>.</p>`, () => { while (G.polm) E.convertPolitics(G, 'cash'); return null; }, 'Convert');
-    else ask(`Convert 1 politics marker?`, `<p>1 politics marker becomes <b>${k === 'cash' ? '$1B' : n + ' ' + E.FN[k] + ' points'}</b>. You have ${G.polm}.</p>${k !== 'cash' ? '<p class="dim">Points go to your tech bank, spent in the tech step (the bank is halved after it).</p>' : ''}`, () => E.convertPolitics(G, k), 'Convert'); 
+// politics markers → cash / tech points: one slider per target, together at most the markers you hold
+function pcClick() {
+  if (!G.polm) return;
+  const n = E.polLv(G, 'dip') >= 3 ? 3 : 2, max = G.polm, T = [['cash', 'Cash', 1, '$', 'B'], ...E.FIELDS.map(f => [f, E.FN[f], n, '', ' pts'])];
+  let vals = {};
+  const body = `<p class="dim">You hold <b>${max}</b> politics marker${max > 1 ? 's' : ''}. Each becomes $1B or ${n} tech points of one field. Together the sliders use at most ${max}.</p>
+    <div class="cargo pcd">${T.map(([k, nm]) => `<label class="sl"><span class="${k === 'cash' ? '' : 'f-' + k}">${nm}</span><input type="range" min="0" max="${max}" value="0" data-k="${k}" aria-label="${nm}"><b class="mono" data-v="${k}">0</b><span class="dim" data-g="${k}"></span></label>`).join('')}
+    <p data-sum style="margin:6px 0 0"></p></div>`;
+  ui = { k: 'gen', title: 'Convert politics markers', body, go: 'Convert', after: box => {
+    const ins = [...box.querySelectorAll('.pcd input')], go = box.querySelector('[data-ui="gen"]');
+    const upd = moved => {
+      let tot = ins.reduce((a, i) => a + +i.value, 0);
+      if (tot > max && moved) { moved.value = +moved.value - (tot - max); tot = max; }
+      vals = Object.fromEntries(ins.map(i => [i.dataset.k, +i.value]));
+      T.forEach(([k, , per, pre, suf]) => { box.querySelector(`[data-v="${k}"]`).textContent = vals[k]; box.querySelector(`[data-g="${k}"]`).textContent = vals[k] ? `→ +${pre}${vals[k] * per}${suf}` : ''; });
+      box.querySelector('[data-sum]').innerHTML = tot ? `Converting <b>${tot}</b> of ${max} markers; ${max - tot} left.` : '<span class="dim">Move a slider to choose.</span>';
+      go.disabled = !tot;
+    };
+    ins.forEach(i => i.oninput = () => upd(i)); upd();
+  }, fn: () => {
+    for (const [k] of T) for (let i = 0; i < (vals[k] || 0); i++) { const e = E.convertPolitics(G, k); if (e) return e; }
+    return null;
+  } };
+  renderAsk();
 }
 function wire() {
   const P = $('panel'), on = (sel_, fn) => P.querySelectorAll(sel_).forEach(b => b.onclick = () => fn(b));
@@ -1642,7 +1663,7 @@ function wire() {
   P.querySelectorAll('[data-out]').forEach(s => s.onchange = () => { G.bases.find(b => b.id === s.dataset.out).out = s.value; save(); render(); });
   on('[data-a="transfer"]', () => { const f = $('tf-from').value, t = $('tf-to').value, ty = $('tf-type').value, n = +$('tf-n').value, nm = v => v === 'earth' ? 'Earth' : G.bases.find(x => x.id === v).name;
     ask(`Transfer ${n} ${ty}?`, `<p>From ${esc(nm(f))} to ${esc(nm(t))}.${f === 'earth' ? ` Bought on Earth for <b>$${n}B</b>.` : ''}${t === 'earth' ? ` Sold on Earth at 2 for $1B.` : ''}</p>`, () => E.transferRes(G, f, t, ty, n), 'Transfer'); });
-  on('[data-pc]', b => pcClick(b.dataset.pc));
+  on('[data-pc]', () => pcClick());
   on('[data-tp]', b => { const f = b.dataset.tp, buy = b.dataset.d === 'buy'; ask(buy ? `Buy 1 ${E.FN[f]} point?` : `Sell 2 ${E.FN[f]} points?`, `<p>${buy ? `Pay <b>$1B</b> (you have $${G.cash}B) for 1 ${E.FN[f]} point.` : `Trade 2 of your ${G.bank[f]} ${E.FN[f]} points for <b>$1B</b>.`}</p>`, () => E.tradePoints(G, f, b.dataset.d), buy ? 'Buy' : 'Sell'); });
   on('[data-pol]', b => { const p = D.POL.find(x => x.k === b.dataset.pol), lv = E.polLv(G, p.k); ask(`Adopt ${D.POL_LV[lv]}${p.n}?`, `<p>${esc(p.d[lv])}.</p><p class="dim">You can adopt one policy per decade.</p>`, () => E.choosePolicy(G, p.k), 'Adopt'); });
   on('[data-dev]', b => { const t = D.TECHK[b.dataset.dev], c = E.techCost(G, t); ask(`Develop ${t.n}?`, `<p>${esc(t.d)}.</p><p>Costs <b>${c} ${E.FN[t.f]} points</b> (you have ${G.bank[t.f]}).</p><p class="dim">${esc(E.techCostTxt(G, t))}.</p>`, () => rtDevelop(t.k), 'Develop'); });
