@@ -281,3 +281,9 @@ Data changes: Japan starts with Robotic Policy; China starts with Military Polic
 2. **Common mission** (2x), and dated missions on the board (1.6x; crew-only ones only when a crew vehicle can reach them).
 3. **Faction leanings** as before: field weights (for example Russia leans Biology), crew vs robotic appetite, base building, research lists.
 Each decade a bot logs its "Mission focus" and what it still needs. The human player sees these lines for the bots.
+
+### Bot crew vehicles and early technology
+- **Building CVs.** A bot builds crew vehicles only as fast as there are places they can work: about one per reachable world that still has value (Earth counts as one; the Moon and Near Earth Asteroids need Orbital Rendezvous; farther sectors need crew range), plus one hauler once it has bases, never more than its support limit. At most one CV per decade (two when its limit is 4+ and two sites are open). A reachable crew-only mission can justify one CV over the limit when it has spare cash; two over is never allowed.
+- **Range first.** Crew-focused and versatile factions (CV appetite 1+: NA, Russia, China, South America, Asia) research Orbital Rendezvous and Advanced Astrodynamics before anything else in Physics, steer exploration toward Physics sites, and put spare politics markers into Physics points until both are done.
+- **Then the CV technologies.** Crew Vehicles (CV-2) and Large Crew Vehicles (CV-3) are boosted next, with exploration leaning toward Engineering and spare markers going into Engineering points. Europe and Japan, whose first production CV is CV-4, count Frigates as the target for Space Mining.
+- **Space Mining waits.** No bot considers Space Mining until it has the technology that unlocks its production CV (Large Crew Vehicles, or Frigates for Europe and Japan).

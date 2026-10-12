@@ -30,7 +30,7 @@ function makeAI(E, D) {
   };
   const prof = G => P[G.f === 'cn' ? 'cn_' + (G.variant || 'mil') : G.f];
   const fieldOf = w => W[w].f || 'Phy';
-  const fw = (G, w) => (prof(G).fw[fieldOf(w)] || 1) * ((prof(G).crewWorlds || []).includes(w) ? 1.25 : 1);
+  const fw = (G, w) => (prof(G).fw[fieldOf(w)] || 1) * ((prof(G).crewWorlds || []).includes(w) ? 1.25 : 1) * (fieldOf(w) === 'Phy' && rangeStage(G) ? 1.7 : fieldOf(w) === 'Eng' && needCvTech(G) ? 1.4 : 1);
   const pick = a => a[Math.floor(E.R.rnd() * a.length)];
   const wv = (G, w) => G.w[w] ? G.w[w].v : 0;
   const isGas = w => W[w].tags.includes('gas'), tele = w => W[w].tags.includes('tele'), sun = w => W[w].tags.includes('sunobs');
@@ -96,6 +96,25 @@ function makeAI(E, D) {
       else if (/crew range/.test(why)) { const k = RANGE_LADDER.find(k => !G.tech[k]); if (k) add(k, g.wt); }
     });
     return want;
+  }
+
+  // ---------------- crew vehicles: early-game discipline ----------------
+  // Crew vehicles start with ~50% recall and, before Orbital Rendezvous / Advanced Astrodynamics, can only work at Earth (or the
+  // Mars sector for North America), so a bot builds them only as fast as there are places they can work, never beyond its
+  // support limit unless a crewed mission needs it, and it digs for the two range technologies (Physics) first.
+  const cvFocus = G => prof(G).cv >= 1;                                     // crew-focused or versatile factions
+  const rangeStage = G => cvFocus(G) && !(E.has(G, 'orb') && E.has(G, 'astro'));
+  const PROD_CV = { na: 3, ru: 3, sa: 3, as: 3, cn: 3, eu: 4, jp: 4 };     // size of the first space-mining (production) CV
+  const prodTech = G => PROD_CV[G.f] >= 4 ? 'frig' : 'lcv';
+  // after the range techs: crew-focused factions still need the Crew Vehicle techs (CV-2, then CV-3 or CV-4 for the production CV)
+  const needCvTech = G => cvFocus(G) && !rangeStage(G) && !G.tech[prodTech(G)];
+  // worlds a crew vehicle could work right now (open value, reachable with this technology and range)
+  function cvSites(G) {
+    return Object.keys(G.w).filter(w => W[w] && !tele(w) && !sun(w) && !W[w].tags.includes('alpha') && wv(G, w) >= (w === 'ear' ? 1 : 2) && !cvWhy(G, w)).length;
+  }
+  // how many crew vehicles this bot wants in total: one per workable site (plus one hauler once it has bases), capped by its limit
+  function cvTarget(G, lcv) {
+    return Math.min(lcv, Math.max(1, cvSites(G)) + (G.bases.length ? 1 : 0));
   }
 
   // ---------------- targets ----------------
@@ -195,15 +214,26 @@ function makeAI(E, D) {
   function techPick(G) {
     const pr = prof(G), open = D.TECH.filter(t => E.techState(G, t) === 'open' && G.bank[t.f] >= E.techCost(G, t));
     if (!open.length) return null;
-    const want = techWants(G);
-    return best(open, t => { const i = pr.tech.indexOf(t.k); return (i >= 0 ? 100 - i * 3 : 20) - E.techCost(G, t) * .3 + (t.r.length ? 0 : 1) + (want[t.k] ? 25 * want[t.k] : 0); });
+    const want = techWants(G), stage = rangeStage(G), pt = prodTech(G), cvf = cvFocus(G);
+    return best(open.filter(t => {
+      if (stage && t.f === 'Phy' && t.k !== 'orb' && t.k !== 'astro') return false;      // save Physics points for the range techs
+      if (t.k === 'mine' && !G.tech[pt]) return false;                                  // space mining waits for the production CV
+      return true;
+    }), t => {
+      const i = pr.tech.indexOf(t.k);
+      let v = (i >= 0 ? 100 - i * 3 : 20) - E.techCost(G, t) * .3 + (t.r.length ? 0 : 1) + (want[t.k] ? 25 * want[t.k] : 0);
+      if (stage && (t.k === 'orb' || t.k === 'astro')) v += 200;
+      else if (cvf && !stage && (t.k === 'cv' || t.k === 'lcv' || (t.k === 'frig' && pt === 'frig'))) v += 60;
+      return v;
+    });
   }
   // one research turn: develop one technology, or pass (and turn leftover politics markers into points for its main field)
   function techTurnBot(G) {
     const t = techPick(G);
     if (t && !E.develop(G, t.k)) return 'dev';
     if (G.world) E.techPass(G);
-    const main = Object.entries(prof(G).fw).sort((a, b) => b[1] - a[1])[0][0];
+    const short = (f, ks) => G.bank[f] < ks.reduce((a, k) => a + (G.tech[k] ? 0 : D.TECHK[k].c), 0);
+    const main = rangeStage(G) && short('Phy', ['orb', 'astro']) ? 'Phy' : needCvTech(G) && short('Eng', ['cv', 'lcv']) ? 'Eng' : Object.entries(prof(G).fw).sort((a, b) => b[1] - a[1])[0][0];
     while (G.polm > 0) E.convertPolitics(G, main);
     return 'pass';
   }
@@ -231,10 +261,17 @@ function makeAI(E, D) {
       if (gs.length) E.log(G, `Mission focus: ${gs.map(g => `${g.tier === 'mine' ? 'your mission' : g.tier === 'common' ? 'common mission' : 'dated mission'} ${D.W[g.w].n}${g.cv ? ' (crew vehicle)' : ''}`).join('; ')}.${um.length ? ` Needs ${um[0].need === 'CV' ? 'a crew vehicle' : 'a robotic explorer'} for ${D.W[um[0].g.w].n}${um[0].need === 'CV' && cvWhy(G, um[0].g.w) ? ' (cannot reach it yet: ' + cvWhy(G, um[0].g.w) + ')' : ''}.` : ''}`); }
     for (let n = 0; n < 2; n++) {
       const opts = E.buildOptions(G, 'earth').filter(o => !o.why && G.cash - E.earthCash(G, o.cost) >= reserve);
-      const reOpts = opts.filter(o => !o.cv && E.nonProbeRE(G) < lre), cvOpts = idle && G.ships.some(x => x.cls === 'CV' && x.ev > 0 && x.cap) ? [] : opts.filter(o => o.cv && E.nCV(G) < lcv);
-      const teles = G.ships.filter(s => s.kind === 'Telescope').length;
-      // mission focus: build the explorer the first unmet mission goal needs
+      // crew vehicles: at most one per workable site, at most `perDecade` this decade, never past the support limit unless a
+      // reachable crewed mission needs one (then at most 1 over; 2 over is never allowed)
       const foc = unmet(G)[0], focCV = foc && foc.need === 'CV' && !cvWhy(G, foc.g.w);
+      const nCv = E.nCV(G), tgt = cvTarget(G, lcv), perDecade = lcv >= 4 && tgt - nCv >= 2 ? 2 : 1;
+      if (!G.aiCv || G.aiCv.d !== Math.floor(G.y / 10)) G.aiCv = { d: Math.floor(G.y / 10), n: 0 };   // CVs built this decade (kept in the save)
+      const cvBuilt = G.aiCv.n;
+      const over = focCV && G.cash - reserve >= 25 ? 1 : 0;
+      const cvRoom = cvBuilt < perDecade && (nCv < tgt || (focCV && nCv < lcv + over)) && nCv < lcv + 1;
+      const reOpts = opts.filter(o => !o.cv && E.nonProbeRE(G) < lre), cvOpts = !cvRoom || (idle && G.ships.some(x => x.cls === 'CV' && x.ev > 0 && x.cap)) ? [] : opts.filter(o => o.cv);
+      const teles = G.ships.filter(s => s.kind === 'Telescope').length;
+      // mission focus: build the explorer the first unmet mission goal needs (foc / focCV set above)
       const scoreRE = o => {
         let k = (pr.kinds[o.kind] || .5);
         if (foc) k *= foc.need === 'RE' ? (kindFits(o.kind, foc.g.w) ? 3 : .6) : focCV ? .5 : 1;
@@ -247,6 +284,7 @@ function makeAI(E, D) {
       if (!cands.length) break;
       cands.sort((a, b) => b[1] - a[1]);
       if (E.buildUnit(G, cands[0][0].key, 'earth')) break;
+      if (cands[0][0].cv) G.aiCv.n++;
     }
   }
   function move(G) {
