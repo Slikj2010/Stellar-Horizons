@@ -1442,7 +1442,21 @@ function newWorld(opts) { // {human, variant, bots: [{f, variant}], scenario, re
   return human;
 }
 const serialize = G => JSON.stringify(G.world ? { v: 3, world: G.world.meta, facs: G.world.facs } : G);
-function revive(obj) { if (!obj) return null; if (obj.v === 3 && obj.facs) return attachWorld(obj.facs, obj.world); return obj.v === 2 ? obj : null; }
+// saves made before dated missions were placed: add the ones whose year has come and that nobody has completed (once per save)
+function fixDated(G) {
+  const metaOf = G.world ? G.world.meta : G, gs = G.world ? Object.values(G.world.facs) : [G];
+  if (metaOf.datedFix) return G; metaOf.datedFix = true;
+  const placed = [];
+  D.MIS.forEach(m => {
+    if (!m.yr || m.yr > G.y || !G.w[m.w]) return;
+    if (Object.values(G.w).some(w => w.dmis === m.id) || gs.some(g => g.mis.kept.includes(m.id))) return;
+    if (G.w[m.w].v < 1) return;
+    G.w[m.w].dmis = m.id; placed.push(`${W[m.w].n} (${m.yr})`);
+  });
+  if (placed.length) log(G, `Save updated: dated missions added to ${placed.join(', ')}.`, 'g');
+  return G;
+}
+function revive(obj) { if (!obj) return null; if (obj.v === 3 && obj.facs) return fixDated(attachWorld(obj.facs, obj.world)); return obj.v === 2 ? fixDated(obj) : null; }
 // initiative (3.1.2): every faction declares (in the previous initiative order) how many politics markers it spends,
 // +10% each, at most its current slot number; then all roll d100 + markers + Military Policy (+20/40/50%).
 // The new order runs from the highest result down; ties go to the faction that was ahead before.
