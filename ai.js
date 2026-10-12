@@ -50,12 +50,60 @@ function makeAI(E, D) {
   }
   const wantBase = G => E.nBase(G) < E.lims(G)[2] + (prof(G).bases >= 1.4 ? 1 : 0);
 
+  // ---------------- mission goals ----------------
+  // Priority 1: the personal mission, 2: the common mission (and dated missions open to all), 3: the faction's own
+  // leanings (field weights, base drive). A goal is a mission whose world can still be depleted; a crewed-only mission
+  // ("cv") can only be completed by a crew vehicle's depletion. These multiply the value of the world for the right kind of
+  // explorer (everything below scales by the faction weights as before), steer what is built and what is researched.
+  const GOAL_WT = { mine: 3.5, common: 2, dated: 1.6 };
+  const goalCache = new WeakMap();
+  function goals(G) {
+    const sig = [G.y, G.phase, G.estep, G.mis.mine, G.mis.common].join(':');
+    const c = goalCache.get(G); if (c && c.sig === sig && c.n === G.ships.length) return c.v;
+    const out = [], add = (id, tier) => { if (id == null) return; const m = D.MIS[id]; if (!m || !G.w[m.w] || wv(G, m.w) < 1) return; out.push({ id, w: m.w, cv: !!m.cv, tier, wt: GOAL_WT[tier], vp: m.vp }); };
+    add(G.mis.mine, 'mine'); add(G.mis.common, 'common');
+    Object.keys(G.w).forEach(w => { if (G.w[w].dmis != null) add(G.w[w].dmis, 'dated'); });
+    goalCache.set(G, { sig, n: G.ships.length, v: out }); return out;
+  }
+  // can a crew vehicle (of any size) be sent there with the current technology and range? returns the blocking reason or null
+  function cvWhy(G, w) { try { return E.cvAllowed(G, { sz: 2 }, 'orbit:' + w); } catch (e) { return 'unknown'; } }
+  const kindFits = (kind, w) => kind === 'Telescope' || kind === 'Probe' ? false : kind === 'Rover' ? !(isGas(w) || sun(w)) : true;
+  // how much more a world is worth to this kind of explorer because of an open mission there
+  function missionMult(G, w, kind) {
+    if (kind === 'Telescope') return 1;
+    let m = 1;
+    goals(G).forEach(g => { if (g.w === w && (!g.cv || kind === 'CV') && g.wt > m) m = g.wt; });
+    return m;
+  }
+  // goals that still lack an explorer able to complete them: [{g, need: 'CV' | 'RE'}] in priority order
+  function unmet(G) {
+    const cvs = G.ships.some(x => x.cls === 'CV' && x.ev > 0);
+    return goals(G).filter(g => {
+      if (g.cv) return !cvs;
+      if (G.ships.some(x => x.cls === 'RE' && kindFits(x.kind, g.w))) return false;
+      return !(cvs && !cvWhy(G, g.w));
+    }).map(g => ({ g, need: g.cv ? 'CV' : 'RE' }));
+  }
+  // technologies this faction's crewed goals are waiting for (with unmet prerequisites), weight by goal priority
+  const RANGE_LADDER = ['astro', 'als', 'ldsf', 'ccls', 'dse', 'sch'];
+  function techWants(G) {
+    const want = {}, add = (k, wt) => { const t = D.TECHK[k]; if (!t || G.tech[k]) return; want[k] = Math.max(want[k] || 0, wt); t.r.forEach(r => add(r, wt)); };
+    goals(G).filter(g => g.cv || g.tier !== 'dated').forEach(g => {
+      if (!g.cv) return;
+      const why = cvWhy(G, g.w); if (!why) return;
+      if (/Orbital Rendezvous/.test(why)) add('orb', g.wt);
+      else if (/Radiation Shielding/.test(why)) add('ars', g.wt);
+      else if (/crew range/.test(why)) { const k = RANGE_LADDER.find(k => !G.tech[k]); if (k) add(k, g.wt); }
+    });
+    return want;
+  }
+
   // ---------------- targets ----------------
   function worldScore(G, w, kind) {
     if (!G.w[w] || wv(G, w) < 1 || tele(w)) return 0;
     if (kind === 'Rover' && (isGas(w) || sun(w))) return 0;
     if (kind === 'CV' && (sun(w) || W[w].tags.includes('alpha'))) return 0;
-    return wv(G, w) * fw(G, w);
+    return wv(G, w) * fw(G, w) * missionMult(G, w, kind);
   }
   function sysScore(G, sy, kind) {
     const ws = E.worldsIn(sy).map(w => worldScore(G, w, kind)).sort((a, b) => b - a);
@@ -147,7 +195,8 @@ function makeAI(E, D) {
   function techPick(G) {
     const pr = prof(G), open = D.TECH.filter(t => E.techState(G, t) === 'open' && G.bank[t.f] >= E.techCost(G, t));
     if (!open.length) return null;
-    return best(open, t => { const i = pr.tech.indexOf(t.k); return (i >= 0 ? 100 - i * 3 : 20) - E.techCost(G, t) * .3 + (t.r.length ? 0 : 1); });
+    const want = techWants(G);
+    return best(open, t => { const i = pr.tech.indexOf(t.k); return (i >= 0 ? 100 - i * 3 : 20) - E.techCost(G, t) * .3 + (t.r.length ? 0 : 1) + (want[t.k] ? 25 * want[t.k] : 0); });
   }
   // one research turn: develop one technology, or pass (and turn leftover politics markers into points for its main field)
   function techTurnBot(G) {
@@ -178,17 +227,22 @@ function makeAI(E, D) {
     const reserve = 10 + 2 * E.nBase(G);
     const [lre, lcv] = E.lims(G);
     const idle = G.ships.some(s => s.loc === 'earth' && !s.res && E.moves && s.cls === 'CV');
+    { const gs = goals(G), um = unmet(G);
+      if (gs.length) E.log(G, `Mission focus: ${gs.map(g => `${g.tier === 'mine' ? 'your mission' : g.tier === 'common' ? 'common mission' : 'dated mission'} ${D.W[g.w].n}${g.cv ? ' (crew vehicle)' : ''}`).join('; ')}.${um.length ? ` Needs ${um[0].need === 'CV' ? 'a crew vehicle' : 'a robotic explorer'} for ${D.W[um[0].g.w].n}${um[0].need === 'CV' && cvWhy(G, um[0].g.w) ? ' (cannot reach it yet: ' + cvWhy(G, um[0].g.w) + ')' : ''}.` : ''}`); }
     for (let n = 0; n < 2; n++) {
       const opts = E.buildOptions(G, 'earth').filter(o => !o.why && G.cash - E.earthCash(G, o.cost) >= reserve);
       const reOpts = opts.filter(o => !o.cv && E.nonProbeRE(G) < lre), cvOpts = idle && G.ships.some(x => x.cls === 'CV' && x.ev > 0 && x.cap) ? [] : opts.filter(o => o.cv && E.nCV(G) < lcv);
       const teles = G.ships.filter(s => s.kind === 'Telescope').length;
+      // mission focus: build the explorer the first unmet mission goal needs
+      const foc = unmet(G)[0], focCV = foc && foc.need === 'CV' && !cvWhy(G, foc.g.w);
       const scoreRE = o => {
         let k = (pr.kinds[o.kind] || .5);
+        if (foc) k *= foc.need === 'RE' ? (kindFits(o.kind, foc.g.w) ? 3 : .6) : focCV ? .5 : 1;
         if (o.kind === 'Telescope') k *= teles < (pr.teles || 1) ? 1.6 : .25;
         return k * (o.u.ev + (o.u.spec ? 2 : 0)) / Math.max(1, E.sum(o.cost)) * pr.re;
       };
       const canFound = G.ships.some(x => x.cls === 'CV' && x.ev > 0 && x.cap);
-      const scoreCV = o => (o.u.ev > 0 && o.u.cargo && !canFound && wantBase(G) ? 2.5 : 1) * (o.u.ev > 0 || (G.bases.length && G.ships.filter(x => x.cls === 'CV' && !(x.ev > 0)).length < G.bases.length) ? 1 : 0) * pr.cv * ((o.u.ev || 0) + (o.u.ev > 0 ? (o.u.cargo || 0) * pr.bases : 0) + (pr.armed ? (o.u.cb || 0) * 1.5 : 0)) / Math.max(1, E.sum(o.cost));
+      const scoreCV = o => (focCV && o.u.ev > 0 ? 5 : 1) * (o.u.ev > 0 && o.u.cargo && !canFound && wantBase(G) ? 2.5 : 1) * (o.u.ev > 0 || (G.bases.length && G.ships.filter(x => x.cls === 'CV' && !(x.ev > 0)).length < G.bases.length) ? 1 : 0) * pr.cv * ((o.u.ev || 0) + (o.u.ev > 0 ? (o.u.cargo || 0) * pr.bases : 0) + (pr.armed ? (o.u.cb || 0) * 1.5 : 0)) / Math.max(1, E.sum(o.cost));
       const cands = reOpts.map(o => [o, scoreRE(o)]).concat(cvOpts.map(o => [o, scoreCV(o)]));
       if (!cands.length) break;
       cands.sort((a, b) => b[1] - a[1]);
@@ -271,7 +325,7 @@ function makeAI(E, D) {
       let opts = E.exploreOptions(G, s); if (!opts.length) return;
       if (planningBase(G, s)) { E.log(G, `${s.name} holds ${s.cargo.SUP} SUP for a base and skips exploring (no recall check).`); return; }
       const o = best(opts, o => {
-        if (o.kind === 'explore' || o.kind === 'probe') return o.value * fw(G, o.w);
+        if (o.kind === 'explore' || o.kind === 'probe') return o.value * fw(G, o.w) * missionMult(G, o.w, s.cls === 'CV' ? 'CV' : s.kind);
         if (o.kind === 'produce') return (s.cap * E.cargoMul(G) - E.sum(s.cargo) > 0 ? 1 : 0) * o.value * (o.res === 'SUP' ? 1.4 : 1) * (pr.bases > 1 ? 1.5 : .6);
         if (o.kind === 'harvest') return 6;
         return 1;
@@ -319,7 +373,7 @@ function makeAI(E, D) {
   function mirror(H, g, mark) {
     if (H === g) return;
     const fresh = []; for (const l of g.log) { if (l === mark) break; fresh.push(l); }
-    fresh.reverse().forEach(l => { if (l.c === 'g' || l.c === 'x' || /moves from|transfer box|launch|recalled|reserve|skips exploring|founds|cargo flight|loads |^Initiative: |^Diplomacy decision/i.test(l.t)) E.log(H, `${D.FAC[g.f].pre}: ${l.t}`, 'bot'); });
+    fresh.reverse().forEach(l => { if (l.c === 'g' || l.c === 'x' || /moves from|transfer box|launch|recalled|reserve|skips exploring|founds|cargo flight|loads |^Initiative: |^Diplomacy decision|^Mission focus/i.test(l.t)) E.log(H, `${D.FAC[g.f].pre}: ${l.t}`, 'bot'); });
   }
   function runBots(H, when) {
     const world = H.world; if (!world) return;
