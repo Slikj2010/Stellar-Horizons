@@ -115,7 +115,13 @@ function makeAI(E, D) {
   // ---------------- phases ----------------
   function econ(G) {
     const pr = prof(G);
-    if (G.estep === 'initiative') { if (pr.init && G.polm > 2) E.setInitBid(G, Math.min(pr.init, G.polm - 2)); }
+    if (G.estep === 'initiative') {
+      // d10: 6+ spends politics markers on initiative; then a die the size of min(slot, markers held) says how many
+      const slot = G.world ? G.world.meta.order.indexOf(G.f) + 1 : 1, cap = Math.min(slot, G.polm), dec = 1 + Math.floor(E.R.rnd() * 10);
+      if (!cap) E.log(G, `Initiative: no politics markers to spend.`);
+      else if (dec <= 5) { E.setInitBid(G, 0); E.log(G, `Initiative: rolls ${dec} on d10 (6+ to spend) and spends no politics markers.`); }
+      else { const n = 1 + Math.floor(E.R.rnd() * cap); E.setInitBid(G, n); E.log(G, `Initiative: rolls ${dec} on d10 (6+ to spend), then ${n} on d${cap} (slot ${slot}, ${G.polm} markers held): spends ${n} politics marker${n > 1 ? 's' : ''}.`); }
+    }
     if (G.estep === 'diplomacy') {
       let budget = Math.max(0, G.polm - 2);
       if (pr.bully) { // military China: push rivals toward embargo
@@ -293,7 +299,7 @@ function makeAI(E, D) {
   function mirror(H, g, mark) {
     if (H === g) return;
     const fresh = []; for (const l of g.log) { if (l === mark) break; fresh.push(l); }
-    fresh.reverse().forEach(l => { if (l.c === 'g' || l.c === 'x' || /moves from|transfer box|launch|recalled|reserve|skips exploring|founds|cargo flight|loads /i.test(l.t)) E.log(H, `${D.FAC[g.f].pre}: ${l.t}`, 'bot'); });
+    fresh.reverse().forEach(l => { if (l.c === 'g' || l.c === 'x' || /moves from|transfer box|launch|recalled|reserve|skips exploring|founds|cargo flight|loads |^Initiative: /i.test(l.t)) E.log(H, `${D.FAC[g.f].pre}: ${l.t}`, 'bot'); });
   }
   function runBots(H, when) {
     const world = H.world; if (!world) return;
