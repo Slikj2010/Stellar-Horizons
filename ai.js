@@ -123,14 +123,16 @@ function makeAI(E, D) {
       else { const n = 1 + Math.floor(E.R.rnd() * cap); E.setInitBid(G, n); E.log(G, `Initiative: rolls ${dec} on d10 (6+ to spend), then ${n} on d${cap} (slot ${slot}, ${G.polm} markers held): spends ${n} politics marker${n > 1 ? 's' : ''}.`); }
     }
     if (G.estep === 'diplomacy') {
-      let budget = Math.max(0, G.polm - 2);
-      if (pr.bully) { // military China: push rivals toward embargo
-        const rivals = Object.keys(G.rel).filter(k => G.world && G.world.facs[k] && G.rel[k] < 4);
-        rivals.forEach(k => { if (E.dipCost({ dipl: { ...G.dipl, [k]: (G.dipl[k] || 0) - 1 } }) <= budget) E.setDiplomacy(G, k, -1); });
-      }
-      if (E.R.rnd() < pr.dip) { // traders: befriend NPFs that have bases
-        const npfs = E.npfKeys(G).filter(k => Object.values(G.w).some(x => x.npf === k) && G.rel[k] > 1).sort((a, b) => G.rel[b] - G.rel[a]);
-        npfs.forEach(k => { if (E.dipCost({ dipl: { ...G.dipl, [k]: (G.dipl[k] || 0) + 1 } }) <= budget) E.setDiplomacy(G, k, 1); });
+      // always try at least one attempt to improve relations, never spend more than 6 markers (attempts cost 1, 2, 3):
+      // pick how many attempts at random within that budget, each with a random target that can still improve
+      const budget = Math.min(6, G.polm), maxN = budget >= 6 ? 3 : budget >= 3 ? 2 : budget >= 1 ? 1 : 0;
+      const targets = Object.keys(G.rel).filter(k => G.rel[k] > 0);
+      if (!maxN) E.log(G, 'Diplomacy decision: no politics markers to spend.');
+      else if (!targets.length) E.log(G, 'Diplomacy decision: relations with everyone are already at Alliance.');
+      else {
+        const n = 1 + Math.floor(E.R.rnd() * maxN), picks = [];
+        for (let a = 0; a < n; a++) { const k = pick(targets); if (!E.setDiplomacy(G, k, 1)) picks.push(D.FAC[k].n); }
+        E.log(G, `Diplomacy decision: ${picks.length} attempt${picks.length > 1 ? 's' : ''} to improve relations (${E.dipCost(G)} politics marker${E.dipCost(G) > 1 ? 's' : ''}): ${picks.join(', ')}.`);
       }
     }
     if (G.estep === 'production') G.bases.forEach(b => { b.out = E.bestOutput(G, b); });
@@ -299,7 +301,7 @@ function makeAI(E, D) {
   function mirror(H, g, mark) {
     if (H === g) return;
     const fresh = []; for (const l of g.log) { if (l === mark) break; fresh.push(l); }
-    fresh.reverse().forEach(l => { if (l.c === 'g' || l.c === 'x' || /moves from|transfer box|launch|recalled|reserve|skips exploring|founds|cargo flight|loads |^Initiative: /i.test(l.t)) E.log(H, `${D.FAC[g.f].pre}: ${l.t}`, 'bot'); });
+    fresh.reverse().forEach(l => { if (l.c === 'g' || l.c === 'x' || /moves from|transfer box|launch|recalled|reserve|skips exploring|founds|cargo flight|loads |^Initiative: |^Diplomacy decision/i.test(l.t)) E.log(H, `${D.FAC[g.f].pre}: ${l.t}`, 'bot'); });
   }
   function runBots(H, when) {
     const world = H.world; if (!world) return;
@@ -324,7 +326,7 @@ function makeAI(E, D) {
       if (g !== H) answerAsks(g);
       const mark = g.log[0];
       E.advance(g);
-      if (g !== H) { answerAsks(g); const fresh = []; for (const l of g.log) { if (l === mark) break; fresh.push(l); } fresh.reverse().forEach(l => { if (l.c === 'x' && /pirate|destroyed|lost/i.test(l.t)) E.log(H, `${D.FAC[g.f].pre}: ${l.t}`, 'bot'); }); }
+      if (g !== H) { answerAsks(g); const fresh = []; for (const l of g.log) { if (l === mark) break; fresh.push(l); } fresh.reverse().forEach(l => { if ((l.c === 'x' && /pirate|destroyed|lost/i.test(l.t)) || /^Diplomacy with /.test(l.t)) E.log(H, `${D.FAC[g.f].pre}: ${l.t}`, 'bot'); }); }
     }
     const lead = world.facs[world.meta.order[0]] || world.facs[order[0]];
     if (Object.values(world.facs).some(g => g.over)) Object.values(world.facs).forEach(g => { if (!g.over) E.finish(g, 'The campaign ends.'); });
