@@ -147,6 +147,8 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
 #ttree .pcard.locked { opacity: 1; color: #7d8a99; border-color: #233244; } #ttree .pcard.locked .td { color: #5d6a78; } #ttree .pcard.locked .pl { color: #8a6a3a; }
 #ttree .pcard .pl { font: 700 9.5px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--beacon); }
 #ttree .pstart { max-width: 820px; margin: 18px auto 24px; padding: 0 16px; font-size: 12px; text-align: center; }
+#ttree .fbanks { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-size: 12px; }
+#ttree .fb { padding: 2px 8px; border: 1px solid #22344a; border-radius: 4px; background: #0d1520; white-space: nowrap; } #ttree .fb .mono { margin-right: 4px; } #ttree .fb.cur { border-color: var(--beacon); } #ttree .fb.out { opacity: .55; } #ttree .fb i { font-style: normal; color: var(--dim); }
 #ttree .rt { font-size: 12.5px; } #ttree .rt b { color: var(--beacon); }
 #ttree .key { display: inline-flex; align-items: center; gap: 5px; color: var(--dim); }
 #ttree .key i { width: 14px; height: 10px; border-radius: 2px; border: 2px solid; display: inline-block; }
@@ -1391,6 +1393,12 @@ function rtStatus() {
   const seq = r.seq.map(f => `<span style="color:${D.FAC[f].c};${r.done[f] ? 'text-decoration:line-through;opacity:.6' : ''}">${esc(D.FAC[f].pre)}</span>`).join(' → ');
   return `<span class="rt">Research round ${r.round} · ${seq} · ${r.passed ? 'You passed this decade.' : r.mine ? '<b>Your turn:</b> develop one technology or pass.' : r.cur ? esc(D.FAC[r.cur].n) + ' is researching.' : 'Everyone has passed.'}</span>${r.mine && !r.passed ? '<button class="b" data-rt-pass>Pass</button>' : ''}`;
 }
+// every faction's tech bank (multi-faction games), in this step's turn order
+function facBanks() {
+  if (!G.world) return '';
+  const R = rtInfo(), order = R ? R.seq : G.world.meta.order, facs = G.world.facs;
+  return `<div class="fbanks"><span class="dim">Tech banks${R ? ' (turn order)' : ''}:</span>${order.map(f => { const g = facs[f]; return `<span class="fb${R && R.done[f] ? ' out' : ''}${R && R.cur === f ? ' cur' : ''}" title="${esc(D.FAC[f].n)}${R && R.done[f] ? ' has passed' : ''}"><b style="color:${D.FAC[f].c}">${esc(D.FAC[f].pre)}${f === G.f ? ' (you)' : ''}</b> ${E.FIELDS.map(x => `<span class="f-${x}">${x[0]}</span><span class="mono">${g.bank[x]}</span>`).join(' ')}${R && R.done[f] ? ' <i>passed</i>' : ''}</span>`; }).join('')}</div>`;
+}
 function rtDevelop(k) { const e = E.develop(G, k); if (!e && G.world) AI.techLoop(G); return e; }
 function rtPass() { ask('Pass research?', '<p>You develop no more technologies this decade. The other factions keep taking research turns until they pass too.</p>', () => { const e = E.techPass(G); if (!e) AI.techLoop(G, { humanPasses: true }); return e; }, 'Pass'); }
 // ---- technology tree overlay ----
@@ -1443,7 +1451,7 @@ function techTreeHTML() {
   }).join('');
   return `<div class="tt-top"><h2>Technology Tree</h2>${E.FIELDS.map(f => `<span class="f-${f}">${E.FN[f]} <b class="mono">${G.bank[f]}</b></span>`).join('')}${rtStatus()}<span class="sp"></span>
     <span class="key"><i style="border-color:var(--ok)"></i>developed</span><span class="key"><i style="border-color:var(--beacon)"></i>can develop now</span><span class="key"><i style="border-color:#4a6684"></i>available</span><span class="key"><i style="border-color:#2b3d52;opacity:.55"></i>needs earlier tech</span>
-    <button class="b" data-tt-close>Back to the map</button></div>
+    <button class="b" data-tt-close>Back to the map</button>${facBanks()}</div>
     <div class="tt-wrap" style="width:${W}px;height:${H}px">${bands}<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${paths}</svg>${cardsH}</div>`;
 }
 function renderTree() {
