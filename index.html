@@ -126,6 +126,13 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
 #ttree .tt-top { position: sticky; left: 0; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; padding: 10px 16px; background: rgba(7,11,17,.92); border-bottom: 1px solid var(--line); font-size: 13px; }
 #ttree .tt-top h2 { margin: 0; font-size: 18px; letter-spacing: .2em; text-transform: uppercase; }
 #ttree .tt-top .sp { flex: 1; }
+#ttree .ptree { margin: 24px auto 0; }
+#ttree .pbar { position: absolute; height: 26px; border-radius: 13px; background: linear-gradient(90deg, #1b2a3c, #22344a); opacity: .8; }
+#ttree .parr { position: absolute; font: 700 22px/18px var(--f-disp); color: #6f8aa8; }
+#ttree .pcard { justify-content: flex-start; }
+#ttree .pcard.locked { opacity: 1; color: #7d8a99; border-color: #233244; } #ttree .pcard.locked .td { color: #5d6a78; } #ttree .pcard.locked .pl { color: #8a6a3a; }
+#ttree .pcard .pl { font: 700 9.5px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--beacon); }
+#ttree .pstart { max-width: 820px; margin: 18px auto 24px; padding: 0 16px; font-size: 12px; text-align: center; }
 #ttree .key { display: inline-flex; align-items: center; gap: 5px; color: var(--dim); }
 #ttree .key i { width: 14px; height: 10px; border-radius: 2px; border: 2px solid; display: inline-block; }
 #pick .scen { display: grid; gap: 8px; margin: 6px 0 6px; }
@@ -1002,10 +1009,10 @@ function render() {
   if (!G) return;
   dirty = true;
   renderBar();
-  const tabs = [['turn', 'Turn'], ['sel', 'Selected'], ['fac', 'Faction'], ['tech', 'Tech'], ['log', 'Log']];
+  const tabs = [['turn', 'Turn'], ['sel', 'Selected'], ['fac', 'Faction'], ['tech', 'Tech'], ['pol', 'Policy'], ['log', 'Log']];
   $('tabs').innerHTML = tabs.map(([k, n]) => `<button role="tab" aria-selected="${tab === k}" data-t="${k}">${n}</button>`).join('');
   $('tabs').querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; render(); });
-  const P = { turn: panelTurn, sel: panelSel, fac: panelFac, tech: panelTech, log: panelLog }[tab];
+  const P = { turn: panelTurn, sel: panelSel, fac: panelFac, tech: panelTech, pol: panelPol, log: panelLog }[tab];
   $('panel').innerHTML = P();
   wire();
   wireFilters($('panel'));
@@ -1122,7 +1129,7 @@ function panelEcon() {
     ${politicsBlock()}
     ${['Bio', 'Phy', 'Eng'].filter(f => E.has(G, { Bio: 'gen', Phy: 'mec', Eng: 'nano' }[f])).map(f => `<div class="row"><span>${E.FN[f]} points:</span><button class="b" data-tp="${f}" data-d="buy">Buy 1 for $1B</button><button class="b" data-tp="${f}" data-d="sell">Sell 2 for $1B</button></div>`).join('')}`;
   if (s === 'growth') return `<p>Settlements grew; see the log.</p>`;
-  if (s === 'policy') return `<p class="dim">${G.policyLeft > 0 ? `Futuristic start: adopt <b>${G.policyLeft}</b> more ${G.policyLeft > 1 ? 'policies' : 'policy'} for the missed economic phases (one each for 2040, 2050 and 2060; the same chain may be raised more than once).` : 'Adopt one policy this decade (free).'} You may hold one Unified policy and ten in total.</p>${D.POL.map(p => { const lv = E.polLv(G, p.k); return `<div class="item"><span class="chip ${lv ? 'ok' : ''}">${lv ? ['', 'Basic', 'Vigorous', 'Unified'][lv] : 'None'}</span><div class="t"><b>${p.n}</b><small>${lv < 3 ? 'Next: ' + esc(D.POL_LV[lv] + p.n) + ' — ' + esc(p.d[lv]) : 'Complete'}</small></div><button class="b" data-pol="${p.k}" ${lv >= 3 || G.policyPicked ? 'disabled' : ''}>Adopt</button></div>`; }).join('')}`;
+  if (s === 'policy') return `<p class="dim">${G.policyLeft > 0 ? `Futuristic start: adopt <b>${G.policyLeft}</b> more ${G.policyLeft > 1 ? 'policies' : 'policy'} for the missed economic phases (one each for 2040, 2050 and 2060; the same chain may be raised more than once).` : 'Adopt one policy this decade (free).'} You may hold one Unified policy and ten in total.</p>${D.POL.map(p => { const lv = E.polLv(G, p.k); return `<div class="item"><span class="chip ${lv ? 'ok' : ''}">${lv ? ['', 'Basic', 'Vigorous', 'Unified'][lv] : 'None'}</span><div class="t"><b>${p.n}</b><small>${lv < 3 ? 'Next: ' + esc(D.POL_LV[lv] + p.n) + ' — ' + esc(p.d[lv]) : 'Complete'}</small></div><button class="b" data-pol="${p.k}" ${lv >= 3 || G.policyPicked ? 'disabled' : ''}>Adopt</button></div>`; }).join('')}<div class="row"><button class="b" data-a="poltree">View the policy tree</button></div>`;
   return '';
 }
 function transferForm() {
@@ -1302,11 +1309,18 @@ function techTreeHTML() {
     <div class="tt-wrap" style="width:${W}px;height:${H}px">${bands}<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${paths}</svg>${cardsH}</div>`;
 }
 function renderTree() {
-  const el = $('ttree'), show = tab === 'tech' && !!G;
+  const el = $('ttree'), show = (tab === 'tech' || tab === 'pol') && !!G;
   el.hidden = !show; if (!show) return;
   const sx = el.scrollLeft, sy = el.scrollTop;
-  el.innerHTML = techTreeHTML(); el.scrollLeft = sx; el.scrollTop = sy;
+  el.innerHTML = tab === 'pol' ? polTreeHTML() : techTreeHTML(); el.scrollLeft = sx; el.scrollTop = sy;
   el.querySelector('[data-tt-close]').onclick = () => { tab = 'turn'; render(); };
+  el.querySelectorAll('[data-pt]').forEach(b => b.onclick = () => {
+    const p = D.POL.find(x => x.k === b.dataset.pt), lv = +b.dataset.lv, my = E.polLv(G, p.k), name = D.POL_LV[lv - 1] + p.n, why = polWhy(p.k);
+    if (my >= lv) return ask(name, `<p>${esc(p.d[lv - 1])}.</p><p class="chip ok">Held</p>`, () => null, 'OK');
+    if (my !== lv - 1) return ask(name, `<p>${esc(p.d[lv - 1])}.</p><p class="dim">Adopt ${esc(D.POL_LV[lv - 2] + p.n)} first.</p>`, () => null, 'OK');
+    if (why) return ask(name, `<p>${esc(p.d[lv - 1])}.</p><p class="dim">${esc(why)}</p>`, () => null, 'OK');
+    ask(`Adopt ${name}?`, `<p>${esc(p.d[lv - 1])}.</p><p class="dim">You can adopt one policy per decade.</p>`, () => E.choosePolicy(G, p.k), 'Adopt');
+  });
   el.querySelectorAll('[data-tt]').forEach(b => b.onclick = () => {
     const t = D.TECHK[b.dataset.tt], st = E.techState(G, t), c = E.techCost(G, t);
     const needs = t.r.length ? `<p class="dim">Needs: ${t.r.map(x => `${G.tech[x] ? '✓' : '✗'} ${esc(D.TECHK[x].n)}`).join(', ')}.</p>` : '';
@@ -1314,6 +1328,50 @@ function renderTree() {
     if (G.estep !== 'tech' || st !== 'open' || G.bank[t.f] < c) return ask(t.n, `<p>${esc(t.d)}.</p>${needs}<p>Costs <b>${c} ${E.FN[t.f]} points</b> (you have ${G.bank[t.f]}).</p><p class="dim">${esc(E.techCostTxt(G, t))}.</p><p class="dim">${G.estep !== 'tech' ? 'Technologies are developed in the tech step of the economic phase.' : st !== 'open' ? 'Develop the technologies it needs first.' : 'Not enough points yet.'}</p>`, () => null, 'OK');
     ask(`Develop ${t.n}?`, `<p>${esc(t.d)}.</p>${needs}<p>Costs <b>${c} ${E.FN[t.f]} points</b> (you have ${G.bank[t.f]}).</p><p class="dim">${esc(E.techCostTxt(G, t))}.</p>`, () => E.develop(G, t.k), 'Develop');
   });
+}
+// ---- policy tree overlay ----
+function polWhy(k) {
+  const lv = E.polLv(G, k);
+  if (lv >= 3) return 'Already Unified.';
+  if (G.estep !== 'policy') return 'Policies are adopted in the policy step of the economic phase (one per decade).';
+  if (G.policyPicked) return 'You already adopted a policy this decade.';
+  if (lv === 2 && Object.values(G.pol).includes(3)) return 'You can hold only one Unified policy.';
+  if (Object.values(G.pol).reduce((a, b) => a + b, 0) >= 10) return 'You already hold 10 policies.';
+  return null;
+}
+function panelPol() {
+  const held = D.POL.filter(p => E.polLv(G, p.k)).map(p => D.POL_LV[E.polLv(G, p.k) - 1] + p.n);
+  return `<p class="dim">${G.estep === 'policy' && !G.policyPicked ? 'Adopt a policy now: tap a highlighted card in the tree.' : 'One policy is adopted each decade in the economic phase; each chain goes Basic → Vigorous → Unified.'}</p>
+  <p>You hold: ${held.length ? held.map(esc).join(', ') : 'none'}.</p>
+  <p class="dim">At most one Unified policy and ten policy levels in total.</p>
+  <div class="row"><button class="b" data-a="treeclose">Back to the map</button></div>`;
+}
+function polTreeHTML() {
+  const cw = 230, ch = 92, gx = 64, gy = 22, pad = 24, W = pad * 2 + 3 * cw + 2 * gx, H = pad * 2 + D.POL.length * (ch + gy) - gy;
+  const facs = G.world ? Object.values(G.world.facs) : [G];
+  let lines = '', cards = '';
+  D.POL.forEach((p, r) => {
+    const y = pad + r * (ch + gy), my = E.polLv(G, p.k), why = polWhy(p.k);
+    lines += `<div class="pbar" style="left:${pad - 12}px;top:${y + ch / 2 - 13}px;width:${W - 2 * pad + 24}px"></div>`;
+    [0, 1, 2].forEach(c => {
+      const x = pad + c * (cw + gx), lv = c + 1;
+      if (c) lines += `<div class="parr" style="left:${x - gx / 2 - 7}px;top:${y + ch / 2 - 9}px">›</div>`;
+      const st = my >= lv ? 'have' : my === c ? (why ? 'open' : 'open ready') : 'locked';
+      const holders = facs.filter(g => E.polLv(g, p.k) >= lv).map(g => g.f);
+      cards += `<button class="tcard pcard ${st}" data-pt="${p.k}" data-lv="${lv}" style="left:${x}px;top:${y}px;width:${cw}px;height:${ch}px">
+        <span class="pl">${['Basic', 'Vigorous', 'Unified'][c]}</span>
+        <span class="tn"><b>${esc(D.POL_LV[c] + p.n)}</b></span>
+        <span class="td">${esc(p.d[c])}</span>
+        ${holders.length ? `<span class="tf">${holders.map(f => `<i style="background:${D.FAC[f].c}" title="${esc(D.FAC[f].n)}">${esc(D.FAC[f].pre)}</i>`).join('')}</span>` : ''}
+      </button>`;
+    });
+  });
+  const starts = Object.entries(D.FAC).map(([k, f]) => `${esc(f.n)}: ${f.variants ? 'Military or Robotic' : f.pol.length ? f.pol.map(x => esc(D.POL.find(p => p.k === x).n)).join(', ') : 'none'}`).join(' · ');
+  return `<div class="tt-top"><h2>Policy Tree</h2><span class="dim">${G.estep === 'policy' && !G.policyPicked ? 'Adopt one policy now.' : 'One policy per decade.'}</span><span class="sp"></span>
+    <span class="key"><i style="border-color:var(--ok)"></i>held</span><span class="key"><i style="border-color:var(--beacon)"></i>can adopt now</span><span class="key"><i style="border-color:#4a6684"></i>next level</span><span class="key"><i style="border-color:#2b3d52;opacity:.55"></i>needs the level before</span>
+    <button class="b" data-tt-close>Back to the map</button></div>
+    <div class="tt-wrap ptree" style="width:${W}px;height:${H}px">${lines}${cards}</div>
+    <p class="dim pstart">Starting policies — ${starts}. Tags on a card show every faction in play holding that level.</p>`;
 }
 function panelLog() { return `<div id="log">${G.log.slice(0, 160).map(l => `<p class="${l.c}">${esc(l.t)}</p>`).join('')}</div>`; }
 
@@ -1418,6 +1476,7 @@ function wire() {
   on('[data-a="tabtech"]', () => { tab = 'tech'; render(); });
   on('[data-ib]', b => { E.setInitBid(G, (G.initBid || 0) + +b.dataset.ib); save(); render(); });
   on('[data-a="treeclose"]', () => { tab = 'turn'; render(); });
+  on('[data-a="poltree"]', () => { tab = 'pol'; render(); });
   on('[data-dip]', b => act(() => E.setDiplomacy(G, b.dataset.dip, +b.dataset.d)));
   P.querySelectorAll('[data-out]').forEach(s => s.onchange = () => { G.bases.find(b => b.id === s.dataset.out).out = s.value; save(); render(); });
   on('[data-a="transfer"]', () => { const f = $('tf-from').value, t = $('tf-to').value, ty = $('tf-type').value, n = +$('tf-n').value, nm = v => v === 'earth' ? 'Earth' : G.bases.find(x => x.id === v).name;
