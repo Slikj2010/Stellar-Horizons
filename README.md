@@ -30,3 +30,9 @@ The `desktop/` folder wraps the game as a desktop program (saves stay in the app
 - Run it: `cd desktop && npm install && npm start`
 - Build installers: `npm run dist` (Windows .exe, macOS .dmg, Linux AppImage; build each on its own system).
 - Or push a tag like `v1.0.0` (or run "Build desktop apps" under GitHub Actions) and download the installers from the run.
+
+### Releases and updates
+Push a version tag (for example `git tag v1.1.0 && git push --tags`) and the workflow builds all three platforms and publishes them as a GitHub Release.
+Installed copies check for a newer release at start-up (Help menu → Check for updates) and offer to restart into it; saves are kept.
+The portable .exe cannot replace itself, so it opens the releases page instead.
+Saves can be moved between the browser page and the desktop app with Load game → Export saves / Import saves.

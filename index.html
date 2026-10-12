@@ -595,7 +595,21 @@ function menuAction(k) {
 }
 function loadPanel(host, inMenu) {
   const rows = SLOTS.map(k => { const g = readSlot(k); return `<div class="slot"><div><b>${slotName(k)}</b><small>${esc(slotInfo(g))}</small></div><div class="row" style="margin:0"><button class="b pri" data-ld="${k}" ${g ? '' : 'disabled'}>Load</button>${k !== 'sh-save' && g ? `<button class="b" data-del="${k}">Delete</button>` : ''}</div></div>`; }).join('');
-  host.innerHTML = `<div class="${inMenu ? 'panel' : ''}"><h2>Load game</h2>${rows}<div class="row" style="margin-top:12px"><button class="b" data-back>Back</button></div></div>`;
+  host.innerHTML = `<div class="${inMenu ? 'panel' : ''}"><h2>Load game</h2>${rows}
+    <div class="row" style="margin-top:12px"><button class="b" data-exp>Export saves</button><button class="b" data-imp>Import saves</button><input type="file" id="imp-file" accept=".json,application/json" hidden><button class="b" data-back>Back</button></div>
+    <p class="dim" id="sv-note" style="margin-top:6px;font-size:12px">Export writes every slot to one file; import puts them back (so saves can move between this page and the desktop app).</p>
+    <details style="margin-top:6px"><summary class="dim" style="cursor:pointer;font-size:12px">Use text instead of a file</summary><div class="row"><button class="b" data-cp>Copy saves as text</button><button class="b" data-pt>Import pasted text</button></div><textarea id="sv-text" rows="3" style="width:100%;margin-top:6px" placeholder="Paste exported saves here"></textarea></details></div>`;
+  const note = m => { const n = host.querySelector('#sv-note'); if (n) n.textContent = m; };
+  const bundle = () => { const saves = {}; SLOTS.forEach(k => { try { const v = localStorage.getItem(k); if (v) saves[k] = v; } catch (e) {} }); return JSON.stringify({ app: 'stellar-horizons-saves', v: 1, exported: new Date().toISOString(), saves }); };
+  const importText = txt => { let o; try { o = JSON.parse(txt); } catch (e) { return note('That is not a saves file.'); }
+    if (!o || o.app !== 'stellar-horizons-saves' || !o.saves) return note('That is not a Stellar Horizons saves file.');
+    const ok = [], bad = []; Object.keys(o.saves).forEach(k => { if (!SLOTS.includes(k)) return; let g = null; try { g = E.revive(JSON.parse(o.saves[k])); } catch (e) {} if (!g) { bad.push(k); return; } try { localStorage.setItem(k, o.saves[k]); ok.push(slotName(k)); } catch (e) { bad.push(k); } });
+    loadPanel(host, inMenu); note(ok.length ? `Imported: ${ok.join(', ')}${bad.length ? ' (skipped ' + bad.length + ' unreadable)' : ''}. Existing saves in those slots were replaced.` : 'No readable saves in that file.'); };
+  host.querySelector('[data-exp]').onclick = () => { try { const b = new Blob([bundle()], { type: 'application/json' }), a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'stellar-horizons-saves.json'; document.body.appendChild(a); a.click(); a.remove(); note('Saves exported to stellar-horizons-saves.json (check your Downloads). If nothing downloaded, use the text option below.'); } catch (e) { note('Could not export a file here; use the text option below.'); } };
+  host.querySelector('[data-imp]').onclick = () => host.querySelector('#imp-file').click();
+  host.querySelector('#imp-file').onchange = ev => { const f = ev.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => importText(String(r.result)); r.readAsText(f); };
+  host.querySelector('[data-cp]').onclick = async () => { const t = bundle(); host.querySelector('#sv-text').value = t; try { await navigator.clipboard.writeText(t); note('Saves copied. Paste them into the desktop app\'s import box.'); } catch (e) { note('Select the text in the box and copy it.'); } };
+  host.querySelector('[data-pt]').onclick = () => importText(host.querySelector('#sv-text').value.trim());
   host.querySelectorAll('[data-ld]').forEach(b => b.onclick = async () => { const g = readSlot(b.dataset.ld); if (!g) return; await loadAtlases(g); applySettings(g); G = g; ui = null; sel = null; tab = 'turn'; hideMenu(); hidePause(); home(); save(); render(); toast(''); });
   host.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (b.dataset.confirm) { try { localStorage.removeItem(b.dataset.del); } catch (e) {} loadPanel(host, inMenu); } else { b.dataset.confirm = 1; b.textContent = 'Tap again to delete'; } });
   host.querySelector('[data-back]').onclick = () => inMenu ? menuHome() : pauseHome();

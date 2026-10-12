@@ -9,7 +9,8 @@
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
     "dist:mac": "electron-builder --mac",
-    "dist:linux": "electron-builder --linux"
+    "dist:linux": "electron-builder --linux",
+    "release": "electron-builder --win --publish always"
   },
   "devDependencies": {
     "electron": "^33.2.0",
@@ -18,16 +19,55 @@
   "build": {
     "appId": "com.stellarhorizons.game",
     "productName": "Stellar Horizons",
-    "files": ["main.js"],
+    "files": [
+      "main.js"
+    ],
     "extraResources": [
       {
         "from": "..",
         "to": "game",
-        "filter": ["index.html", "*.js", "*.json", "*.webp", "*.png", "boards/**", "maps/**", "!desktop/**", "!tests/**", "!tools/**", "!node_modules/**"]
+        "filter": [
+          "index.html",
+          "*.js",
+          "*.json",
+          "*.webp",
+          "*.png",
+          "boards/**",
+          "maps/**",
+          "!desktop/**",
+          "!tests/**",
+          "!tools/**",
+          "!node_modules/**"
+        ]
       }
     ],
-    "win": { "target": ["nsis", "portable"] },
-    "mac": { "target": ["dmg"], "category": "public.app-category.games" },
-    "linux": { "target": ["AppImage"], "category": "Game" }
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.games"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Game"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Slikj2010",
+        "repo": "Stellar-Horizons"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
   }
 }
