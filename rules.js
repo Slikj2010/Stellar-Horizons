@@ -324,6 +324,7 @@ function production(G) {
   if (relB) { cash += relB; parts.push(`relations +$${relB}B`); }
   const misB = G.mis.kept.length; if (misB) { cash += misB; parts.push(`missions +$${misB}B`); }
   const blk = Object.values(G.w).filter(x => x.npf && x.blk).length * 2; if (blk) { cash += blk; parts.push(`blockades +$${blk}B`); }
+  const fblk = (G.world ? Object.values(G.world.facs) : []).reduce((a, g) => a + g.bases.filter(b => b.blk && b.blkBy === G.f).length, 0) * 2; if (fblk) { cash += fblk; parts.push(`blockades of bases +$${fblk}B`); }
   const pir = Object.values(G.fly).reduce((a, f) => a + f.pir.length, 0); if (pir) { cash -= pir; G.cache += pir; parts.push(`pirates -$${pir}B`); }
   const [lre, lcv, lb] = lims(G);
   const sup = supportCost(nonProbeRE(G), lre, [2, 3, 4, 5]) + supportCost(nCV(G), lcv, [4, 6, 8, 10]) + supportCost(nBase(G), lb, [4, 6, 8, 10]);
@@ -358,6 +359,7 @@ function baseOutput(G, b, type) {
     if (n <= 0) return null;
     n += (b.fac.lab >= 2 ? 3 : 0) + (sr ? sr[3] : 0) + (ws.life ? 2 : ws.sol ? 1 : 0) - b.dmg.lab - pir;
     if (G.half.tech) n = Math.round(n / 2);
+    if (b.blk) n = Math.round(n / 2);
     return n > 0 ? { type: 'tech', field, n } : null;
   }
   if (!b.fac.mine || b.w === 'ear') return null;
@@ -365,6 +367,7 @@ function baseOutput(G, b, type) {
   if (n <= 0) return null;
   n += D.MINE_BONUS[b.fac.mine] + (sr ? sr[2] : 0) + (G.f === 'as' ? 1 : 0) - b.dmg.mine - pir;
   if (G.half.res) n = Math.round(n / 2);
+  if (b.blk) n = Math.round(n / 2);
   return n > 0 ? { type, n } : null;
 }
 function bestOutput(G, b) {
@@ -401,7 +404,7 @@ const enhTrade = G => !!(G.opts && G.opts.enhTrade);
 const facsInPlay = G => G.world ? Object.keys(G.world.facs) : [G.f];
 function placement(G) {
   const dec = Math.floor(G.y / 10) * 10;
-  if (G.world && !isLead(G)) { const tm = () => ({ side: pick(['buy', 'sell']), type: pick(RES) }); G.bases.forEach(b => { if (b.set > 0 && (!b.trade || enhTrade(G))) b.trade = tm(); }); return; }
+  if (G.world && !isLead(G)) { const tm = () => ({ side: pick(['buy', 'sell']), type: pick(RES) }); G.bases.forEach(b => { if (b.set > 0 && !b.blk && (!b.trade || enhTrade(G))) b.trade = tm(); }); return; }
   const r = d100(); const wk = Object.keys(W).find(k => W[k].rng && r >= W[k].rng[0] && r <= W[k].rng[1]);
   if (wk && SYS[W[wk].sys].dec && SYS[W[wk].sys].dec <= dec && !G.w[wk].npf && W[wk].base) {
     const npf = pick(npfKeys(G)); if (!npf) { log(G, `NPF base roll ${r}: no non-player faction to found it.`); } else { G.w[wk].npf = npf; G.w[wk].npfName = null; npfName(G, wk); log(G, `NPF base roll ${r}: ${D.FAC[npf].n} founds the base ${G.w[wk].npfName} at ${W[wk].n}.`, 'e'); }
@@ -425,7 +428,7 @@ function placement(G) {
   const tm = () => ({ side: pick(['buy', 'sell']), type: pick(RES) });
   const enh = enhTrade(G); let rep = 0;
   Object.keys(G.w).forEach(k => { const x = G.w[k]; if (x.npf && !x.blk && (!x.npfTrade || enh)) { if (x.npfTrade) rep++; x.npfTrade = tm(); npfName(G, k); } });
-  G.bases.forEach(b => { if (b.set > 0 && (!b.trade || enh)) b.trade = tm(); });
+  G.bases.forEach(b => { if (b.set > 0 && !b.blk && (!b.trade || enh)) b.trade = tm(); });
   if (enh && rep) log(G, `Enhanced trading: ${rep} unused NPF trade marker(s) replaced with new ones.`);
 }
 function growth(G) {
@@ -434,7 +437,8 @@ function growth(G) {
     const full = Math.floor(b.set / 10), rem = b.set % 10;
     let r = d10(); if (polLv(G, 'set') >= 3) r = Math.min(r, d10());
     const gain = full + (rem && r <= rem ? 1 : 0);
-    if (gain) { b.set += gain; log(G, `${b.name} grows by ${gain} settlement(s) to ${b.set}.`, 'g'); }
+    if (gain && b.blk) { const l = Math.min(b.set, gain); b.set -= l; log(G, `${b.name} is blockaded: ${l} settlement(s) lost, down to ${b.set}.`, 'x'); }
+    else if (gain) { b.set += gain; log(G, `${b.name} grows by ${gain} settlement(s) to ${b.set}.`, 'g'); }
   });
 }
 // cost = chart cost, -3 for each other faction that has the technology (the non-player factions keep their starting
@@ -894,6 +898,24 @@ function move(G, s, dest, opt) {
     if (lvPaid) unpayEarth(G, lvPaid); else if (mv.lv) { const st = s.loc === 'earth' ? G.lv.earth : G.lv[G.bases.find(b => baseLoc(b) === s.loc).id]; st[mv.lv.n]++; }
     return null;
   }
+  // hostile fleets intercept ships leaving their location (3.3.6)
+  if (!opt.iceptDone && from !== 'earth' && sysOf(from) !== undefined) {
+    const ic = interceptCheck(G, s, from);
+    const refund = () => {
+      if (loadPaid) { RES.forEach(r => s.cargo[r] -= load[r]); unpayEarth(G, loadPaid); }
+      if (lvPaid) unpayEarth(G, lvPaid); else if (mv.lv) { const st = s.loc === 'earth' ? G.lv.earth : G.lv[G.bases.find(b => baseLoc(b) === s.loc).id]; st[mv.lv.n]++; }
+    };
+    if (ic.r === 'dead') { return null; }
+    if (ic.r === 'caught') {
+      if (isHuman(G)) {
+        G.ask.push({ k: 'intercept', ship: s.id, dest, opt: { ...opt, iceptDone: true }, by: ic.g.f, key: ic.key, rA: ic.rA, rB: ic.rB, text: `${D.FAC[ic.g.f].n} intercepts ${s.name} as it leaves ${keyName(ic.key)}. Stop moving, fight, or surrender?` });
+        refund(); return null;
+      }
+      if (interceptAuto(G, s, ic) === 'stop') { log(G, `${s.name} stops rather than fight ${nm(ic.g)}.`); refund(); return null; }
+      interceptFight(G, s, ic, false);
+      if (!G.ships.includes(s) || s.res) { return null; }
+    }
+  }
   const rate = engRate(G, s);
   const { r, fail } = engineRoll(G, rate);
   const rtxt = r === null ? 'no engine roll needed' : `engine roll ${r} vs ${rate}%`;
@@ -946,6 +968,23 @@ function answer(G, choice, data) {
     if (choice === 'fight') { pirateBattle(G, [s], a.sys, false); if (G.ships.includes(s) && !G.fly[a.sys].pir.length) return move(G, s, a.dest, a.opt); return null; }
     if (choice === 'stay') { log(G, `${s.name} stays put.`); return null; }
   }
+  if (a.k === 'intercept') {
+    const s = G.ships.find(x => x.id === a.ship); G.ask.shift(); if (!s) return null;
+    const g = facG(G, a.by); const c = { g, key: a.key, rA: a.rA, rB: a.rB };
+    if (choice === 'stop') { log(G, `${s.name} stops moving.`); return null; }
+    interceptFight(G, s, c, choice === 'surrender');
+    if (!G.ships.includes(s) || s.res) return null;
+    return move(G, s, a.dest, a.opt);
+  }
+  if (a.k === 'battle') {
+    G.ask.shift(); const B = facG(G, a.st.d), rem = a.rem; let plan = null;
+    if (choice === 'avoid' && rem >= 3) plan = { avoid: true };
+    else if (choice === 'strike') plan = { mode: 'strike', extra: 0, tgt: rem };
+    else if (choice === 'direct') plan = { mode: 'direct', extra: 0, tgt: rem - 1 };
+    else if (String(choice).startsWith('dx')) { const n = Math.min(+String(choice).slice(2) || 0, Math.floor((rem - 1) / 2)); plan = { mode: 'direct', extra: n, tgt: rem - 1 - 2 * n }; }
+    else if (String(choice).startsWith('sx')) { const n = Math.min(+String(choice).slice(2) || 0, Math.floor(rem / 2)); plan = { mode: 'strike', extra: n, tgt: rem - 2 * n }; }
+    resolveBattle(G, B, a.st, plan); return null;
+  }
   if (a.k === 'publicity') { const w = G.w[choice]; if (!w || w.v < 1) return 'Pick a world that is not fully depleted.'; w.v += 2; G.ask.shift(); log(G, `Publicity Campaign: ${W[choice].n} rises to ${w.v}.`, 'g'); return null; }
   if (a.k === 'immigration') { const b = G.bases.find(x => x.id === choice); if (!b) return 'Pick one of your bases.'; b.set += 2; G.ask.shift(); log(G, `Immigration: ${b.name} gains 2 settlements.`, 'g'); return null; }
   if (a.k === 'card') {
@@ -981,6 +1020,7 @@ function combatPossible(G) {
 function startCombat(G) {
   // blockades lapse unless a CV with combat value stays at an NPF base world with embargo or worse
   Object.keys(G.w).forEach(k => { const x = G.w[k]; if (!x.npf) return; const still = x.blk && G.ships.some(s => s.cls === 'CV' && !s.res && worldOf(s.loc) === k && s.cb > s.dmg) && G.rel[x.npf] >= 4; if (x.blk && !still) { x.blk = false; } });
+  lapseBlockades(G);
 }
 function endCombat(G) {}
 function armed(s) { return s.cls === 'CV' && !s.res && s.cb - s.dmg > 0; }
@@ -997,10 +1037,11 @@ function combatOptions(G) {
     if (G.rel[x.npf] >= 4 && !x.blk) out.push({ k: 'blockade', w: k, label: `Blockade the ${D.FAC[x.npf].n} base at ${W[k].n}` });
     if (G.rel[x.npf] >= 5) out.push({ k: 'raid', w: k, label: `Raid the ${D.FAC[x.npf].n} base at ${W[k].n}` });
   });
-  return out;
+  return out.concat(factionCombatOptions(G));
 }
 function combatAct(G, o) {
   if (G.phase !== 'combat') return 'Combat happens in the combat phase.';
+  if (o.k === 'fleet' || o.k === 'bombard' || o.k === 'fblock') return factionAct(G, o);
   if (G.turn.acted['c:' + (o.sys || o.w)]) return 'Each fleet may search once per turn.';
   G.turn.acted['c:' + (o.sys || o.w)] = 1;
   if (o.k === 'pirate') { pirateBattle(G, G.ships.filter(s => s.loc === 'fly:' + o.sys && armed(s)), o.sys, true); return null; }
@@ -1052,6 +1093,254 @@ function pirateBattle(G, fleet, sy, playerSearched) {
     s.dmg++; recallCheck(G, s);
     if (s.dmg >= s.sz) { removeShip(G, s); const n = s.sz >= 4 ? 2 : 1, got = []; for (let j = 0; j < n; j++) got.push(drawMarker(G, 'Eng')); log(G, `${s.name} is destroyed by the pirate. Lessons learned: ${markerTxt(got, 'Eng')}.`, 'x'); }
   }
+}
+
+// ================= FACTION COMBAT (3.3.6 interception, 3.4.1-3.4.7) =================
+// A fleet is every unreserved crew vehicle a faction has at one location (a world including its orbit and surface, or a
+// flyby box). Earth is never a battlefield. Embargo or worse allows attacks on ships and blockades; war allows orbital
+// bombardment of bases.
+const facG = (G, f) => G.world && G.world.facs[f];
+const others = G => G.world ? Object.values(G.world.facs).filter(g => g.f !== G.f) : [];
+const isHuman = G => !!(G.world && G.f === G.world.meta.human);
+const keyOf = loc => { const p = P(loc); if (p.t === 'fly') return 'fly:' + p.s; if ((p.t === 'orbit' || p.t === 'surf') && p.w !== 'ear') return 'w:' + p.w; return null; };
+const keyName = k => k.startsWith('fly:') ? `the ${SYS[k.slice(4)].n} flyby box` : W[k.slice(2)].n;
+const shipsAt = (g, key) => g.ships.filter(s => keyOf(s.loc) === key && (s.cls !== 'CV' || !s.res));
+const cvsAt = (g, key) => shipsAt(g, key).filter(s => s.cls === 'CV');
+const basesAt = (g, key) => key.startsWith('w:') ? g.bases.filter(b => b.w === key.slice(2)) : [];
+const cbOf = s => s.cls === 'CV' ? Math.max(0, (s.cb || 0) - s.dmg) : 0;
+const dnOf = b => b.fac.def >= 2 ? 3 : b.fac.def === 1 ? 1 : 0;
+const surrendered = (g, f) => !!(g.surr && g.surr[f] === g.y);
+const sizeOfFac = (c, l) => (c === 'mine' || c === 'sup') ? (l === 2 || l === 4 ? 2 : 1) : l;
+const DOWNFAC = { lab: [0, 0, 1], def: [0, 0, 1], mine: [0, 0, 1, 1, 2], sup: [0, 0, 1, 1, 2] };
+const markersFor = sz => sz >= 7 ? 4 : sz === 6 ? 3 : sz >= 4 ? 2 : 1; // victory markers earned for a CV destroyed / Engineering markers learned
+const uS = o => ({ t: 's', o }), uB = o => ({ t: 'b', o });
+const uCb = u => u.t === 's' ? cbOf(u.o) : dnOf(u.o);
+const uHp = u => u.t === 's' ? (u.o.cls === 'CV' ? u.o.sz - u.o.dmg : 1) : 1 + ['lab', 'mine', 'sup', 'def'].filter(c => u.o.fac[c]).length;
+const uCV = u => u.t === 's' && u.o.cls === 'CV';
+const droneCount = (g, us) => !has(g, 'fd') ? 0 : us.reduce((a, u) => a + (u.t === 's' ? (u.o.cls === 'CV' ? (u.o.dr || 0) : 0) : dnOf(u.o)), 0);
+const droneMod = (g, us) => { const n = droneCount(g, us); return n >= 5 ? 2 : n >= 1 ? 1 : 0; };
+const power = (g, us) => us.reduce((a, u) => a + uCb(u), 0) + (us.some(u => uCb(u) > 0) ? weapons(g) : 0);
+const unitsOf = (g, ids, bids) => g.ships.filter(s => ids.includes(s.id)).map(uS).concat(g.bases.filter(b => (bids || []).includes(b.id)).map(uB));
+const nm = g => D.FAC[g.f].n;
+const blog = (A, B, msg, c) => {
+  log(A, msg, c); log(B, msg, c);
+  const H = A.world && A.world.facs[A.world.meta.human]; if (H && H.f !== A.f && H.f !== B.f) log(H, msg, c);
+};
+
+// why one faction cannot start a search against another ('' when it can)
+function canFight(A, f, bases) {
+  const B = facG(A, f); if (!B) return 'Unknown faction.';
+  if (A.rel[f] < (bases ? 5 : 4)) return `Relations are ${D.REL[A.rel[f]]}; ${bases ? 'bombarding a base needs war' : 'an attack needs embargo or war'}.`;
+  if (surrendered(B, A.f)) return `${nm(B)} surrendered to you this turn.`;
+  return '';
+}
+const fleetTP = (g, rollOther, enemy) => Math.max(0, rollOther) + Math.floor(enemy.filter(uCV).reduce((a, u) => a + u.o.sz, 0) / 7) + (has(g, 'cc') ? 2 : has(g, 'amsl') ? 1 : 0) + (polLv(g, 'mil') >= 3 ? 2 : 0);
+// would the defender rather surrender? (it cannot hurt the attacker, or it is outgunned 2 to 1 and would lose a lot)
+function wantSurrender(B, fd, A, fa) {
+  if (!fd.some(u => uCV(u) || u.t === 'b')) return false;
+  const pa = power(A, fa), pb = power(B, fd);
+  if (pb <= 0) return true;
+  const est = D.combatDamage(pa + 5.5 + Math.max(0, fd.length - 1), false), hp = fd.reduce((a, u) => a + uHp(u), 0);
+  return pa >= 2 * pb && est >= 0.4 * hp;
+}
+function doSurrender(A, fa, B, fd) {
+  let room = fa.filter(uCV).reduce((a, u) => a + u.o.cap * cargoMul(A) - sum(u.o.cargo), 0); const taken = { ORE: 0, SUP: 0, FUEL: 0 };
+  const grab = (r, n) => { const t = Math.min(Math.floor(n / 2), room); if (t > 0) { taken[r] += t; room -= t; } };
+  fd.filter(uCV).forEach(u => { RES.forEach(r => { grab(r, u.o.cargo[r]); u.o.cargo[r] = 0; }); u.o.res = true; });
+  fd.filter(u => u.t === 'b').forEach(u => { let n = d10(); RES.slice().sort((a, b) => u.o.stock[b] - u.o.stock[a]).forEach(r => { const t = Math.min(n, u.o.stock[r]); u.o.stock[r] -= t; n -= t; grab(r, t); }); });
+  const seized = sum(taken);
+  fa.filter(uCV).forEach(u => RES.forEach(r => { const t = Math.min(taken[r], u.o.cap * cargoMul(A) - sum(u.o.cargo)); if (t > 0) { u.o.cargo[r] += t; taken[r] -= t; } }));
+  const pm = B.polm > 0; if (pm) { B.polm--; A.polm++; }
+  B.surr = B.surr || {}; B.surr[A.f] = B.y;
+  blog(A, B, `${nm(B)} surrenders to ${nm(A)}: carried and stockpiled resources are destroyed (${seized ? seized + ' seized by the victor' : 'none seized'}), its crew vehicles go into reserve${pm ? ' and 1 politics marker is taken' : ''}.`, 'x');
+}
+
+// search -> surrender -> tactics points -> (human choice) -> resolve. o: { fa, fd (unit lists), bomb, rA, rD, icept, surr, noAsk }
+function startBattle(A, B, key, o) {
+  o = o || {};
+  const fa = o.fa || cvsAt(A, key).filter(armed).map(uS);
+  let fd = o.fd; if (!fd) { fd = shipsAt(B, key).map(uS); if (o.bomb) fd = fd.concat(basesAt(B, key).map(uB)); }
+  if (!fa.length || !fd.length) return { done: true };
+  const hasBase = fd.some(u => u.t === 'b');
+  const T = 4 + Math.max(0, fa.filter(uCV).length - 1) + Math.max(0, fd.filter(uCV).length - 1);
+  const rA = o.rA != null ? o.rA : d10() - droneMod(A, fa), rB = o.rB != null ? o.rB : d10() - droneMod(B, fd), where = keyName(key);
+  if (o.rA == null && !hasBase && !(rA <= T || rB <= T)) { blog(A, B, `${nm(A)} searches for ${nm(B)} at ${where}: no contact (search rolls ${rA} and ${rB}, ${T} or less finds).`); return { done: true, found: false }; }
+  blog(A, B, `${nm(A)} ${o.icept ? 'intercepts' : 'finds'} ${nm(B)} at ${where}${hasBase ? ' (orbital bombardment)' : ''} (search rolls ${rA} and ${rB}).`, 'e');
+  if (!fd.some(u => uCV(u) || u.t === 'b')) {
+    fd.forEach(u => { if (B.ships.includes(u.o)) loseRE(B, u.o, `is destroyed by ${nm(A)}`); });
+    return { done: true, found: true };
+  }
+  if (o.surr != null ? o.surr : wantSurrender(B, fd, A, fa)) { doSurrender(A, fa, B, fd); return { done: true, found: true, surrendered: true }; }
+  const st = { a: A.f, d: B.f, key, ia: fa.map(u => u.o.id), id: fd.filter(u => u.t === 's').map(u => u.o.id), ib: fd.filter(u => u.t === 'b').map(u => u.o.id), tpA: fleetTP(A, rB, fd), tpB: fleetTP(B, rA, fa) };
+  if (isHuman(A) && st.tpA > st.tpB && !o.noAsk) {
+    const rem = st.tpA - st.tpB;
+    A.ask.push({ k: 'battle', st, rem, text: `Combat with ${nm(B)} at ${where}: you have ${st.tpA} tactics points to their ${st.tpB}, so you can spend ${rem}.` });
+    return { pending: true, found: true };
+  }
+  return { ...resolveBattle(A, B, st, null), found: true };
+}
+
+// the winner of the tactics points spends its remainder
+function autoPlan(Wn, En, fw, fe, rem, winnerAttacks) {
+  const pw = power(Wn, fw), pe = power(En, fe), mw = has(Wn, 'msl'), me = has(En, 'msl');
+  const plan = { mode: 'strike', extra: 0, tgt: 0, avoid: false };
+  if (rem >= 3 && (pw < 0.45 * pe || (!winnerAttacks && pw < 0.6 * pe))) { plan.avoid = true; return plan; }
+  let left = rem;
+  const direct = left >= 1 && ((!mw && !me) ? winnerAttacks : me && !mw ? true : (mw && me && pw < pe));
+  if (direct) { plan.mode = 'direct'; left--; }
+  plan.extra = Math.floor(left / 2); left -= plan.extra * 2; plan.tgt = left;
+  return plan;
+}
+// who takes the next hit. mode 'strike': the inflicter picks (weakest armed unit first); 'direct': the receiver picks (sturdiest unarmed unit
+// first). forced 'kill' / 'soak': a tactics-point pick by the winner, on the enemy's weakest armed unit or on its own sturdiest unarmed one.
+function pickUnit(us, mode, forced) {
+  const live = us.filter(u => !u.dead); if (!live.length) return null;
+  let pool = mode === 'direct' && !forced ? live.filter(u => !u.screen) : live;
+  if (!pool.length) pool = live;
+  const weak = (a, b) => (uCb(b) > 0) - (uCb(a) > 0) || uHp(a) - uHp(b), tough = (a, b) => (uCb(a) > 0) - (uCb(b) > 0) || uHp(b) - uHp(a);
+  return pool.slice().sort(forced === 'kill' || (!forced && mode === 'strike') ? weak : tough)[0];
+}
+function applyHit(g, u, out) {
+  if (u.t === 's') {
+    const s = u.o;
+    if (s.cls !== 'CV') { u.dead = true; out.lostRE.push(s); return; }
+    s.dmg++; out.hits.set(s, (out.hits.get(s) || 0) + 1);
+    if (s.dmg >= s.sz) { u.dead = true; out.lostCV.push(s); }
+    return;
+  }
+  const b = u.o, tg = ['def', 'lab', 'mine', 'sup'].filter(c => b.fac[c] > 0), res = sum(b.stock) > 0;
+  if (!tg.length && !res) { u.dead = true; out.lostB.push(b); return; }
+  const c = tg.length ? tg[0] : 'res';
+  if (c === 'res') { for (let i = 0; i < 2; i++) { const r = RES.slice().sort((x, y) => b.stock[y] - b.stock[x])[0]; if (b.stock[r] > 0) b.stock[r]--; } return; }
+  b.dmg[c]++;
+  if (b.dmg[c] >= sizeOfFac(c, b.fac[c])) { b.fac[c] = DOWNFAC[c][b.fac[c]]; b.dmg[c] = 0; out.facLost++; }
+}
+function resolveBattle(A, B, st, plan) {
+  const fa = unitsOf(A, st.ia, []), fb = unitsOf(B, st.id, st.ib);
+  if (!fa.length || !fb.length) return { done: true };
+  const aWins = st.tpA > st.tpB, tie = st.tpA === st.tpB, rem = Math.abs(st.tpA - st.tpB);
+  const Wn = aWins ? A : B, En = aWins ? B : A, fw = aWins ? fa : fb, fe = aWins ? fb : fa;
+  if (tie || !plan) plan = tie ? { mode: 'strike', extra: 0, tgt: 0, avoid: false } : autoPlan(Wn, En, fw, fe, rem, aWins);
+  if (plan.avoid) { blog(A, B, `${nm(Wn)} spends 3 tactics points to call off the combat at ${keyName(st.key)}.`); return { done: true, avoided: true }; }
+  const strike = plan.mode !== 'direct';
+  if (!strike) [fa, fb].forEach(f => { if (f.some(u => u.t === 's' && uCb(u) > 0)) f.forEach(u => { if (uCb(u) === 0) u.screen = true; }); });
+  const total = (g, f, e) => power(g, strike ? f : f.filter(u => !u.screen)) + d10() + Math.max(0, e.length - 1);
+  const totA = total(A, fa, fb), totB = total(B, fb, fa);
+  // strike: fighter drones cancel enemy damage one for one; Bomber Drones are flown by the side that attacks
+  const dmg = (g, tot, attacking, other, otherUs, mine) => {
+    if (strike && !has(g, 'msl')) return 0;
+    let d = D.combatDamage(tot, strike);
+    if (strike) { if (has(g, 'bd') && attacking) d += droneCount(g, mine); d -= droneCount(other, otherUs); }
+    return Math.max(0, d);
+  };
+  let toB = dmg(A, totA, true, B, fb, fa), toA = dmg(B, totB, false, A, fa, fb);
+  if (!tie) { if (aWins) toB += plan.extra; else toA += plan.extra; }
+  const mk = () => ({ hits: new Map(), lostCV: [], lostRE: [], lostB: [], facLost: 0 });
+  const outA = mk(), outB = mk();
+  let picks = tie ? 0 : plan.tgt;
+  const hit = aHits => {
+    const us = aHits ? fb : fa, g = aHits ? B : A, o = aHits ? outB : outA;
+    let forced = null; if (picks > 0) { picks--; forced = (aHits === aWins) ? 'kill' : 'soak'; }
+    const u = pickUnit(us, strike ? 'strike' : 'direct', forced); if (!u) return false;
+    applyHit(g, u, o); return true;
+  };
+  const nA = toB, nB = toA; let a = nA, b = nB;
+  while (a > 0 || b > 0) { if (a > 0) { a--; if (!hit(true)) a = 0; } if (b > 0) { b--; if (!hit(false)) b = 0; } }
+  blog(A, B, `Combat at ${keyName(st.key)} (${strike ? 'strike' : 'direct fire'}): ${nm(A)} rolls ${totA} for ${nA} damage, ${nm(B)} rolls ${totB} for ${nB} damage${!tie && (plan.extra || plan.tgt) ? ` (${nm(Wn)} spends tactics points)` : ''}.`, 'e');
+  const post = (g, other, o) => {
+    o.lostRE.forEach(s => removeShip(g, s));
+    o.lostCV.forEach(s => {
+      removeShip(g, s);
+      const got = []; for (let i = 0; i < markersFor(s.sz); i++) got.push(drawMarker(g, 'Eng'));
+      other.vm += markersFor(s.sz);
+      blog(A, B, `${nm(g)}'s ${s.name} (CV-${s.sz}) is destroyed. ${nm(other)} earns ${markersFor(s.sz)} victory marker${markersFor(s.sz) > 1 ? 's' : ''}; ${nm(g)} learns ${markerTxt(got, 'Eng')}.`, 'x');
+    });
+    o.lostB.forEach(b => {
+      g.bases = g.bases.filter(x => x !== b); if (g.lv) delete g.lv[b.id];
+      const got = [drawMarker(g, 'Eng')];
+      blog(A, B, `${nm(g)}'s base ${b.name} is destroyed. ${nm(g)} learns ${markerTxt(got, 'Eng')}.`, 'x');
+    });
+    if (o.facLost) blog(A, B, `${nm(g)} loses or downgrades ${o.facLost} facilit${o.facLost > 1 ? 'ies' : 'y'}.`, 'x');
+    o.hits.forEach((n, s) => { for (let i = 0; i < n; i++) { if (!g.ships.includes(s) || s.res) break; recallCheck(g, s); } });
+  };
+  post(A, B, outA); post(B, A, outB);
+  return { done: true, fought: true };
+}
+
+// ---- interception (3.3.6): hostile armed fleets where a ship is leaving. -> { r: 'go' | 'dead' | 'caught', g, key, rA, rB }
+function interceptCheck(G, s, from) {
+  const key = keyOf(from); if (!key) return { r: 'go' };
+  for (const g of others(G)) {
+    if (g.rel[G.f] < 4 || surrendered(G, g.f) || isHuman(g)) continue; // only bot-run fleets intercept by themselves
+    const fi = cvsAt(g, key).filter(armed); if (!fi.length) continue;
+    const fiU = fi.map(uS), me = [uS(s)];
+    const T = 4 + Math.max(0, fi.length - 1);
+    const rA = d10() - droneMod(g, fiU), rB = d10() - droneMod(G, me);
+    if (!(rA <= T || rB <= T)) continue;
+    if (s.cls !== 'CV') { blog(g, G, `${nm(g)} intercepts ${s.name} leaving ${keyName(key)}: it is destroyed.`, 'x'); loseRE(G, s, `is destroyed by ${nm(g)}`); return { r: 'dead' }; }
+    // a bot only intercepts when it is not outgunned
+    if (power(g, fiU) < 0.8 * power(G, me) && cbOf(s) > 0) continue;
+    blog(g, G, `${nm(g)} intercepts ${s.name} leaving ${keyName(key)} (search rolls ${rA} and ${rB}).`, 'e');
+    return { r: 'caught', g, key, rA, rB };
+  }
+  return { r: 'go' };
+}
+function interceptFight(G, s, c, surrender) {
+  const fi = cvsAt(c.g, c.key).filter(armed).map(uS);
+  return startBattle(c.g, G, c.key, { fa: fi, fd: [uS(s)], rA: c.rA, rB: c.rB, icept: true, surr: !!surrender, noAsk: true });
+}
+// a bot-run mover decides: fight when it is armed and not outgunned, otherwise stop
+function interceptAuto(G, s, c) {
+  const pa = power(c.g, cvsAt(c.g, c.key).filter(armed).map(uS)), pm = power(G, [uS(s)]);
+  return pm > 0 && pm >= 0.8 * pa ? 'fight' : 'stop';
+}
+function fleetPower(G, o) {
+  const f = facG(G, o.f); if (!f) return { mine: 0, theirs: 0, hp: 0 };
+  const fd = shipsAt(f, o.key).map(uS).concat(o.k === 'bombard' ? basesAt(f, o.key).map(uB) : []);
+  return { mine: power(G, cvsAt(G, o.key).filter(armed).map(uS)), theirs: power(f, fd), hp: fd.reduce((a, u) => a + uHp(u), 0), unarmed: !fd.some(u => uCb(u) > 0) };
+}
+function factionCombatOptions(G) {
+  const out = [];
+  others(G).forEach(g => {
+    if (G.rel[g.f] < 4 || surrendered(g, G.f)) return;
+    const keys = new Set(G.ships.filter(s => armed(s)).map(s => keyOf(s.loc)).filter(Boolean));
+    keys.forEach(key => {
+      const mine = cvsAt(G, key).filter(armed);
+      if (shipsAt(g, key).length) out.push({ k: 'fleet', f: g.f, key, label: `Attack ${nm(g)} ships at ${keyName(key)}` });
+      basesAt(g, key).forEach(b => {
+        if (G.rel[g.f] >= 5) out.push({ k: 'bombard', f: g.f, key, label: `Bombard ${nm(g)} base ${b.name} at ${keyName(key)}` });
+        if (!(b.blk && b.blkBy === G.f) && mine.reduce((a, s) => a + cbOf(s), 0) >= dnOf(b)) out.push({ k: 'fblock', f: g.f, key, base: b.id, label: `Blockade ${nm(g)} base ${b.name} at ${keyName(key)}` });
+      });
+    });
+  });
+  // one search per location per turn: hide the ones already used
+  return out.filter(o => o.k === 'fblock' ? !G.turn.acted['c:fb:' + o.base] : !G.turn.acted['c:' + o.key]);
+}
+function factionAct(G, o) {
+  const g = facG(G, o.f); if (!g) return 'Unknown faction.';
+  const err = canFight(G, o.f, o.k === 'bombard'); if (err) return err;
+  if (!cvsAt(G, o.key).some(armed)) return 'You have no armed crew vehicle there.';
+  if (o.k === 'fblock') {
+    if (G.turn.acted['c:fb:' + o.base]) return 'Already blockading this turn.';
+    const b = g.bases.find(x => x.id === o.base); if (!b) return 'That base is gone.';
+    if (cvsAt(G, o.key).filter(armed).reduce((a, s) => a + cbOf(s), 0) < dnOf(b)) return 'Your fleet needs combat values at least equal to the Defense Network.';
+    G.turn.acted['c:fb:' + o.base] = 1;
+    b.blk = true; b.blkBy = G.f; b.trade = null;
+    blog(G, g, `${nm(G)} blockades ${nm(g)}'s base ${b.name} at ${W[b.w].n}: its output is halved, its settlements decline and it cannot trade; ${nm(G)} earns $2B each production step.`, 'x');
+    return null;
+  }
+  if (G.turn.acted['c:' + o.key]) return 'Each fleet may search once per turn.';
+  G.turn.acted['c:' + o.key] = 1;
+  startBattle(G, g, o.key, { bomb: o.k === 'bombard' });
+  return null;
+}
+// blockades lapse unless the blockading fleet is still there with enough combat value
+function lapseBlockades(G) {
+  others(G).forEach(g => g.bases.forEach(b => {
+    if (!b.blk || b.blkBy !== G.f) return;
+    const f = cvsAt(G, 'w:' + b.w).filter(armed);
+    if (!(f.length && f.reduce((a, s) => a + cbOf(s), 0) >= dnOf(b) && G.rel[g.f] >= 4)) { b.blk = false; b.blkBy = null; blog(G, g, `${nm(G)}'s blockade of ${b.name} ends.`); }
+  }));
 }
 
 // ================= EXPLORATION =================
@@ -1346,7 +1635,7 @@ function trade(G, where, qty) {
   if (G.phase !== 'trade') return 'Trading happens in the trade & base phase.';
   let tm, limit, stock, label;
   if (where.base) {
-    const b = G.bases.find(x => x.id === where.base); tm = b.trade; limit = tradeLimitOwn(b); stock = b.stock; label = b.name;
+    const b = G.bases.find(x => x.id === where.base); if (b.blk) return `${b.name} is blockaded and cannot trade.`; tm = b.trade; limit = tradeLimitOwn(b); stock = b.stock; label = b.name;
     if (!tm) return `${b.name} has no trade marker.`;
     if (!limit) return `${b.name} needs settlements to trade.`;
     if (tm.side === 'buy') { const cost = Math.ceil(Math.min(qty, limit) / 2); if (G.cash < cost) return `Buying costs $${cost}B.`; G.cash -= cost; stock[tm.type] += Math.min(qty, limit); }
@@ -1470,7 +1759,7 @@ function resolveInitiative(world) {
 }
 
 return {
-  isLead, setRel, missionsAt, misCap, npfName, npfTradeInfo, enhTrade, facsInPlay, techRT, techTurn, techPass, npfKeys, combatPossible, allBases, newWorld, attachWorld, serialize, revive, setInitBid, resolveInitiative, finish, log, baseCost,
+  isLead, setRel, missionsAt, misCap, npfName, npfTradeInfo, enhTrade, facsInPlay, techRT, techTurn, techPass, npfKeys, combatPossible, production, growth, fleetPower, interceptAuto, factionCombatOptions, allBases, newWorld, attachWorld, serialize, revive, setInitBid, resolveInitiative, finish, log, baseCost,
   R, D, P, sysOf, worldOf, locName, worldsIn, RES, FIELDS, FN, PHASES, ESTEPS, PHASE_NAME, ESTEP_NAME, newGame, cvAllowed, advance, answer,
   moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, scrapSite, scrapValue, unreserveInfo, scrapLV, estock, earthCash, earthCostTxt, lvCanAdd, lvPoolTxt, scrapRule, shipCargo,
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,

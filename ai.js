@@ -258,6 +258,8 @@ function makeAI(E, D) {
       else if (a.k === 'publicity') { const w = best(Object.keys(G.w), w => G.ships.some(s => E.worldOf(s.loc) === w) ? worldScore(G, w, 'Orbiter') + 1 : 0) || Object.keys(G.w).find(k => G.w[k].v > 0); r = E.answer(G, w); }
       else if (a.k === 'mission') { const id = a.opts.slice().sort((x, y) => D.MIS[x].vp - D.MIS[y].vp)[0]; r = E.answer(G, id); }
       else if (a.k === 'immigration') r = E.answer(G, G.bases[0] && G.bases[0].id);
+      else if (a.k === 'intercept') { const s = G.ships.find(x => x.id === a.ship), g = G.world && G.world.facs[a.by]; r = E.answer(G, s && g && E.interceptAuto(G, s, { g, key: a.key }) === 'fight' ? 'fight' : 'stop'); }
+      else if (a.k === 'battle') r = E.answer(G, 'auto');
       else G.ask.shift();
       if (typeof r === 'string' && G.ask[0] === a) G.ask.shift();
     }
@@ -434,6 +436,16 @@ function makeAI(E, D) {
       const fleet = G.ships.filter(s => E.worldOf(s.loc) === o.w && armedCV(s));
       if (o.k === 'raid' && fleet.reduce((a, s) => a + s.sz - s.dmg, 0) < 3) return;
       const r = E.combatAct(G, o); if (typeof r === 'string') return;
+    });
+    // against another faction: blockade its bases, then fight where our fleet clearly has the upper hand
+    ['fblock', 'fleet', 'bombard'].forEach(kind => {
+      E.combatOptions(G).filter(o => o.k === kind).forEach(o => {
+        if (kind !== 'fblock') {
+          const p = E.fleetPower(G, o);
+          if (!(p.mine > 0 && (p.unarmed || p.mine >= (kind === 'bombard' ? 1.5 : 1.25) * p.theirs))) return;
+        }
+        E.combatAct(G, o);
+      });
     });
   }
   function explore(G) {

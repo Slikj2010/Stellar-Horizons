@@ -1685,6 +1685,17 @@ function renderAsk() {
   if (!a) { m.hidden = true; return; }
   let h = `<h2>Decision</h2><p>${esc(a.text)}</p>`;
   if (a.k === 'pirate') h += `<p class="dim">Pirate demand roll: ${a.roll}.</p><div class="row"><button class="b" data-ans="pay">Pay $${a.roll}B and pass</button><button class="b" data-ans="remove">Pay $${a.roll * 2}B to drive it off</button><button class="b" data-ans="fight">Fight</button><button class="b" data-ans="surrender">Surrender</button><button class="b" data-ans="stay">Stay put</button></div>`;
+  if (a.k === 'intercept') h += `<div class="row"><button class="b" data-ans="stop">Stop moving</button><button class="b" data-ans="fight">Fight</button><button class="b" data-ans="surrender">Surrender (cargo destroyed, crew vehicle reserved, 1 politics marker lost)</button></div>`;
+  if (a.k === 'battle') {
+    const r = a.rem, dx = n => Array.from({ length: n }, (_, i) => i + 1);
+    h += `<p class="dim">Unspent points go to picking targets (1 each). With no one spending, the combat is a strike, which only a side with Space Missiles can win damage from. Direct fire costs 1.</p><div class="row">
+      <button class="b" data-ans="auto">Let the game choose</button>
+      <button class="b" data-ans="strike">Strike (free)</button>
+      <button class="b" data-ans="direct">Direct fire (1)</button>
+      ${dx(Math.floor((r - 1) / 2)).map(n => `<button class="b" data-ans="dx${n}">Direct fire +${n} damage (${1 + 2 * n})</button>`).join('')}
+      ${dx(Math.floor(r / 2)).map(n => `<button class="b" data-ans="sx${n}">Strike +${n} damage (${2 * n})</button>`).join('')}
+      ${r >= 3 ? '<button class="b" data-ans="avoid">Call off the combat (3)</button>' : ''}</div>`;
+  }
   if (a.k === 'card') {
     const cur = G.w[a.w] && G.w[a.w].card;
     h += `<div class="cardpick">${a.opts.map(o => `<button class="cardopt" data-ans="${esc(o)}" title="Place ${esc(o)} on ${esc(D.W[a.w].n)}">${cardImg(o, a.opts.length > 1 ? 196 : 260)}<span>Place ${esc(o)}</span></button>`).join('')}</div>
