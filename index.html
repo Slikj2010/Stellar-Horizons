@@ -84,6 +84,20 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
 #menu .panel { position: absolute; z-index: 3; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100% - 32px)); max-height: calc(100% - 48px); overflow: auto; background: rgba(8,16,30,.92); border: 1px solid #3aa6d8; box-shadow: 0 0 40px rgba(58,166,216,.35); border-radius: 8px; padding: 20px; }
 .slot { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
 .slot small { color: var(--dim); display: block; font-size: 12px; }
+/* developer console */
+#dev { position: fixed; right: 12px; bottom: 12px; z-index: 30; width: min(440px, calc(100% - 24px)); max-height: calc(100% - 24px); display: flex; flex-direction: column; background: #070c14f2; border: 1px solid #3aa6d8; border-radius: 8px; box-shadow: 0 0 30px rgba(58,166,216,.25); font: 12.5px var(--f-body); color: var(--ink); }
+#dev[hidden] { display: none; }
+#dev .dh { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+#dev .dh b { flex: 1; font: 600 12px var(--f-disp); letter-spacing: .2em; text-transform: uppercase; color: #7fd0f5; }
+#dev .db { overflow: auto; padding: 8px 10px; display: grid; gap: 8px; }
+#dev .dr { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+#dev .dr > span { width: 74px; color: var(--dim); }
+#dev select, #dev input { background: #0d1520; color: var(--ink); border: 1px solid #2b3d52; border-radius: 4px; padding: 4px 6px; font: inherit; min-width: 0; }
+#dev input[type=number] { width: 64px; }
+#dev .dr select { flex: 1 1 0; max-width: 100%; } #dev .dr select[data-dv="pl"] { flex: 0 0 auto; }
+#dev .dout { height: 140px; overflow: auto; background: #03060b; border: 1px solid #1c2a3a; border-radius: 4px; padding: 6px; font: 11.5px/1.4 var(--f-mono); white-space: pre-wrap; }
+#dev .dout .e { color: #f08a7a; } #dev .dout .c { color: #7fd0f5; }
+#dev .dcmd { width: 100%; font-family: var(--f-mono) !important; }
 #pause { position: fixed; inset: 0; z-index: 35; display: grid; place-items: center; background: rgba(2,5,12,.72); backdrop-filter: blur(3px); padding: 16px; }
 #pause .box { width: min(420px, 100%); max-height: calc(100% - 32px); overflow: auto; background: var(--hull); border: 1px solid #3aa6d8; border-radius: 8px; padding: 20px; box-shadow: 0 0 40px rgba(58,166,216,.3); }
 #pause .big { display: block; width: 100%; text-align: left; margin: 6px 0; padding: 11px 14px; font: 600 14px var(--f-disp); letter-spacing: .14em; text-transform: uppercase; }
@@ -180,6 +194,7 @@ p.order { margin: -2px 0 10px; }
 <div id="pick" hidden></div>
 <div id="menu" hidden><div class="stage" id="mstage"><img id="mimg" src="menu.webp" alt="Stellar Horizons title screen"><canvas id="mfx"></canvas><div id="mbtns"></div></div><div id="mpanel"></div></div>
 <div id="pause" hidden><div class="box" id="pbox"></div></div>
+<div id="dev" hidden></div>
 <div id="modal" hidden><div class="box" id="mbox"></div></div>
 
 <script src="data.js"></script>
@@ -514,6 +529,7 @@ function botBlurb(b) {
 // ---------------- main menu ----------------
 const MENU = { meta: null, fx: null, rect: null };
 async function showMenu() {
+  DEV.open = false; $('dev').hidden = true;
   $('menu').hidden = false; $('pause').hidden = true; $('pick').hidden = true; $('modal').hidden = true; ui = null;
   if (!MENU.meta) {
     MENU.meta = await fetch('menu.json').then(r => r.json());
@@ -673,6 +689,97 @@ function menuFrame(now) {
 
 // ---------------- pause menu ----------------
 function showPause() { if (!G) return; $('pause').hidden = false; pauseHome(); }
+// ---------------- developer console (` key, or Menu > Developer console) ----------------
+const DEV = { open: false, f: null, out: [], hist: [], hi: 0 };
+const DEV_RES = { cash: 'Cash ($B)', ORE: 'Ore', SUP: 'Supplies', FUEL: 'Fuel', Phy: 'Physics points', Eng: 'Engineering points', Bio: 'Biology points', polm: 'Politics markers', vm: 'Victory markers' };
+const devFacs = () => G ? (G.world ? Object.values(G.world.facs) : [G]) : [];
+const devFac = f => devFacs().find(g => g.f === (f === 'me' || !f ? G.f : f));
+function devPrint(t, c) { DEV.out.push([t, c || '']); if (DEV.out.length > 200) DEV.out.shift(); const o = document.querySelector('#dev .dout'); if (o) { o.innerHTML = DEV.out.map(([t, c]) => `<div class="${c}">${esc(t)}</div>`).join(''); o.scrollTop = o.scrollHeight; } }
+function devDone(g, msg) { E.log(g, '[Developer] ' + msg, 'g'); devPrint(msg); save(); render(); devRender(); }
+function devGive(g, r, n) {
+  if (!g) return 'No such faction in play.';
+  if (!DEV_RES[r]) return `Unknown resource "${r}".`;
+  if (!Number.isFinite(n) || !n) return 'Give a non-zero whole number.';
+  if (r === 'cash') g.cash += n; else if (r === 'polm') g.polm = Math.max(0, g.polm + n); else if (r === 'vm') g.vm = Math.max(0, (g.vm || 0) + n);
+  else if (E.FIELDS.includes(r)) g.bank[r] = Math.max(0, g.bank[r] + n);
+  else { const st = E.estock(g); st[r] = Math.max(0, (st[r] || 0) + n); }
+  devDone(g, `${D.FAC[g.f].n}: ${n > 0 ? '+' : ''}${n} ${DEV_RES[r]}.`);
+}
+function devTech(g, k, off) {
+  if (!g) return 'No such faction in play.';
+  if (k === 'all') { const n = D.TECH.filter(t => !g.tech[t.k]).length; D.TECH.forEach(t => g.tech[t.k] = 1); return devDone(g, `${D.FAC[g.f].n}: granted all technologies (${n} new).`); }
+  const t = D.TECHK[k]; if (!t) return `Unknown technology "${k}" (try: list techs).`;
+  if (off) { delete g.tech[k]; return devDone(g, `${D.FAC[g.f].n}: removed ${t.n}.`); }
+  if (g.tech[k]) return `${D.FAC[g.f].n} already has ${t.n}.`;
+  g.tech[k] = 1; devDone(g, `${D.FAC[g.f].n}: granted ${t.n}.`);
+}
+function devPol(g, k, lv) {
+  if (!g) return 'No such faction in play.';
+  const p = D.POL.find(x => x.k === k); if (!p) return `Unknown policy "${k}" (try: list pols).`;
+  if (!(lv >= 0 && lv <= 3)) return 'Level must be 0 (none) to 3 (Unified).';
+  if (lv) g.pol[k] = lv; else delete g.pol[k];
+  devDone(g, `${D.FAC[g.f].n}: ${lv ? ['', 'Basic ', 'Vigorous ', 'Unified '][lv] + p.n : p.n + ' removed'}.`);
+}
+const DEV_HELP = `Commands (faction: me, ${Object.keys(D.FAC).join(', ')}):
+  give <faction> <res> <n>   res: cash ore sup fuel phy eng bio pol vm (negative n takes away)
+  tech <faction> <key|all>   grant a technology   ·  untech <faction> <key>  remove one
+  pol <faction> <key> <0-3>  set a policy level (0 removes)
+  list techs | list pols | list facs  ·  show <faction>  ·  clear  ·  help`;
+function devRun(line) {
+  line = line.trim(); if (!line) return;
+  DEV.hist.push(line); DEV.hi = DEV.hist.length; devPrint('> ' + line, 'c');
+  const [cmd, ...a] = line.split(/\s+/), lc = cmd.toLowerCase();
+  const resKey = r => ({ cash: 'cash', ore: 'ORE', sup: 'SUP', fuel: 'FUEL', phy: 'Phy', physics: 'Phy', eng: 'Eng', engineering: 'Eng', bio: 'Bio', biology: 'Bio', pol: 'polm', politics: 'polm', vm: 'vm', victory: 'vm' })[(r || '').toLowerCase()] || r;
+  let err = null;
+  if (lc === 'help' || lc === '?') devPrint(DEV_HELP);
+  else if (lc === 'clear') { DEV.out = []; devPrint('Cleared.'); }
+  else if (lc === 'give') err = devGive(devFac(a[0]), resKey(a[1]), parseInt(a[2], 10));
+  else if (lc === 'tech' || lc === 'untech') err = devTech(devFac(a[0]), a[1], lc === 'untech');
+  else if (lc === 'pol') err = devPol(devFac(a[0]), a[1], parseInt(a[2], 10));
+  else if (lc === 'list') {
+    const w = (a[0] || '').toLowerCase();
+    if (w.startsWith('tech')) devPrint(D.TECH.map(t => `${t.k.padEnd(6)} ${t.n} (${E.FN[t.f]} ${t.c})`).join('\n'));
+    else if (w.startsWith('pol')) devPrint(D.POL.map(p => `${p.k.padEnd(4)} ${p.n}`).join('\n'));
+    else devPrint(devFacs().map(g => `${g.f.padEnd(3)} ${D.FAC[g.f].n}${g === G ? ' (you)' : ' (bot)'}`).join('\n'));
+  }
+  else if (lc === 'show') { const g = devFac(a[0]); if (!g) err = 'No such faction in play.'; else { const st = E.estock(g); devPrint(`${D.FAC[g.f].n}: $${g.cash}B · ORE ${st.ORE} SUP ${st.SUP} FUEL ${st.FUEL} · Phy ${g.bank.Phy} Eng ${g.bank.Eng} Bio ${g.bank.Bio} · politics ${g.polm} · VM ${g.vm || 0}\nTechs (${Object.keys(g.tech).length}): ${Object.keys(g.tech).join(' ')}\nPolicies: ${Object.entries(g.pol).map(([k, v]) => k + ' ' + v).join(', ') || 'none'}`); } }
+  else err = `Unknown command "${cmd}". Type help.`;
+  if (err) devPrint(err, 'e');
+}
+function devRender() {
+  const el = $('dev'); el.hidden = !DEV.open || !G; if (el.hidden) return;
+  const facs = devFacs(); if (!devFac(DEV.f)) DEV.f = G.f;
+  const g = devFac(DEV.f), st = E.estock(g), keep = el.querySelector('.dcmd'), typed = keep ? keep.value : '', focus = document.activeElement === keep;
+  el.innerHTML = `<div class="dh"><b>Developer console</b><button class="b" data-dv="x" aria-label="Close developer console">Close</button></div>
+  <div class="db">
+    <div class="dr"><span>Faction</span><select data-dv="f">${facs.map(x => `<option value="${x.f}" ${x.f === g.f ? 'selected' : ''}>${esc(D.FAC[x.f].n)}${x === G ? ' (you)' : ' (bot)'}</option>`).join('')}</select></div>
+    <div class="dim">$${g.cash}B · ORE ${st.ORE} · SUP ${st.SUP} · FUEL ${st.FUEL} · Phy ${g.bank.Phy} · Eng ${g.bank.Eng} · Bio ${g.bank.Bio} · politics ${g.polm} · VM ${g.vm || 0}</div>
+    <div class="dr"><span>Resources</span><select data-dv="r">${Object.entries(DEV_RES).map(([k, n]) => `<option value="${k}">${n}</option>`).join('')}</select><input type="number" data-dv="n" value="5" step="1" aria-label="Amount"><button class="b pri" data-dv="give">Grant</button></div>
+    <div class="dr"><span>Technology</span><select data-dv="t">${D.TECH.filter(t => !g.tech[t.k]).map(t => `<option value="${t.k}">${esc(t.n)} (${E.FN[t.f]})</option>`).join('') || '<option value="">All developed</option>'}</select><button class="b pri" data-dv="tech">Grant</button><button class="b" data-dv="techall">Grant all</button></div>
+    <div class="dr"><span>Policy</span><select data-dv="p">${D.POL.map(p => `<option value="${p.k}">${esc(p.n)} (now ${['none', 'Basic', 'Vigorous', 'Unified'][E.polLv(g, p.k)]})</option>`).join('')}</select><select data-dv="pl">${['None', 'Basic', 'Vigorous', 'Unified'].map((n, i) => `<option value="${i}" ${i === 1 ? 'selected' : ''}>${n}</option>`).join('')}</select><button class="b pri" data-dv="pol">Set</button></div>
+    <div class="dout"></div>
+    <input class="dcmd" placeholder="Type a command, e.g. give me cash 20 (help)" aria-label="Developer command" spellcheck="false" autocomplete="off">
+    <div class="dim">Changes are written to the game log as [Developer]. Toggle with the \` key.</div>
+  </div>`;
+  const q = k => el.querySelector(`[data-dv="${k}"]`), out = e => e && devPrint(e, 'e');
+  q('x').onclick = () => devOpen(false);
+  q('f').onchange = e => { DEV.f = e.target.value; devRender(); };
+  q('give').onclick = () => out(devGive(g, q('r').value, parseInt(q('n').value, 10)));
+  q('tech').onclick = () => q('t').value && out(devTech(g, q('t').value));
+  q('techall').onclick = () => out(devTech(g, 'all'));
+  q('pol').onclick = () => out(devPol(g, q('p').value, +q('pl').value));
+  const c = el.querySelector('.dcmd'); c.value = typed; if (focus) c.focus();
+  c.onkeydown = e => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { const v = c.value; c.value = ''; devRun(v); setTimeout(() => { const n = el.querySelector('.dcmd'); n && n.focus(); }); }
+    else if (e.key === 'ArrowUp' && DEV.hi > 0) { c.value = DEV.hist[--DEV.hi]; e.preventDefault(); }
+    else if (e.key === 'ArrowDown') { DEV.hi = Math.min(DEV.hist.length, DEV.hi + 1); c.value = DEV.hist[DEV.hi] || ''; e.preventDefault(); }
+    else if (e.key === 'Escape' || e.key === '`') { e.preventDefault(); devOpen(false); }
+  };
+  if (DEV.out.length) devPrint.apply(null, DEV.out.pop()); else devPrint('Developer console. Type help for commands.');
+}
+function devOpen(on) { DEV.open = on; devRender(); if (on) { const c = document.querySelector('#dev .dcmd'); c && c.focus(); } }
+window.addEventListener('keydown', e => { if (e.key !== '`' || !G || /INPUT|TEXTAREA|SELECT/.test((e.target || {}).tagName || '')) return; if (!$('menu').hidden) return; e.preventDefault(); devOpen(!DEV.open); });
 function hidePause() { $('pause').hidden = true; dirty = true; }
 function pauseHome() {
   const b = $('pbox');
@@ -681,11 +788,13 @@ function pauseHome() {
   <button class="b big" data-p="save">Save game</button>
   <button class="b big" data-p="load">Load game</button>
   <button class="b big" data-p="settings">Settings</button>
+  <button class="b big" data-p="dev">Developer console</button>
   <button class="b big" data-p="menu">Return to main menu</button>`;
   b.querySelector('[data-p="resume"]').onclick = hidePause;
   b.querySelector('[data-p="save"]').onclick = savePanel;
   b.querySelector('[data-p="load"]').onclick = () => loadPanel(b, false);
   b.querySelector('[data-p="settings"]').onclick = () => settingsPanel(b, false);
+  b.querySelector('[data-p="dev"]').onclick = () => { hidePause(); devOpen(true); };
   b.querySelector('[data-p="menu"]').onclick = () => {
     b.innerHTML = `<h2>Return to main menu?</h2><p class="dim">Progress since your last manual save is kept in the autosave, so you can continue later from Load game.</p><div class="row"><button class="b pri" data-m="save">Save to a slot first</button><button class="b" data-m="go">Return without saving</button><button class="b" data-m="back">Back</button></div>`;
     b.querySelector('[data-m="save"]').onclick = savePanel;
