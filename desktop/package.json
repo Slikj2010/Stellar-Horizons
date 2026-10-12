@@ -63,7 +63,8 @@
       {
         "provider": "github",
         "owner": "Slikj2010",
-        "repo": "Stellar-Horizons"
+        "repo": "Stellar-Horizons",
+        "releaseType": "release"
       }
     ]
   },
