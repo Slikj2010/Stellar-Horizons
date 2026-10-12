@@ -147,6 +147,7 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
 #ttree .pcard.locked { opacity: 1; color: #7d8a99; border-color: #233244; } #ttree .pcard.locked .td { color: #5d6a78; } #ttree .pcard.locked .pl { color: #8a6a3a; }
 #ttree .pcard .pl { font: 700 9.5px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--beacon); }
 #ttree .pstart { max-width: 820px; margin: 18px auto 24px; padding: 0 16px; font-size: 12px; text-align: center; }
+#ttree .rt { font-size: 12.5px; } #ttree .rt b { color: var(--beacon); }
 #ttree .key { display: inline-flex; align-items: center; gap: 5px; color: var(--dim); }
 #ttree .key i { width: 14px; height: 10px; border-radius: 2px; border: 2px solid; display: inline-block; }
 #pick .scen { display: grid; gap: 8px; margin: 6px 0 6px; }
@@ -1174,7 +1175,8 @@ function unusedActions() {
     if (G.estep === 'diplomacy' && E.dipCost(G)) out.push(`Planned diplomacy attempts (${E.dipCost(G)} politics markers) will now be rolled.`);
     if (G.estep === 'transport' && G.transferLeft) out.push(`${G.transferLeft} resource transfer(s) left unused.`);
     if (G.estep === 'tech') {
-      n(D.TECH.filter(t => E.techState(G, t) === 'open' && G.bank[t.f] >= E.techCost(G, t)), a => `Technologies you can afford: ${a.map(t => t.n).join(', ')}.`);
+      if (!rtInfo() || !rtInfo().passed) n(D.TECH.filter(t => E.techState(G, t) === 'open' && G.bank[t.f] >= E.techCost(G, t)), a => `Technologies you can afford: ${a.map(t => t.n).join(', ')}.`);
+      if (rtInfo() && !rtInfo().passed) out.push('Continuing passes your research turn; the other factions finish their research turns.');
       if (G.polm) out.push(`${G.polm} politics marker(s) not converted will be discarded.`);
       out.push(`Banked tech points will be halved (now ${E.FIELDS.map(f => G.bank[f] + ' ' + E.FN[f]).join(', ')}).`);
     }
@@ -1246,7 +1248,7 @@ function panelEcon() {
   if (s === 'production') return `<p>Production is collected; see the log. Set what each base produces next decade:</p>${G.bases.map(b => `<div class="item"><span></span><div class="t"><b>${esc(b.name)}</b><small>${esc(D.W[b.w].n)}</small></div><select data-out="${b.id}">${['ORE', 'SUP', 'FUEL', 'tech'].map(t => { const o = E.baseOutput(G, b, t); return `<option value="${t}" ${b.out === t ? 'selected' : ''}>${t === 'tech' ? 'Tech' : t} ${o ? '(' + o.n + ')' : '(none)'}</option>`; }).join('')}</select></div>`).join('') || '<p class="dim">You have no bases yet.</p>'}`;
   if (s === 'transport') return G.transferLeft ? `<p>You can move ${G.transferLeft} resources between Earth and your bases (Trade Routes). Resources sent from Earth come off the faction board first, the rest bought at $1B each; resources sent to Earth go onto the faction board.</p>${transferForm()}` : `<p class="dim">No transfers available (you need Trade Routes).</p>`;
   if (s === 'placement') return `<p>NPF bases, asteroids, pirates and trade markers were placed; see the log and the board.</p>`;
-  if (s === 'tech') return `<p class="dim">Develop technologies from your bank in the Tech tab. Before leaving this step, convert politics markers: unconverted markers are discarded, then banked points are halved.</p>
+  if (s === 'tech') return `<p class="dim">${G.world ? 'Research turns (3.1.7): one at a time in reverse initiative order, each faction develops one technology or passes. A faction that passes is out for this decade; the rest repeat until everyone has passed. Develop on the tech tree when it is your turn; pressing Next passes.' : 'Develop technologies from your bank in the Tech tab.'} Before leaving this step, convert politics markers: unconverted markers are discarded, then banked points are halved.</p>${G.world ? `<p>${rtStatus()}</p>` : ''}
     <div class="row"><button class="b" data-a="tabtech">Open the tech chart</button></div>
     ${politicsBlock()}
     ${['Bio', 'Phy', 'Eng'].filter(f => E.has(G, { Bio: 'gen', Phy: 'mec', Eng: 'nano' }[f])).map(f => `<div class="row"><span>${E.FN[f]} points:</span><button class="b" data-tp="${f}" data-d="buy">Buy 1 for $1B</button><button class="b" data-tp="${f}" data-d="sell">Sell 2 for $1B</button></div>`).join('')}`;
@@ -1371,17 +1373,31 @@ function panelFac() {
   <h3>Launch vehicles on Earth</h3><p class="dim">${lvTxt()}</p><p class="dim">Two-sided counters: ${esc(E.lvPoolTxt(G))}.</p>`;
 }
 function panelTech() {
-  const can = G.estep === 'tech', n = D.TECH.filter(t => G.tech[t.k]).length;
-  return `<p class="dim">${can ? 'Develop technologies now: tap a highlighted technology in the tree.' : 'Technologies are developed in the economic phase (every decade from 2040). The tree shows what each one needs.'}</p>
+  const can = G.estep === 'tech', n = D.TECH.filter(t => G.tech[t.k]).length, R = rtInfo();
+  return `<p class="dim">${R ? 'Research turns: in reverse initiative order each faction develops one technology or passes; repeat until all have passed.' : can ? 'Develop technologies now: tap a highlighted technology in the tree.' : 'Technologies are developed in the economic phase (every decade from 2040). The tree shows what each one needs.'}</p>
+  ${R ? `<p>${rtStatus()}</p>` : ''}
   <table><tr><th>Bank</th><th>Points</th></tr>${E.FIELDS.map(f => `<tr><td class="f-${f}">${E.FN[f]}</td><td class="mono">${G.bank[f]}</td></tr>`).join('')}</table>
   <p class="dim">${n} of ${D.TECH.length} developed. Each undeveloped technology costs 3 VP at the end. Costs drop by 3 for each other faction that has a technology (shown by the faction tags on its card).</p>
   <div class="row"><button class="b" data-a="treeclose">Back to the map</button></div>`;
 }
+// research turns (multi-faction): whose turn, my status, and the develop / pass actions
+function rtInfo() {
+  if (!G.world || G.estep !== 'tech' || G.phase !== 'econ') return null;
+  const rt = E.techRT(G.world), cur = E.techTurn(G.world);
+  return { round: rt.round, cur, mine: cur === G.f, passed: !!rt.passed[G.f], seq: rt.seq, done: rt.passed };
+}
+function rtStatus() {
+  const r = rtInfo(); if (!r) return '';
+  const seq = r.seq.map(f => `<span style="color:${D.FAC[f].c};${r.done[f] ? 'text-decoration:line-through;opacity:.6' : ''}">${esc(D.FAC[f].pre)}</span>`).join(' → ');
+  return `<span class="rt">Research round ${r.round} · ${seq} · ${r.passed ? 'You passed this decade.' : r.mine ? '<b>Your turn:</b> develop one technology or pass.' : r.cur ? esc(D.FAC[r.cur].n) + ' is researching.' : 'Everyone has passed.'}</span>${r.mine && !r.passed ? '<button class="b" data-rt-pass>Pass</button>' : ''}`;
+}
+function rtDevelop(k) { const e = E.develop(G, k); if (!e && G.world) AI.techLoop(G); return e; }
+function rtPass() { ask('Pass research?', '<p>You develop no more technologies this decade. The other factions keep taking research turns until they pass too.</p>', () => { const e = E.techPass(G); if (!e) AI.techLoop(G, { humanPasses: true }); return e; }, 'Pass'); }
 // ---- technology tree overlay ----
 const TT = { lab: 64, cw: 178, ch: 92, gx: 30, gy: 16, pad: 14 };
 function techTreeHTML() {
   const { lab, cw, ch, gx, gy, pad } = TT, colW = cw + gx, rowH = ch + gy;
-  const W = lab + pad + 7 * colW, H = 12 * rowH + pad * 2, can = G.estep === 'tech';
+  const W = lab + pad + 7 * colW, H = 12 * rowH + pad * 2, RT = rtInfo(), can = G.estep === 'tech' && (!RT || (RT.mine && !RT.passed));
   const X = c => lab + pad + c * colW, Y = r => pad + r * rowH + Math.floor(r / 4) * 0;
   const P = k => D.TECH_POS[k];
   const box = k => { const [r, c] = P(k); return { x: X(c), y: Y(r), w: cw, h: ch }; };
@@ -1425,7 +1441,7 @@ function techTreeHTML() {
       ${holders.length ? `<span class="tf">${holders.map(f => `<i style="background:${D.FAC[f].c}" title="${esc(D.FAC[f].n)}">${esc(D.FAC[f].pre)}</i>`).join('')}</span>` : ''}
     </button>`;
   }).join('');
-  return `<div class="tt-top"><h2>Technology Tree</h2>${E.FIELDS.map(f => `<span class="f-${f}">${E.FN[f]} <b class="mono">${G.bank[f]}</b></span>`).join('')}<span class="sp"></span>
+  return `<div class="tt-top"><h2>Technology Tree</h2>${E.FIELDS.map(f => `<span class="f-${f}">${E.FN[f]} <b class="mono">${G.bank[f]}</b></span>`).join('')}${rtStatus()}<span class="sp"></span>
     <span class="key"><i style="border-color:var(--ok)"></i>developed</span><span class="key"><i style="border-color:var(--beacon)"></i>can develop now</span><span class="key"><i style="border-color:#4a6684"></i>available</span><span class="key"><i style="border-color:#2b3d52;opacity:.55"></i>needs earlier tech</span>
     <button class="b" data-tt-close>Back to the map</button></div>
     <div class="tt-wrap" style="width:${W}px;height:${H}px">${bands}<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${paths}</svg>${cardsH}</div>`;
@@ -1436,6 +1452,7 @@ function renderTree() {
   const sx = el.scrollLeft, sy = el.scrollTop;
   el.innerHTML = tab === 'pol' ? polTreeHTML() : techTreeHTML(); el.scrollLeft = sx; el.scrollTop = sy;
   el.querySelector('[data-tt-close]').onclick = () => { tab = 'turn'; render(); };
+  const rp = el.querySelector('[data-rt-pass]'); if (rp) rp.onclick = rtPass;
   el.querySelectorAll('[data-pt]').forEach(b => b.onclick = () => {
     const p = D.POL.find(x => x.k === b.dataset.pt), lv = +b.dataset.lv, my = E.polLv(G, p.k), name = D.POL_LV[lv - 1] + p.n, why = polWhy(p.k);
     if (my >= lv) return ask(name, `<p>${esc(p.d[lv - 1])}.</p><p class="chip ok">Held</p>`, () => null, 'OK');
@@ -1447,8 +1464,9 @@ function renderTree() {
     const t = D.TECHK[b.dataset.tt], st = E.techState(G, t), c = E.techCost(G, t);
     const needs = t.r.length ? `<p class="dim">Needs: ${t.r.map(x => `${G.tech[x] ? '✓' : '✗'} ${esc(D.TECHK[x].n)}`).join(', ')}.</p>` : '';
     if (st === 'have') return ask(t.n, `<p>${esc(t.d)}.</p><p class="chip ok">Developed</p>`, () => null, 'OK');
+    const R = rtInfo(); if (R && (R.passed || !R.mine) && st === 'open') return ask(t.n, `<p>${esc(t.d)}.</p>${needs}<p>Costs <b>${c} ${E.FN[t.f]} points</b> (you have ${G.bank[t.f]}).</p><p class="dim">${R.passed ? 'You passed: no more technologies this decade.' : R.cur ? 'Wait for your research turn (' + esc(D.FAC[R.cur].n) + ' is researching).' : 'Everyone has passed.'}</p>`, () => null, 'OK');
     if (G.estep !== 'tech' || st !== 'open' || G.bank[t.f] < c) return ask(t.n, `<p>${esc(t.d)}.</p>${needs}<p>Costs <b>${c} ${E.FN[t.f]} points</b> (you have ${G.bank[t.f]}).</p><p class="dim">${esc(E.techCostTxt(G, t))}.</p><p class="dim">${G.estep !== 'tech' ? 'Technologies are developed in the tech step of the economic phase.' : st !== 'open' ? 'Develop the technologies it needs first.' : 'Not enough points yet.'}</p>`, () => null, 'OK');
-    ask(`Develop ${t.n}?`, `<p>${esc(t.d)}.</p>${needs}<p>Costs <b>${c} ${E.FN[t.f]} points</b> (you have ${G.bank[t.f]}).</p><p class="dim">${esc(E.techCostTxt(G, t))}.</p>`, () => E.develop(G, t.k), 'Develop');
+    ask(`Develop ${t.n}?`, `<p>${esc(t.d)}.</p>${needs}<p>Costs <b>${c} ${E.FN[t.f]} points</b> (you have ${G.bank[t.f]}).</p><p class="dim">${esc(E.techCostTxt(G, t))}.</p>`, () => rtDevelop(t.k), 'Develop');
   });
 }
 // ---- policy tree overlay ----
@@ -1596,6 +1614,7 @@ function wire() {
   on('[data-a="redraw"]', () => ask('Redraw your mission?', `<p>Return ${esc(E.misTxt(G.mis.mine))} to the pool and draw a new one for <b>2 politics markers</b> (you have ${G.polm}).</p>`, () => E.redrawMission(G), 'Redraw'));
   on('[data-a="buyvm"]', () => ask('Buy a victory marker?', `<p>Spend <b>4 politics markers</b> (you have ${G.polm}) for 1 victory marker, worth 1 VP at the end.</p>`, () => E.buyVictory(G), 'Buy'));
   on('[data-a="tabtech"]', () => { tab = 'tech'; render(); });
+  on('[data-rt-pass]', rtPass);
   on('[data-ib]', b => { E.setInitBid(G, (G.initBid || 0) + +b.dataset.ib); save(); render(); });
   on('[data-a="treeclose"]', () => { tab = 'turn'; render(); });
   on('[data-a="poltree"]', () => { tab = 'pol'; render(); });
@@ -1608,7 +1627,7 @@ function wire() {
     else ask(`Convert 1 politics marker?`, `<p>1 politics marker becomes <b>${k === 'cash' ? '$1B' : n + ' ' + E.FN[k] + ' points'}</b>. You have ${G.polm}.</p>${k !== 'cash' ? '<p class="dim">Points go to your tech bank, spent in the tech step (the bank is halved after it).</p>' : ''}`, () => E.convertPolitics(G, k), 'Convert'); });
   on('[data-tp]', b => { const f = b.dataset.tp, buy = b.dataset.d === 'buy'; ask(buy ? `Buy 1 ${E.FN[f]} point?` : `Sell 2 ${E.FN[f]} points?`, `<p>${buy ? `Pay <b>$1B</b> (you have $${G.cash}B) for 1 ${E.FN[f]} point.` : `Trade 2 of your ${G.bank[f]} ${E.FN[f]} points for <b>$1B</b>.`}</p>`, () => E.tradePoints(G, f, b.dataset.d), buy ? 'Buy' : 'Sell'); });
   on('[data-pol]', b => { const p = D.POL.find(x => x.k === b.dataset.pol), lv = E.polLv(G, p.k); ask(`Adopt ${D.POL_LV[lv]}${p.n}?`, `<p>${esc(p.d[lv])}.</p><p class="dim">You can adopt one policy per decade.</p>`, () => E.choosePolicy(G, p.k), 'Adopt'); });
-  on('[data-dev]', b => { const t = D.TECHK[b.dataset.dev], c = E.techCost(G, t); ask(`Develop ${t.n}?`, `<p>${esc(t.d)}.</p><p>Costs <b>${c} ${E.FN[t.f]} points</b> (you have ${G.bank[t.f]}).</p><p class="dim">${esc(E.techCostTxt(G, t))}.</p>`, () => E.develop(G, t.k), 'Develop'); });
+  on('[data-dev]', b => { const t = D.TECHK[b.dataset.dev], c = E.techCost(G, t); ask(`Develop ${t.n}?`, `<p>${esc(t.d)}.</p><p>Costs <b>${c} ${E.FN[t.f]} points</b> (you have ${G.bank[t.f]}).</p><p class="dim">${esc(E.techCostTxt(G, t))}.</p>`, () => rtDevelop(t.k), 'Develop'); });
   const lvAsk = (z, where) => { const bs = where === 'earth' ? null : G.bases.find(x => x.id === where); ask(`Build LV-${z}${bs ? ' at ' + bs.name : ''}?`, `<p>${costLine({ ORE: 1, FUEL: z }, bs)}</p><p class="dim">Two-sided counters: ${esc(E.lvPoolTxt(G))}.</p>`, () => E.buildLV(G, z, where), 'Build'); };
   on('[data-lv]', b => lvAsk(+b.dataset.lv, 'earth'));
   on('[data-lvscrap]', b => { const z = +b.dataset.lvscrap, w = b.dataset.where; ask(`Scrap LV-${z}?`, `<p>You get back <b>${resHTML({ ORE: Math.round(1 / 2), FUEL: Math.round(z / 2) })}</b> (half of ${resHTML({ ORE: 1, FUEL: z })})${w === 'earth' ? ' onto your faction board' : ' into the base'}, and its two-sided counter is free again.</p>`, () => E.scrapLV(G, w, z), 'Scrap'); });

@@ -412,14 +412,40 @@ function techState(G, t) {
   if ((t.k === 'exl') && !Object.values(G.w).some(w => w.life)) return 'locked';
   return 'open';
 }
+// ---- research turns (3.1.7, multi-faction games): one at a time in reverse initiative order, each faction develops
+// one technology or passes; a faction that passes is out for the rest of the step; repeat until everyone has passed
+function techRT(world) {
+  const H = world.facs[world.meta.human], key = H.y + ':tech';
+  if (!world.meta.rt || world.meta.rt.key !== key) world.meta.rt = { key, seq: world.meta.order.slice().reverse(), i: 0, round: 1, passed: {} };
+  return world.meta.rt;
+}
+// whose research turn it is (faction key), or null when everyone has passed
+function techTurn(world) {
+  const rt = techRT(world), n = rt.seq.length;
+  for (let j = 0; j < n; j++) { const f = rt.seq[(rt.i + j) % n]; if (!rt.passed[f] && !world.facs[f].over) { if (j && rt.i + j >= n) rt.round++; rt.i = (rt.i + j) % n; return f; } }
+  return null;
+}
+function techNext(world) { const rt = techRT(world); rt.i++; if (rt.i >= rt.seq.length) { rt.i = 0; rt.round++; } }
+const rtOn = G => G.world && G.estep === 'tech' && G.phase === 'econ';
+function techPass(G) {
+  if (!rtOn(G)) return 'Not in the research turns.';
+  const w = G.world, rt = techRT(w);
+  if (rt.passed[G.f]) return null;
+  if (techTurn(w) !== G.f) return `It is ${D.FAC[techTurn(w)].n}'s research turn.`;
+  rt.passed[G.f] = 1; techNext(w);
+  log(w.facs[w.meta.human], `Research round ${rt.round}: ${D.FAC[G.f].n}${G.f === w.meta.human ? ' (you)' : ''} passes and develops no more technologies this decade.`);
+  return null;
+}
 function develop(G, k) {
   const t = D.TECHK[k];
   if (G.estep !== 'tech') return 'Technologies are developed in the economic phase tech step.';
+  if (rtOn(G)) { const w = G.world, cur = techTurn(w); if (techRT(w).passed[G.f]) return 'You passed; you cannot develop more technologies this decade.'; if (cur !== G.f) return `Wait for your research turn (${cur ? D.FAC[cur].n + ' is researching' : 'everyone has passed'}).`; }
   if (techState(G, t) !== 'open') return `${t.n} needs ${t.r.filter(x => !G.tech[x]).map(x => D.TECHK[x].n).join(', ') || 'signs of life to have been found'}.`;
   const c = techCost(G, t);
   if (G.bank[t.f] < c) return `${t.n} costs ${c} ${FN[t.f]} points; you have ${G.bank[t.f]}.`;
   G.bank[t.f] -= c; G.tech[k] = 1;
   log(G, `Developed ${t.n} for ${c} ${FN[t.f]} points: ${t.d}.`, 'g');
+  if (rtOn(G)) { const w = G.world; log(w.facs[w.meta.human], `Research round ${techRT(w).round}: ${D.FAC[G.f].n}${G.f === w.meta.human ? ' (you)' : ''} develops ${t.n} (${c} ${FN[t.f]}).`, G.f === w.meta.human ? '' : 'bot'); techNext(w); }
   return null;
 }
 function convertPolitics(G, to) { // to: 'cash' | field
@@ -1374,7 +1400,7 @@ function resolveInitiative(world) {
 }
 
 return {
-  isLead, setRel, npfKeys, combatPossible, allBases, newWorld, attachWorld, serialize, revive, setInitBid, resolveInitiative, finish, log, baseCost,
+  isLead, setRel, techRT, techTurn, techPass, npfKeys, combatPossible, allBases, newWorld, attachWorld, serialize, revive, setInitBid, resolveInitiative, finish, log, baseCost,
   R, D, P, sysOf, worldOf, locName, worldsIn, RES, FIELDS, FN, PHASES, ESTEPS, PHASE_NAME, ESTEP_NAME, newGame, cvAllowed, advance, answer,
   moves, move, buildOptions, buildUnit, buildLV, unreserve, repair, setReserve, scrap, scrapSite, scrapValue, unreserveInfo, scrapLV, estock, earthCash, earthCostTxt, lvCanAdd, lvPoolTxt, scrapRule, shipCargo,
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,

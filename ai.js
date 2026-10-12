@@ -137,21 +137,38 @@ function makeAI(E, D) {
     }
     if (G.estep === 'production') G.bases.forEach(b => { b.out = E.bestOutput(G, b); });
     if (G.estep === 'transport' && G.transferLeft && G.bases.length && G.cash > 12) { const b = G.bases.find(x => x.w !== 'ear') || G.bases[0]; E.transferRes(G, 'earth', b.id, 'SUP', Math.min(G.transferLeft, 3)); }
-    if (G.estep === 'tech') {
-      for (let n = 0; n < 12; n++) {
-        const open = D.TECH.filter(t => E.techState(G, t) === 'open' && G.bank[t.f] >= E.techCost(G, t));
-        if (!open.length) break;
-        const t = best(open, t => { const i = pr.tech.indexOf(t.k); return (i >= 0 ? 100 - i * 3 : 20) - E.techCost(G, t) * .3 + (t.r.length ? 0 : 1); });
-        if (!t || E.develop(G, t.k)) break;
-      }
-      // politics markers left at the end of this step are lost: turn them into points for the main research field
-      const main = Object.entries(pr.fw).sort((a, b) => b[1] - a[1])[0][0];
-      while (G.polm > 0) E.convertPolitics(G, main);
-    }
+    if (G.estep === 'tech' && !G.world) { for (let n = 0; n < 12; n++) if (!techPick(G) || techTurnBot(G) !== 'dev') break; }
     if (G.estep === 'policy') {
       for (let n = 0; n < 4 && !G.policyPicked; n++) { const k = pr.pol.find(k => E.polLv(G, k) < 3 && !E.choosePolicy(G, k)); if (!k) { const any = D.POL.find(p => !E.choosePolicy(G, p.k)); if (!any) break; } }
     }
   }
+  // research: the best affordable technology by this bot's priorities, or null
+  function techPick(G) {
+    const pr = prof(G), open = D.TECH.filter(t => E.techState(G, t) === 'open' && G.bank[t.f] >= E.techCost(G, t));
+    if (!open.length) return null;
+    return best(open, t => { const i = pr.tech.indexOf(t.k); return (i >= 0 ? 100 - i * 3 : 20) - E.techCost(G, t) * .3 + (t.r.length ? 0 : 1); });
+  }
+  // one research turn: develop one technology, or pass (and turn leftover politics markers into points for its main field)
+  function techTurnBot(G) {
+    const t = techPick(G);
+    if (t && !E.develop(G, t.k)) return 'dev';
+    if (G.world) E.techPass(G);
+    const main = Object.entries(prof(G).fw).sort((a, b) => b[1] - a[1])[0][0];
+    while (G.polm > 0) E.convertPolitics(G, main);
+    return 'pass';
+  }
+  // run research turns while it is a bot's turn (driveHuman: also play the human faction, e.g. in tests;
+  // humanPasses: the human leaves the step, so finish every remaining turn)
+  function techLoop(H, opt) {
+    const world = H.world; if (!world) return;
+    opt = opt || {};
+    for (let n = 0; n < 500; n++) {
+      const f = E.techTurn(world); if (!f) return;
+      if (f === H.f && !opt.driveHuman) { if (opt.humanPasses) { E.techPass(H); continue; } return; }
+      const g = world.facs[f]; answerAsks(g); techTurnBot(g);
+    }
+  }
+  const techStep = H => H.world && H.phase === 'econ' && H.estep === 'tech';
   function build(G) {
     const pr = prof(G);
     G.ships.filter(s => s.res).forEach(s => E.unreserve(G, s));
@@ -305,6 +322,7 @@ function makeAI(E, D) {
   }
   function runBots(H, when) {
     const world = H.world; if (!world) return;
+    if (techStep(H)) return techLoop(H, { humanPasses: when !== 'before' });
     const key = stepKey(H), o = orderFor(world), hi = o.indexOf(H.f);
     const list = when === 'before' ? o.slice(0, hi) : when === 'after' ? o.slice(hi + 1) : o.filter(f => f !== H.f);
     world.meta.done = world.meta.done && world.meta.done.key === key ? world.meta.done : { key, f: {} };
@@ -337,12 +355,13 @@ function makeAI(E, D) {
   function autoPlay(H, maxSteps) {
     let n = 0;
     while (!H.over && n++ < (maxSteps || 50000)) {
+      if (techStep(H)) techLoop(H, { driveHuman: true });
       runBots(H, 'before'); const mark = H.log[0]; botPhase(H); answerAsks(H); runBots(H, 'after');
       if (!advanceWorld(H)) { answerAsks(H); if (H.ask.length) H.ask.length = 0; }
     }
     return n;
   }
-  return { profiles: P, prof, botPhase, answerAsks, runBots, begin, advanceWorld, autoPlay, baseSpotOk, planningBase, baseSpots };
+  return { profiles: P, prof, techLoop, botPhase, answerAsks, runBots, begin, advanceWorld, autoPlay, baseSpotOk, planningBase, baseSpots };
 }
 if (typeof module !== 'undefined' && module.exports) module.exports = makeAI; else root.SHAI = makeAI;
 })(typeof window !== 'undefined' ? window : globalThis);
