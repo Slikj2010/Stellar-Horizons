@@ -307,6 +307,7 @@ function resolveDiplomacy(G) {
     if (nv >= 4 && polLv(G, 'mil') < 1) nv = Math.min(nv, 3);
     if (nv >= 5 && polLv(G, 'mil') < 2) nv = Math.min(nv, 4);
     setRel(G, k, nv);
+    if (nv > before && nv >= 4) { const o = G.world && G.world.facs[k]; if (o) { o.aiHostile = o.aiHostile || {}; o.aiHostile[G.f] = G.y; log(o, `${D.FAC[G.f].n} lowered relations with you: now ${D.REL[nv]}.`, 'x'); } }
     log(G, `Diplomacy with ${D.FAC[k].n}: ${Math.abs(d)} attempt(s) ${d > 0 ? 'to improve' : 'to worsen'} relations, net ${net >= 0 ? '+' : ''}${net}. Now ${D.REL[nv]}${G.world && G.world.facs[k] ? ' for both sides' : ''}.`, 'g');
   });
   log(G, `Diplomacy cost ${cost} politics markers.`);

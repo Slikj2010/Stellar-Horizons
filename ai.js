@@ -9,23 +9,23 @@ function makeAI(E, D) {
   // ---------------- faction personalities ----------------
   // fw: exploration field weights; re/cv: appetite for robotic explorers / crew vehicles; kinds: robotic explorer mix;
   // lab: bases run research labs (true) or mines (false); bases: base-building drive; tech: research priorities (in order);
-  // pol: policy preferences; dip: improve relations with NPFs to trade; bully: worsen relations (embargo); trade: use markers
+  // pol: policy preferences; dip: improve relations with NPFs to trade; bully: aggr: appetite for embargoes/wars (0 never .. .5 China-military); polw: weights for random policy choices; trade: use markers
   const P = {
-    na: { fw: { Eng: 1.35, Bio: 1.35, Phy: 1 }, re: 1.2, cv: 1, kinds: { Orbiter: 1.2, Rover: 1.1, Flyby: .8, Telescope: .6 }, lab: true, bases: .7, init: 0,
+    na: { aggr: .25, polw: { hum: 3, rob: 2, dip: 1, eco: 1, mil: .5 }, fw: { Eng: 1.35, Bio: 1.35, Phy: 1 }, re: 1.2, cv: 1, kinds: { Orbiter: 1.2, Rover: 1.1, Flyby: .8, Telescope: .6 }, lab: true, bases: .7, init: 0,
       tech: ['icd', 'acd', 'qc', 'aqc', 'ai', 'ars', 'pm', 'ff', 'fr', 'cp', 'als', 'aec', 'ag', 'hab', 'mine', 'lcv', 'frig', 'ops', 'tr', 'ldsf', 'psh'], pol: ['rob', 'eco', 'hum', 'set', 'dip'], dip: .2, trade: .3 },
-    ru: { fw: { Bio: 1.6, Eng: 1, Phy: .8 }, re: .5, cv: 1.6, kinds: { Orbiter: 1, Flyby: 1.1, Rover: .7, Telescope: .3 }, lab: true, bases: 1.1, init: 0, crewWorlds: ['mar', 'eur', 'tit'],
+    ru: { aggr: .3, polw: { hum: 5, dip: 1, eco: 1, mil: 1, rob: .3 }, fw: { Bio: 1.6, Eng: 1, Phy: .8 }, re: .5, cv: 1.6, kinds: { Orbiter: 1, Flyby: 1.1, Rover: .7, Telescope: .3 }, lab: true, bases: 1.1, init: 0, crewWorlds: ['mar', 'eur', 'tit'],
       tech: ['orb', 'hab', 'cp', 'als', 'aec', 'ccls', 'acv', 'ops', 'iops', 'aops', 'ism', 'ag', 'hab', 'mine', 'lcv', 'frig', 'ldsf', 'psh', 'ars', 'ish'], pol: ['hum', 'set', 'eco', 'dip'], dip: .2, trade: .3 },
-    eu: { fw: { Phy: 1.55, Eng: 1.1, Bio: .9 }, re: 1.5, cv: .8, kinds: { Telescope: 1.8, Orbiter: 1.2, Flyby: 1, Rover: .8 }, lab: true, bases: .6, init: 0, teles: 2,
+    eu: { aggr: .05, polw: { rob: 3, dip: 3, eco: 1, hum: .5, mil: .1 }, fw: { Phy: 1.55, Eng: 1.1, Bio: .9 }, re: 1.5, cv: .8, kinds: { Telescope: 1.8, Orbiter: 1.2, Flyby: 1, Rover: .8 }, lab: true, bases: .6, init: 0, teles: 2,
       tech: ['icd', 'acd', 'qc', 'aqc', 'ai', 'pm', 'ff', 'fr', 'ars', 'tr', 'itr', 'cp', 'als', 'nano', 'mec', 'atr'], pol: ['rob', 'dip', 'eco', 'hum'], dip: .6, trade: .6 },
-    jp: { fw: { Eng: 1.65, Phy: 1, Bio: .8 }, re: 1.7, cv: .4, kinds: { Orbiter: 1.3, Flyby: 1.1, Rover: 1, Telescope: .8 }, lab: true, bases: .4, init: 0,
+    jp: { aggr: .03, polw: { rob: 4, eco: 2, dip: 1.5, hum: .3, mil: .1 }, fw: { Eng: 1.65, Phy: 1, Bio: .8 }, re: 1.7, cv: .4, kinds: { Orbiter: 1.3, Flyby: 1.1, Rover: 1, Telescope: .8 }, lab: true, bases: .4, init: 0,
       tech: ['icd', 'acd', 'qc', 'aqc', 'nano', 'ai', 'pm', 'ff', 'fr', 'pam', 'ars', 'tr'], pol: ['rob', 'eco', 'dip'], dip: .2, trade: .3 },
-    cn_mil: { fw: { Eng: 1.3, Phy: 1.1, Bio: 1 }, re: 1, cv: 1.2, kinds: { Orbiter: 1, Rover: 1, Flyby: .9, Telescope: .5 }, lab: false, bases: .8, init: 2, armed: true, bully: true,
+    cn_mil: { aggr: .5, polw: { mil: 4, hum: 3, eco: 1.5, rob: 1, dip: .5 }, fw: { Eng: 1.3, Phy: 1.1, Bio: 1 }, re: 1, cv: 1.2, kinds: { Orbiter: 1, Rover: 1, Flyby: .9, Telescope: .5 }, lab: false, bases: .8, init: 2, armed: true,
       tech: ['msl', 'amsl', 'isw', 'asw', 'fd', 'cc', 'lcv', 'frig', 'dest', 'icd', 'acd', 'cp', 'hab', 'mine', 'ars', 'pm', 'ff', 'bd'], pol: ['mil', 'hum', 'eco', 'set'], dip: 0, trade: .2 },
-    cn_rob: { fw: { Eng: 1.4, Bio: 1.2, Phy: 1 }, re: 1.2, cv: 1.1, kinds: { Orbiter: 1.1, Rover: 1.1, Flyby: .9, Telescope: .6 }, lab: false, bases: .9, init: 0,
+    cn_rob: { aggr: .1, polw: { rob: 3, hum: 2.5, eco: 1.5, dip: 1, mil: .7 }, fw: { Eng: 1.4, Bio: 1.2, Phy: 1 }, re: 1.2, cv: 1.1, kinds: { Orbiter: 1.1, Rover: 1.1, Flyby: .9, Telescope: .6 }, lab: false, bases: .9, init: 0,
       tech: ['icd', 'acd', 'hab', 'lcv', 'frig', 'cp', 'als', 'mine', 'ish', 'qc', 'aqc', 'ops', 'iops', 'pm', 'ff', 'ars', 'tr'], pol: ['rob', 'hum', 'set', 'eco'], dip: .2, trade: .3 },
-    as: { fw: { Bio: 1.45, Eng: 1.1, Phy: .8 }, re: .7, cv: 1.5, kinds: { Orbiter: 1, Rover: 1, Flyby: .8, Telescope: .3 }, lab: false, bases: 1.6, init: 0,
+    as: { aggr: .02, polw: { hum: 5, eco: 1.5, dip: 1, rob: .4, mil: .1 }, fw: { Bio: 1.45, Eng: 1.1, Phy: .8 }, re: .7, cv: 1.5, kinds: { Orbiter: 1, Rover: 1, Flyby: .8, Telescope: .3 }, lab: false, bases: 1.6, init: 0,
       tech: ['orb', 'lcv', 'hab', 'mine', 'astro', 'frig', 'ish', 'ref', 'ash', 'ag', 'ops', 'iops', 'cp', 'als', 'lcv', 'frig', 'tr', 'itr', 'psh', 'ars'], pol: ['set', 'hum', 'eco'], dip: .2, trade: .5 },
-    sa: { fw: { Bio: 1.15, Eng: 1.15, Phy: 1.15 }, re: 1.1, cv: 1.1, kinds: { Orbiter: 1.1, Rover: 1.1, Flyby: 1, Telescope: .5 }, lab: false, bases: 1.4, init: 0,
+    sa: { aggr: .1, polw: { hum: 3, dip: 3, eco: 1, rob: 1.5, mil: .3 }, fw: { Bio: 1.15, Eng: 1.15, Phy: 1.15 }, re: 1.1, cv: 1.1, kinds: { Orbiter: 1.1, Rover: 1.1, Flyby: 1, Telescope: .5 }, lab: false, bases: 1.4, init: 0,
       tech: ['orb', 'lcv', 'hab', 'mine', 'astro', 'cp', 'icd', 'acd', 'ish', 'tr', 'itr', 'atr', 'als', 'pm', 'ff', 'ars', 'qc'], pol: ['dip', 'set', 'eco', 'hum'], dip: 1, trade: 1 },
   };
   const prof = G => P[G.f === 'cn' ? 'cn_' + (G.variant || 'mil') : G.f];
@@ -117,6 +117,89 @@ function makeAI(E, D) {
     return Math.min(lcv, Math.max(1, cvSites(G)) + (G.bases.length ? 1 : 0));
   }
 
+  // ---------------- war readiness, hostility and policies ----------------
+  // How ready a faction is to fight: combat-ready crew vehicles by tier (the biggest indicator: CV2/3 = 1, CV4/5 = 2, CV6 = 3,
+  // CV7+ = 4), the Engineering military track (Space Missiles ... Bomber Drones) and, less, the Physics combat techs and its Military policy.
+  const MIL_ENG = ['msl', 'amsl', 'fd', 'cc', 'bd'], MIL_PHY = ['isw', 'asw', 'ef'];
+  const armedCV = s => s.cls === 'CV' && !s.res && s.cb - s.dmg > 0;
+  const cvTier = s => s.sz <= 3 ? 1 : s.sz <= 5 ? 2 : s.sz === 6 ? 3 : 4;
+  function readiness(F) {
+    const cvs = F.ships.filter(armedCV); if (!cvs.length) return 0;
+    const pts = 2 * cvs.reduce((a, s) => a + cvTier(s), 0) + MIL_ENG.filter(k => F.tech[k]).length + .5 * MIL_PHY.filter(k => F.tech[k]).length + .4 * E.polLv(F, 'mil');
+    return Math.min(1.5, pts / 14);
+  }
+  const hasNpfBase = (G, k) => Object.values(G.w).some(x => x.npf === k);
+  // a bot may pick a fight only when a Military policy allows it (embargo: Military; war: Vigorous Military)
+  const canLower = (G, k) => { const nv = G.rel[k] + 1; return nv <= 5 && (nv < 4 || E.polLv(G, 'mil') >= (nv === 4 ? 1 : 2)); };
+  // diplomacy turn of a bot, decided at the moment it resolves (so it sees what factions ahead of it just did):
+  // 1. answer factions that lowered relations with it (always when it is the weaker side, else sometimes),
+  // 2. improve relations with random factions (at least one attempt), at most 6 markers in total,
+  // 3. rarely, lower relations: NPFs with bases are the usual target (raiding pays), factions in play only when clearly stronger.
+  function diplomacyDecide(G) {
+    const pr = prof(G), world = G.world, tag = G.y + ':dip';
+    if (G.aiDip === tag) return; G.aiDip = tag;
+    G.dipl = {};
+    const inPlay = k => !!(world && world.facs[k]), me = readiness(G);
+    const budget = Math.min(6, G.polm), maxN = budget >= 6 ? 3 : budget >= 3 ? 2 : budget >= 1 ? 1 : 0;
+    if (!maxN) { E.log(G, 'Diplomacy decision: no politics markers to spend.'); G.aiHostile = {}; return; }
+    const notes = []; let n = 0;
+    // 1. reactions
+    Object.entries(G.aiHostile || {}).forEach(([k, y]) => {
+      if (!inPlay(k) || G.rel[k] < 4 || n >= maxN) return;
+      const them = readiness(world.facs[k]), weaker = me < them - .1, roll = 1 + Math.floor(E.R.rnd() * 100), chance = weaker ? 100 : G.rel[k] >= 5 ? 50 : 25;
+      const go = roll <= chance;
+      notes.push(`${D.FAC[k].n} lowered relations to ${D.REL[G.rel[k]]} (readiness ${me.toFixed(2)} vs ${them.toFixed(2)}${weaker ? ', weaker' : ''}): rolls ${roll} (${chance}% to answer) ${go ? '→ counters with diplomacy' : '→ lets it stand'}`);
+      if (go && !E.setDiplomacy(G, k, 1)) n++;
+    });
+    G.aiHostile = {};
+    // 3. lowering relations (decided before the random improvements so the cost works out); costs one attempt
+    let hostile = null;
+    if (pr.aggr > 0 && E.polLv(G, 'mil') >= 1 && n < maxN) {
+      const cands = Object.keys(G.rel).filter(k => G.rel[k] < 5 && canLower(G, k) && G.dipl[k] == null && (inPlay(k) ? true : hasNpfBase(G, k)) && !(G.dipl[k] > 0));
+      const reach = k => Object.keys(G.w).some(w => G.w[w].npf === k && !cvWhy(G, w));      // an NPF base its crews can actually get to
+      let opts = cands.map(k => {
+        const npf = !inPlay(k), them = npf ? .25 : readiness(world.facs[k]);
+        if (me <= 0) return null;                                    // no combat-ready CV: never
+        if (npf && !reach(k)) return null;
+        if (!npf && me < them + .25) return null;                     // never start a war it is not clearly winning
+        let c = pr.aggr * 100 * (npf ? 2.2 : .35) * (.4 + Math.min(1, me - (npf ? 0 : them)));   // factions in play can answer back, NPFs cannot
+        if (G.rel[k] === 4) c *= .5;                                  // from embargo to war is costlier still
+        return { k, c, npf };
+      }).filter(Boolean);
+      if (opts.some(o => o.npf)) opts = opts.filter(o => o.npf);       // raiding NPF bases is the usual target
+      if (opts.length) {
+        const o = opts[Math.floor(E.R.rnd() * opts.length)], roll = 1 + Math.floor(E.R.rnd() * 100);
+        const go = roll <= o.c;
+        notes.push(`Hostility check vs ${D.FAC[o.k].n}${o.npf ? ' (NPF)' : ''}: readiness ${me.toFixed(2)}, rolls ${roll} (${Math.round(o.c)}% to ${G.rel[o.k] === 4 ? 'declare war' : 'embargo'}) ${go ? '→ tries to lower relations' : '→ keeps the peace'}`);
+        if (go && !E.setDiplomacy(G, o.k, -1)) { hostile = o.k; n++; }
+      }
+    }
+    // 2. improvements with whoever is left
+    const targets = Object.keys(G.rel).filter(k => G.rel[k] > 0 && k !== hostile && G.dipl[k] == null);
+    const want = Math.max(1 - n, 0) + Math.floor(E.R.rnd() * (maxN - n + 1)) ;
+    let made = 0;
+    for (let a = 0; a < Math.min(want, maxN - n) && targets.length; a++) { const k = pick(targets); if (!E.setDiplomacy(G, k, 1)) { made++; targets.splice(targets.indexOf(k), 1); } }
+    if (!made && !n) notes.push(targets.length ? 'no attempts could be paid for' : 'relations with everyone are already at Alliance');
+    const att = Object.entries(G.dipl).map(([k, d]) => `${d > 0 ? '+' : '−'}${D.FAC[k].n}`).join(', ');
+    E.log(G, `Diplomacy decision: ${att ? `${Object.keys(G.dipl).length} attempt(s) for ${E.dipCost(G)} politics marker(s): ${att}.` : 'no attempts.'}${notes.length ? ' ' + notes.join('; ') + '.' : ''}`);
+  }
+  // policies: finish the starting track, then the two Space Settlement levels, then crew-focused factions go Human; everything
+  // else is a weighted random pick shaped by the faction's goals
+  function policyPick(G) {
+    const pr = prof(G);
+    if (!G.aiStart) G.aiStart = Object.keys(G.pol).filter(k => G.pol[k] > 0);
+    const tryK = k => E.polLv(G, k) < 3 && !E.choosePolicy(G, k);
+    for (const k of G.aiStart) if (tryK(k)) return;
+    if (E.polLv(G, 'set') < 2 && tryK('set')) return;
+    if (pr.cv >= 1.4 && tryK('hum')) return;
+    const pool = D.POL.map(p => p.k).filter(k => E.polLv(G, k) < 3);
+    while (pool.length) {
+      const tot = pool.reduce((a, k) => a + (pr.polw[k] != null ? pr.polw[k] : .5), 0); let r = E.R.rnd() * tot, i = 0;
+      for (; i < pool.length - 1; i++) { r -= (pr.polw[pool[i]] != null ? pr.polw[pool[i]] : .5); if (r <= 0) break; }
+      const k = pool.splice(i, 1)[0]; if (tryK(k)) return;
+    }
+  }
+
   // ---------------- targets ----------------
   function worldScore(G, w, kind) {
     if (!G.w[w] || wv(G, w) < 1 || tele(w)) return 0;
@@ -155,6 +238,7 @@ function makeAI(E, D) {
     else if (p.t === 'box' || p.t === 'fly') v = sysScore(G, p.s, kind) / (1 + .5 * crowd(G, p.s, kind));
     else if (p.w) v = worldScore(G, p.w, kind) / (1 + G.ships.filter(x => x !== s && x.kind === s.kind && E.worldOf(x.loc) === p.w).length);
     else v = 0;
+    if (kind === 'CV' && p.w && G.w[p.w] && G.w[p.w].npf && armedCV(s) && p.t !== 'box' && p.t !== 'fly' && G.rel[G.w[p.w].npf] >= 4) v += G.rel[G.w[p.w].npf] >= 5 ? 9 : 6;   // blockade / raid
     const su = sup == null ? s.cargo.SUP : sup;
     if (canBaseAt(G, s, dest, su)) v += 6 + 6 * prof(G).bases;
     else if (kind === 'CV' && p.t === 'box' && baseSpots(G, s, su).some(x => W[x.w].sys === p.s)) v += 4 + 4 * prof(G).bases;
@@ -190,24 +274,12 @@ function makeAI(E, D) {
       else if (dec <= 5) { E.setInitBid(G, 0); E.log(G, `Initiative: rolls ${dec} on d10 (6+ to spend) and spends no politics markers.`); }
       else { const n = 1 + Math.floor(E.R.rnd() * cap); E.setInitBid(G, n); E.log(G, `Initiative: rolls ${dec} on d10 (6+ to spend), then ${n} on d${cap} (slot ${slot}, ${G.polm} markers held): spends ${n} politics marker${n > 1 ? 's' : ''}.`); }
     }
-    if (G.estep === 'diplomacy') {
-      // always try at least one attempt to improve relations, never spend more than 6 markers (attempts cost 1, 2, 3):
-      // pick how many attempts at random within that budget, each with a random target that can still improve
-      const budget = Math.min(6, G.polm), maxN = budget >= 6 ? 3 : budget >= 3 ? 2 : budget >= 1 ? 1 : 0;
-      const targets = Object.keys(G.rel).filter(k => G.rel[k] > 0);
-      if (!maxN) E.log(G, 'Diplomacy decision: no politics markers to spend.');
-      else if (!targets.length) E.log(G, 'Diplomacy decision: relations with everyone are already at Alliance.');
-      else {
-        const n = 1 + Math.floor(E.R.rnd() * maxN), picks = [];
-        for (let a = 0; a < n; a++) { const k = pick(targets); if (!E.setDiplomacy(G, k, 1)) picks.push(D.FAC[k].n); }
-        E.log(G, `Diplomacy decision: ${picks.length} attempt${picks.length > 1 ? 's' : ''} to improve relations (${E.dipCost(G)} politics marker${E.dipCost(G) > 1 ? 's' : ''}): ${picks.join(', ')}.`);
-      }
-    }
+    if (G.estep === 'diplomacy' && !G.world) diplomacyDecide(G);   // in multi-faction games each bot decides as its turn resolves (advanceWorld)
     if (G.estep === 'production') G.bases.forEach(b => { b.out = E.bestOutput(G, b); });
     if (G.estep === 'transport' && G.transferLeft && G.bases.length && G.cash > 12) { const b = G.bases.find(x => x.w !== 'ear') || G.bases[0]; E.transferRes(G, 'earth', b.id, 'SUP', Math.min(G.transferLeft, 3)); }
     if (G.estep === 'tech' && !G.world) { for (let n = 0; n < 12; n++) if (!techPick(G) || techTurnBot(G) !== 'dev') break; }
     if (G.estep === 'policy') {
-      for (let n = 0; n < 4 && !G.policyPicked; n++) { const k = pr.pol.find(k => E.polLv(G, k) < 3 && !E.choosePolicy(G, k)); if (!k) { const any = D.POL.find(p => !E.choosePolicy(G, p.k)); if (!any) break; } }
+      for (let n = 0; n < 4 && !G.policyPicked; n++) { const before = JSON.stringify(G.pol); policyPick(G); if (JSON.stringify(G.pol) === before) break; }
     }
   }
   // research: the best affordable technology by this bot's priorities, or null
@@ -268,7 +340,9 @@ function makeAI(E, D) {
       if (!G.aiCv || G.aiCv.d !== Math.floor(G.y / 10)) G.aiCv = { d: Math.floor(G.y / 10), n: 0 };   // CVs built this decade (kept in the save)
       const cvBuilt = G.aiCv.n;
       const over = focCV && G.cash - reserve >= 25 ? 1 : 0;
-      const cvRoom = cvBuilt < perDecade && (nCv < tgt || (focCV && nCv < lcv + over)) && nCv < lcv + 1;
+      // a military-minded bot with no combat-ready crew vehicle builds one (it is what makes embargoes and raids possible at all)
+      const needArmed = (pr.armed || (pr.aggr >= .2 && E.polLv(G, 'mil') >= 1)) && !G.ships.some(armedCV);
+      const cvRoom = cvBuilt < perDecade && (nCv < tgt || (focCV && nCv < lcv + over) || (needArmed && nCv < lcv)) && nCv < lcv + 1;
       const reOpts = opts.filter(o => !o.cv && E.nonProbeRE(G) < lre), cvOpts = !cvRoom || (idle && G.ships.some(x => x.cls === 'CV' && x.ev > 0 && x.cap)) ? [] : opts.filter(o => o.cv);
       const teles = G.ships.filter(s => s.kind === 'Telescope').length;
       // mission focus: build the explorer the first unmet mission goal needs (foc / focCV set above)
@@ -278,8 +352,8 @@ function makeAI(E, D) {
         if (o.kind === 'Telescope') k *= teles < (pr.teles || 1) ? 1.6 : .25;
         return k * (o.u.ev + (o.u.spec ? 2 : 0)) / Math.max(1, E.sum(o.cost)) * pr.re;
       };
-      const canFound = G.ships.some(x => x.cls === 'CV' && x.ev > 0 && x.cap);
-      const scoreCV = o => (focCV && o.u.ev > 0 ? 5 : 1) * (o.u.ev > 0 && o.u.cargo && !canFound && wantBase(G) ? 2.5 : 1) * (o.u.ev > 0 || (G.bases.length && G.ships.filter(x => x.cls === 'CV' && !(x.ev > 0)).length < G.bases.length) ? 1 : 0) * pr.cv * ((o.u.ev || 0) + (o.u.ev > 0 ? (o.u.cargo || 0) * pr.bases : 0) + (pr.armed ? (o.u.cb || 0) * 1.5 : 0)) / Math.max(1, E.sum(o.cost));
+      const canFound = G.ships.some(x => x.cls === 'CV' && x.ev > 0 && x.cap), warlike = Object.keys(G.rel).some(k => G.rel[k] >= 4 && !(G.world && G.world.facs[k]) && hasNpfBase(G, k));
+      const scoreCV = o => (focCV && o.u.ev > 0 ? 5 : 1) * (needArmed && o.u.cb > 0 ? 4 : 1) * (o.u.ev > 0 && o.u.cargo && !canFound && wantBase(G) ? 2.5 : 1) * (o.u.ev > 0 || (G.bases.length && G.ships.filter(x => x.cls === 'CV' && !(x.ev > 0)).length < G.bases.length) ? 1 : 0) * pr.cv * ((o.u.ev || 0) + (o.u.ev > 0 ? (o.u.cargo || 0) * pr.bases : 0) + ((pr.armed || warlike) ? (o.u.cb || 0) * 1.5 : 0)) / Math.max(1, E.sum(o.cost));
       const cands = reOpts.map(o => [o, scoreRE(o)]).concat(cvOpts.map(o => [o, scoreCV(o)]));
       if (!cands.length) break;
       cands.sort((a, b) => b[1] - a[1]);
@@ -353,8 +427,14 @@ function makeAI(E, D) {
     }
   }
   function combat(G) {
-    if (!prof(G).armed) return;
-    E.combatOptions(G).filter(o => o.k === 'pirate').forEach(o => E.combatAct(G, o));
+    const opts = E.combatOptions(G);
+    if (prof(G).armed) opts.filter(o => o.k === 'pirate').forEach(o => E.combatAct(G, o));
+    // embargo: blockade an NPF base; war: raid it (raiding pays; the fleet needs a combat-ready crew vehicle with some hull left)
+    opts.filter(o => o.k === 'raid' || o.k === 'blockade').forEach(o => {
+      const fleet = G.ships.filter(s => E.worldOf(s.loc) === o.w && armedCV(s));
+      if (o.k === 'raid' && fleet.reduce((a, s) => a + s.sz - s.dmg, 0) < 3) return;
+      const r = E.combatAct(G, o); if (typeof r === 'string') return;
+    });
   }
   function explore(G) {
     const pr = prof(G);
@@ -436,8 +516,9 @@ function makeAI(E, D) {
       const g = world.facs[f]; if (g.over) continue;
       if (g !== H) answerAsks(g);
       const mark = g.log[0];
+      if (g.phase === 'econ' && g.estep === 'diplomacy' && (g !== H || driving)) diplomacyDecide(g);
       E.advance(g);
-      if (g !== H) { answerAsks(g); const fresh = []; for (const l of g.log) { if (l === mark) break; fresh.push(l); } fresh.reverse().forEach(l => { if ((l.c === 'x' && /pirate|destroyed|lost/i.test(l.t)) || /^Diplomacy with /.test(l.t)) E.log(H, `${D.FAC[g.f].pre}: ${l.t}`, 'bot'); }); }
+      if (g !== H) { answerAsks(g); const fresh = []; for (const l of g.log) { if (l === mark) break; fresh.push(l); } fresh.reverse().forEach(l => { if ((l.c === 'x' && /pirate|destroyed|lost/i.test(l.t)) || /^Diplomacy with |^Diplomacy decision/.test(l.t)) E.log(H, `${D.FAC[g.f].pre}: ${l.t}`, 'bot'); }); }
     }
     const lead = world.facs[world.meta.order[0]] || world.facs[order[0]];
     if (Object.values(world.facs).some(g => g.over)) Object.values(world.facs).forEach(g => { if (!g.over) E.finish(g, 'The campaign ends.'); });
@@ -445,16 +526,17 @@ function makeAI(E, D) {
     return true;
   }
   // a whole game with no human (tests): the first faction is driven like a bot too
+  let driving = false;
   function autoPlay(H, maxSteps) {
-    let n = 0;
+    let n = 0; driving = true;
     while (!H.over && n++ < (maxSteps || 50000)) {
       if (techStep(H)) techLoop(H, { driveHuman: true });
       runBots(H, 'before'); const mark = H.log[0]; botPhase(H); answerAsks(H); runBots(H, 'after');
       if (!advanceWorld(H)) { answerAsks(H); if (H.ask.length) H.ask.length = 0; }
     }
-    return n;
+    driving = false; return n;
   }
-  return { profiles: P, prof, techLoop, botPhase, answerAsks, runBots, begin, advanceWorld, autoPlay, baseSpotOk, planningBase, baseSpots };
+  return { profiles: P, prof, readiness, diplomacyDecide, policyPick, techLoop, botPhase, answerAsks, runBots, begin, advanceWorld, autoPlay, baseSpotOk, planningBase, baseSpots };
 }
 if (typeof module !== 'undefined' && module.exports) module.exports = makeAI; else root.SHAI = makeAI;
 })(typeof window !== 'undefined' ? window : globalThis);
