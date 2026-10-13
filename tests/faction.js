@@ -119,5 +119,10 @@ if (!hum) fail('the human should be told of fights it is involved in');
 // 8. robotic explorers can be launched toward Alpha Centauri (a Flyby cannot make a heliocentric transfer there later)
 { const w2 = mkW(), g = w2.world.facs.na; ['Flyby', 'Orbiter', 'Rover'].forEach(kind => { const re = { id: 900 + g.nid++, name: kind, kind, cls: 'RE', sz: 1, cb: 0, dmg: 0, cargo: { ORE: 0, SUP: 0, FUEL: 0 }, loc: 'earth', launched: false }; g.ships.push(re); g.phase = 'move'; g.turn.moved = {};
   if (!E.moves(g, re).some(m => /alp/.test(m.dest))) fail(kind + ' should be launchable toward Alpha Centauri'); g.ships = g.ships.filter(x => x !== re); }); }
+// 9. a Flyby still far from its target (turns held beyond box 6 count) cannot explore: the penalty can take the value to zero or below
+{ const w2 = mkW(), g = w2.world.facs.na; g.phase = 'explore'; g.turn.acted = {};
+  const fl = (loc, hold) => ({ id: 950, name: 'F', kind: 'Flyby', cls: 'RE', sz: 1, ev: 1, cb: 0, dmg: 0, cargo: { ORE: 0, SUP: 0, FUEL: 0 }, loc, hold, launched: true });
+  let s = fl('box:alp:6', 35); g.ships = [s]; if (E.exploreOptions(g, s).length) fail('a Flyby 41 turns from Alpha Centauri must not be able to explore it');
+  s = fl('box:alp:1', 0); g.ships = [s]; if (!E.exploreOptions(g, s).length) fail('a Flyby one turn out should explore Alpha Centauri'); }
 console.log(bad ? 'FAILED' : 'ALL OK');
 process.exit(bad ? 1 : 0);

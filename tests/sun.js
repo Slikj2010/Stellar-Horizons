@@ -11,7 +11,7 @@ ok(o.some(x => x.w === 'sun' && x.pen === 0), 'orbiter at Mercury explores the S
 ok(o.some(x => x.w === 'mer'), 'orbiter at Mercury still explores Mercury');
 ok(E.exploreOptions(G, mk('Orbiter', 'orbit:sun')).some(x => x.w === 'sun'), 'orbiter at the Sun explores it');
 ok(!E.exploreOptions(G, mk('Rover', 'surf:mer')).some(x => x.w === 'sun'), 'rover on Mercury cannot explore the Sun');
-const fb = E.exploreOptions(G, mk('Flyby', 'box:mer:2')).find(x => x.w === 'sun');
+const fbs = mk('Flyby', 'box:mer:2'); fbs.ev = 12; const fb = E.exploreOptions(G, fbs).find(x => x.w === 'sun');
 ok(fb && fb.pen === 2, 'flyby in Mercury box 2 explores the Sun at -2');
 ok(E.exploreOptions(G, mk('Telescope', 'orbit:ear')).some(x => x.w === 'sun'), 'telescope can explore the Sun');
 G.phase = 'move';

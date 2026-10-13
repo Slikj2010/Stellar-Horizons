@@ -1443,11 +1443,12 @@ function flybyTransfer(G, s, sy) {
 function exploreOptions(G, s) {
   if (G.phase !== 'explore' || G.turn.acted[s.id] || G.over) return [];
   const p = P(s.loc), out = [];
-  const add = (w, kind, pen, why) => { if (G.w[w].v < 1 && kind !== 'produce') return; out.push({ w, kind, pen: pen || 0, why, value: exploreValue(G, s, w, kind === 'probe', pen || 0) }); };
+  const add = (w, kind, pen, why) => { if (G.w[w].v < 1 && kind !== 'produce') return; if (kind !== 'produce' && kind !== 'harvest' && exploreValue(G, s, w, kind === 'probe', pen || 0) <= 0) return; out.push({ w, kind, pen: pen || 0, why, value: exploreValue(G, s, w, kind === 'probe', pen || 0) }); };
   if (s.cls === 'RE') {
     if (s.kind === 'Telescope') { if (s.loc === 'orbit:ear') Object.keys(W).forEach(w => { if (w !== 'alp' && w !== 'ear') add(w, 'explore'); }); return out.sort((a, b) => b.value - a.value); }
     if (s.kind === 'Flyby') {
-      if (p.t === 'box' || p.t === 'fly') worldsIn(p.s).forEach(w => { if (!W[w].tags.includes('tele')) { add(w, 'explore', p.n); if (s.probe && p.t === 'fly') add(w, 'probe', 0); } });
+      // a Flyby in a transfer box is penalised by the turns it still has to travel: its box number plus any turns held beyond box 6
+      if (p.t === 'box' || p.t === 'fly') worldsIn(p.s).forEach(w => { if (!W[w].tags.includes('tele')) { add(w, 'explore', p.n + (p.t === 'box' ? s.hold || 0 : 0)); if (s.probe && p.t === 'fly') add(w, 'probe', 0); } });
       return out;
     }
     if (!s.fixed) return out;
