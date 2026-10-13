@@ -1,4 +1,4 @@
-# Stellar Horizons (solo campaign, browser)
+# Stellar Horizons (Campaign, browser)
 
 A browser adaptation of Compass Games' *Stellar Horizons* solo campaign (2030–2169), built on the Vassal module's board and counter art.
 
