@@ -1,6 +1,6 @@
-# Stellar Horizons (Campaign, browser)
+# Stellar Horizons (Campaign)
 
-A browser adaptation of Compass Games' *Stellar Horizons* solo campaign (2030–2169), built on the Vassal module's board and counter art.
+An adaptation of Compass Games' *Stellar Horizons* campaign (2030–2169), built on the Vassal module's board and counter art. Designed with AI.
 
 ## Play
 Open `index.html` through any static web server (the page loads its data with `fetch`, so opening the file directly from disk will not work):
