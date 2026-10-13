@@ -116,5 +116,8 @@ console.log('strong bot fought', atk, 'of 60; human saw', hum, '; weak bot fough
 if (atk < 30) fail('a clearly stronger bot should attack');
 if (weakAtk) fail('a weaker bot should not attack');
 if (!hum) fail('the human should be told of fights it is involved in');
+// 8. robotic explorers can be launched toward Alpha Centauri (a Flyby cannot make a heliocentric transfer there later)
+{ const w2 = mkW(), g = w2.world.facs.na; ['Flyby', 'Orbiter', 'Rover'].forEach(kind => { const re = { id: 900 + g.nid++, name: kind, kind, cls: 'RE', sz: 1, cb: 0, dmg: 0, cargo: { ORE: 0, SUP: 0, FUEL: 0 }, loc: 'earth', launched: false }; g.ships.push(re); g.phase = 'move'; g.turn.moved = {};
+  if (!E.moves(g, re).some(m => /alp/.test(m.dest))) fail(kind + ' should be launchable toward Alpha Centauri'); g.ships = g.ships.filter(x => x !== re); }); }
 console.log(bad ? 'FAILED' : 'ALL OK');
 process.exit(bad ? 1 : 0);

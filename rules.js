@@ -789,7 +789,6 @@ function moves(G, s) {
       if (!lvOpts.length) return [];
       if (s.kind === 'Telescope') { lvOpts.slice(0, 1).forEach(lv => add('orbit:ear', { lv })); return out; }
       D.SYS_ORDER.forEach(sy => {
-        if (sy === 'alp' || sy === 'sca' && s.kind !== 'Flyby' && false) return;
         if (sy === here) {
           worldsIn(sy).forEach(w => {
             if (W[w].tags.includes('tele') || W[w].tags.includes('earth') || w === 'ear') return;
