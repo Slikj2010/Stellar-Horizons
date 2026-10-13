@@ -42,6 +42,25 @@ for (let i = 0; i < 30 && !def.res; i++) { na.turn.acted = {}; E.combatAct(na, {
 if (!def.res || def.cargo.ORE) fail('unarmed CV should surrender: reserved with cargo destroyed');
 if (cn.polm >= q0 || na.polm <= p0) fail('a politics marker should pass to the victor');
 na.turn.acted = {}; if (!E.combatAct(na, { k: 'fleet', f: 'cn', key: 'w:mar' })) fail('a faction that surrendered cannot be attacked again this turn');
+// 3b. surrender terms: embargo must accept; at war a one-sided win with nothing to seize is refused, a politics marker or cargo is worth accepting
+function surr(rel, pm, cargo, def) {
+  const w2 = E.newWorld({ human: 'eu', bots: [{ f: 'na' }, { f: 'cn', variant: 'mil' }] }), a = w2.world.facs.na, c = w2.world.facs.cn; clear(a); clear(c);
+  const at = mk(a, 'A1', 4, 6, 'orbit:mar'), df = mk(c, 'C1', 3, 0, 'orbit:mar'); df.cargo.ORE = cargo; at.cap = 8; c.polm = pm;
+  link(a, c, rel); a.phase = 'combat'; a.turn.acted = {}; a.ask = [];
+  for (let i = 0; i < 40 && !a.log.some(l => /surrenders|refuses/.test(l.t)); i++) { a.turn.acted = {}; E.combatAct(a, { k: 'fleet', f: 'cn', key: 'w:mar' }); }
+  return { accepted: a.log.some(l => /surrenders to/.test(l.t)), refused: a.log.some(l => /refuses the surrender/.test(l.t)) };
+}
+let r = surr(4, 0, 0); if (!r.accepted) fail('under embargo a surrender must be accepted');
+r = surr(5, 0, 0); if (r.accepted || !r.refused) fail('at war, a one-sided fight with nothing to seize should refuse the surrender: ' + JSON.stringify(r));
+r = surr(5, 3, 0); if (!r.accepted) fail('at war, a politics marker to take should make the attacker accept');
+r = surr(5, 0, 6); if (!r.accepted) fail('at war, cargo to seize should make the attacker accept');
+// human attacker gets the choice at war, and can split a base's surrender from its ships
+{ const w2 = mkW(), a = w2.world.facs.na, c = w2.world.facs.cn; clear(a); clear(c); mk(a, 'A1', 4, 6, 'orbit:mar'); const df = mk(c, 'C1', 3, 0, 'orbit:mar');
+  c.bases.push({ id: 'b' + c.nid++, name: 'CB', w: 'mar', stock: { ORE: 4, SUP: 0, FUEL: 0 }, fac: { lab: 0, mine: 1, sup: 0, def: 0 }, dmg: { lab: 0, mine: 0, sup: 0, def: 0 }, set: 0, setDmg: 0, trade: null, out: 'ORE', built: 2030, techField: 'Phy' });
+  link(a, c, 5); a.phase = 'combat'; a.turn.acted = {}; a.ask = []; c.polm = 2;
+  for (let i = 0; i < 40 && !a.ask.length; i++) { a.turn.acted = {}; E.combatAct(a, { k: 'bombard', f: 'cn', key: 'w:mar' }); }
+  const q = a.ask[0]; if (!q || q.k !== 'surrender' || !q.split) fail('human attacker should be asked about a base surrender with ships: ' + JSON.stringify(q && q.k));
+  else { const p0 = c.polm; E.answer(a, 'exclude'); if (a.ask[0] && a.ask[0].k === 'battle') E.answer(a, 'auto'); const att0 = a.ships[0]; if (att0 && !att0.res && c.polm !== p0 - 1) fail('excluded-ships path should still take the base surrender (politics marker)'); if (!a.log.some(l => /excludes/.test(l.t))) fail('exclusion not logged'); } }
 // 4. blockade of a base: halves output, stops growth, pays $2B
 w = mkW(); na = w.world.facs.na; cn = w.world.facs.cn; clear(na); clear(cn);
 const bse = { id: 'b' + cn.nid++, name: 'Test', w: 'mar', stock: { ORE: 3, SUP: 0, FUEL: 0 }, fac: { lab: 0, mine: 2, sup: 1, def: 1 }, dmg: { lab: 0, mine: 0, sup: 0, def: 0 }, set: 20, setDmg: 0, trade: null, out: 'ORE', built: 2030, techField: 'Phy' };

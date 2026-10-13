@@ -976,6 +976,10 @@ function answer(G, choice, data) {
     if (!G.ships.includes(s) || s.res) return null;
     return move(G, s, a.dest, a.opt);
   }
+  if (a.k === 'surrender') {
+    const ch = choice === 'deny' && a.canDeny ? 'deny' : choice === 'exclude' && a.split ? 'exclude' : 'accept';
+    G.ask.shift(); afterOffer(G, facG(G, a.ctx.d), a.ctx, ch); return null;
+  }
   if (a.k === 'battle') {
     G.ask.shift(); const B = facG(G, a.st.d), rem = a.rem; let plan = null;
     if (choice === 'avoid' && rem >= 3) plan = { avoid: true };
@@ -1170,14 +1174,80 @@ function startBattle(A, B, key, o) {
     fd.forEach(u => { if (B.ships.includes(u.o)) loseRE(B, u.o, `is destroyed by ${nm(A)}`); });
     return { done: true, found: true };
   }
-  if (o.surr != null ? o.surr : wantSurrender(B, fd, A, fa)) { doSurrender(A, fa, B, fd); return { done: true, found: true, surrendered: true }; }
-  const st = { a: A.f, d: B.f, key, ia: fa.map(u => u.o.id), id: fd.filter(u => u.t === 's').map(u => u.o.id), ib: fd.filter(u => u.t === 'b').map(u => u.o.id), tpA: fleetTP(A, rB, fd), tpB: fleetTP(B, rA, fa) };
-  if (isHuman(A) && st.tpA > st.tpB && !o.noAsk) {
+  const offered = o.surr != null ? o.surr : wantSurrender(B, fd, A, fa);
+  const ctx = { d: B.f, key, ia: fa.map(u => u.o.id), id: fd.filter(u => u.t === 's').map(u => u.o.id), ib: fd.filter(u => u.t === 'b').map(u => u.o.id), rA, rB, noAsk: !!o.noAsk };
+  if (offered) {
+    // embargo: every surrender must be accepted; war: a fleet's surrender may be refused. Either way a base's surrender must be accepted, but the
+    // ships with it can be excluded, fought first and the base's surrender taken afterwards.
+    const war = A.rel[B.f] >= 5, split = hasBase && fd.some(u => u.t === 's'), canDeny = war && !hasBase;
+    let choice = 'accept';
+    if (canDeny || split) {
+      if (isHuman(A) && !o.noAsk) {
+        A.ask.push({ k: 'surrender', ctx, canDeny, split, info: surrenderInfo(A, fa, B, fd), text: `${nm(B)} offers to surrender at ${where}.` });
+        return { pending: true, found: true };
+      }
+      choice = botSurrenderChoice(A, fa, B, fd, { canDeny, split });
+    }
+    return { ...afterOffer(A, B, ctx, choice), found: true };
+  }
+  return { ...tacticsStep(A, B, ctx, null), found: true };
+}
+// what the attacker would get from accepting a surrender (for the human's prompt and the bot's decision)
+function surrenderInfo(A, fa, B, fd) {
+  const cvs = fd.filter(uCV), bases = fd.filter(u => u.t === 'b');
+  let room = fa.filter(uCV).reduce((a, u) => a + u.o.cap * cargoMul(A) - sum(u.o.cargo), 0);
+  const cargo = cvs.reduce((a, u) => a + sum(u.o.cargo), 0), stock = bases.reduce((a, u) => a + Math.min(5.5, sum(u.o.stock)), 0);
+  const seize = Math.min(room, Math.floor((cargo + stock) / 2));
+  return { cvs: cvs.length, cvSize: cvs.reduce((a, u) => a + u.o.sz, 0), pm: B.polm > 0, seize };
+}
+// the fight if the surrender is refused: victory markers expected from kills, and what the fight costs us
+function fightNet(A, fa, B, fd) {
+  const pa = power(A, fa), pb = power(B, fd), nA = fa.length, nB = fd.length;
+  let pool = D.combatDamage(pa + 5.5 + Math.max(0, nB - 1), false), vm = 0;
+  fd.filter(uCV).sort((x, y) => uHp(x) - uHp(y)).forEach(u => { if (pool >= uHp(u)) { pool -= uHp(u); vm += markersFor(u.o.sz); } });
+  const back = pb > 0 ? D.combatDamage(pb + 5.5 + Math.max(0, nA - 1), false) : 0, rc = recall(A) / 100;
+  const weakest = Math.min(...fa.filter(uCV).map(uHp), 99);
+  const lossRisk = back >= weakest ? 1 : back / Math.max(1, weakest);
+  const cost = back * (0.45 + 0.4 * rc) + lossRisk * 2 * (fa.filter(uCV).length ? 1.5 : 0);
+  return { vm, cost, back, oneSided: pb * 3 <= pa || pb === 0 };
+}
+// attacker's decision on a surrender it may choose to refuse or split: reserving the enemy fleet slows it down a lot and a politics marker is worth
+// taking, but a one-sided win with nothing to seize is better fought
+function botSurrenderChoice(A, fa, B, fd, o) {
+  const info = surrenderInfo(A, fa, B, fd), pm = info.pm ? 1.5 : 0, resV = info.seize * 0.25;
+  const reserve = fd.filter(uCV).reduce((a, u) => a + 0.5 + 0.25 * u.o.sz, 0);
+  const accept = pm + reserve + resV;
+  const ships = fd.filter(u => u.t === 's');
+  if (o.split) {
+    const f = fightNet(A, fa, B, ships), baseInfo = surrenderInfo(A, fa, B, fd.filter(u => u.t === 'b'));
+    const excl = f.vm - f.cost + (info.pm ? 1.5 : 0) + baseInfo.seize * 0.25;
+    return excl > accept ? 'exclude' : 'accept';
+  }
+  if (!o.canDeny) return 'accept';
+  const f = fightNet(A, fa, B, fd), gain = info.pm || info.seize > 0;
+  if (!gain && f.oneSided) return 'deny';
+  return f.vm - f.cost > accept ? 'deny' : 'accept';
+}
+function afterOffer(A, B, ctx, choice) {
+  const fa = unitsOf(A, ctx.ia, []), fd = unitsOf(B, ctx.id, ctx.ib);
+  if (choice === 'accept') { doSurrender(A, fa, B, fd); return { done: true, surrendered: true }; }
+  if (choice === 'exclude') {
+    blog(A, B, `${nm(A)} excludes ${nm(B)}'s ships from the surrender of the base and fights them first.`, 'e');
+    return tacticsStep(A, B, { ...ctx, ib: [] }, { ib: ctx.ib });
+  }
+  blog(A, B, `${nm(A)} refuses the surrender.`, 'e');
+  return tacticsStep(A, B, ctx, null);
+}
+function tacticsStep(A, B, ctx, after) {
+  const fa = unitsOf(A, ctx.ia, []), fd = unitsOf(B, ctx.id, ctx.ib), where = keyName(ctx.key);
+  if (!fa.length || !fd.length) return { done: true };
+  const st = { a: A.f, d: B.f, key: ctx.key, ia: ctx.ia, id: ctx.id, ib: ctx.ib, after, tpA: fleetTP(A, ctx.rB, fd), tpB: fleetTP(B, ctx.rA, fa) };
+  if (isHuman(A) && st.tpA > st.tpB && !ctx.noAsk) {
     const rem = st.tpA - st.tpB;
     A.ask.push({ k: 'battle', st, rem, text: `Combat with ${nm(B)} at ${where}: you have ${st.tpA} tactics points to their ${st.tpB}, so you can spend ${rem}.` });
-    return { pending: true, found: true };
+    return { pending: true };
   }
-  return { ...resolveBattle(A, B, st, null), found: true };
+  return resolveBattle(A, B, st, null);
 }
 
 // the winner of the tactics points spends its remainder
@@ -1216,6 +1286,14 @@ function applyHit(g, u, out) {
   if (b.dmg[c] >= sizeOfFac(c, b.fac[c])) { b.fac[c] = DOWNFAC[c][b.fac[c]]; b.dmg[c] = 0; out.facLost++; }
 }
 function resolveBattle(A, B, st, plan) {
+  const r = resolveBattle0(A, B, st, plan);
+  if (st.after) {
+    const fa = unitsOf(A, st.ia, []).filter(u => !u.o.res), fb = unitsOf(B, [], st.after.ib);
+    if (fa.length && fb.length) doSurrender(A, fa, B, fb);
+  }
+  return r;
+}
+function resolveBattle0(A, B, st, plan) {
   const fa = unitsOf(A, st.ia, []), fb = unitsOf(B, st.id, st.ib);
   if (!fa.length || !fb.length) return { done: true };
   const aWins = st.tpA > st.tpB, tie = st.tpA === st.tpB, rem = Math.abs(st.tpA - st.tpB);

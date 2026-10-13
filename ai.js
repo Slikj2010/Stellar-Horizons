@@ -260,6 +260,7 @@ function makeAI(E, D) {
       else if (a.k === 'immigration') r = E.answer(G, G.bases[0] && G.bases[0].id);
       else if (a.k === 'intercept') { const s = G.ships.find(x => x.id === a.ship), g = G.world && G.world.facs[a.by]; r = E.answer(G, s && g && E.interceptAuto(G, s, { g, key: a.key }) === 'fight' ? 'fight' : 'stop'); }
       else if (a.k === 'battle') r = E.answer(G, 'auto');
+      else if (a.k === 'surrender') r = E.answer(G, a.split ? 'exclude' : a.canDeny && !a.info.pm && !a.info.seize ? 'deny' : 'accept');
       else G.ask.shift();
       if (typeof r === 'string' && G.ask[0] === a) G.ask.shift();
     }

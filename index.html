@@ -1686,6 +1686,11 @@ function renderAsk() {
   let h = `<h2>Decision</h2><p>${esc(a.text)}</p>`;
   if (a.k === 'pirate') h += `<p class="dim">Pirate demand roll: ${a.roll}.</p><div class="row"><button class="b" data-ans="pay">Pay $${a.roll}B and pass</button><button class="b" data-ans="remove">Pay $${a.roll * 2}B to drive it off</button><button class="b" data-ans="fight">Fight</button><button class="b" data-ans="surrender">Surrender</button><button class="b" data-ans="stay">Stay put</button></div>`;
   if (a.k === 'intercept') h += `<div class="row"><button class="b" data-ans="stop">Stop moving</button><button class="b" data-ans="fight">Fight</button><button class="b" data-ans="surrender">Surrender (cargo destroyed, crew vehicle reserved, 1 politics marker lost)</button></div>`;
+  if (a.k === 'surrender') {
+    const i = a.info;
+    h += `<p class="dim">Accepting reserves ${i.cvs} crew vehicle${i.cvs === 1 ? '' : 's'} (CV size total ${i.cvSize}; they must be unreserved before they can move again), destroys their cargo and stockpiles, ${i.seize ? `lets you seize about ${i.seize} resource${i.seize > 1 ? 's' : ''}` : 'seizes nothing'}${i.pm ? ' and takes one of their politics markers' : ' (they have no politics marker to take)'}.</p><div class="row"><button class="b" data-ans="accept">Accept the surrender</button>
+      ${a.canDeny ? '<button class="b" data-ans="deny">Refuse and fight</button>' : ''}${a.split ? '<button class="b" data-ans="exclude">Fight their ships first, then take the base surrender</button>' : ''}</div>${!a.canDeny && !a.split ? '' : `<p class="dim">${a.split ? 'A base\'s surrender must be accepted, but the ships with it can be excluded and fought separately.' : 'At war a fleet\'s surrender may be refused; under embargo it must be accepted.'}</p>`}`;
+  }
   if (a.k === 'battle') {
     const r = a.rem, dx = n => Array.from({ length: n }, (_, i) => i + 1);
     h += `<p class="dim">Unspent points go to picking targets (1 each). With no one spending, the combat is a strike, which only a side with Space Missiles can win damage from. Direct fire costs 1.</p><div class="row">
