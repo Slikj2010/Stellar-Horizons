@@ -981,6 +981,16 @@ function answer(G, choice, data) {
     const ch = choice === 'deny' && a.canDeny ? 'deny' : choice === 'exclude' && a.split ? 'exclude' : 'accept';
     G.ask.shift(); afterOffer(G, facG(G, a.ctx.d), a.ctx, ch); return null;
   }
+  if (a.k === 'basehit') {
+    const g = facG(G, a.f), b = g && g.bases.find(x => x.id === a.base);
+    if (!b) { G.ask.shift(); return null; }
+    const al = choice === 'auto' || !data || !data.alloc ? autoAlloc(b, a.n) : data.alloc;
+    const bad = checkAlloc(b, a.n, al); if (bad) return bad;
+    let pick = null; if (al.res) { const tot = Math.min(2 * al.res, sum(b.stock)), pr = data && data.res; if (pr) { const t = RES.reduce((x, r) => x + (+pr[r] || 0), 0); if (t !== tot || RES.some(r => (+pr[r] || 0) > b.stock[r] || pr[r] < 0)) return `Choose exactly ${tot} resources, no more of a type than the base holds.`; pick = { ORE: +pr.ORE || 0, SUP: +pr.SUP || 0, FUEL: +pr.FUEL || 0 }; } }
+    G.ask.shift(); const r = applyAlloc(b, al, pick);
+    blog(G, g, `${nm(G)} hits ${nm(g)}'s base ${b.name}: ${[...FAC4, 'set', 'res'].filter(c => al[c]).map(c => `${al[c]} on ${c === 'set' ? 'settlements' : c === 'res' ? 'resources (' + r.destroyed + ' destroyed)' : c}`).join(', ')}.`, 'x');
+    return null;
+  }
   if (a.k === 'battle') {
     G.ask.shift(); const B = facG(G, a.st.d), rem = a.rem; let plan = null;
     if (choice === 'avoid' && rem >= 3) plan = { avoid: true };
@@ -1272,8 +1282,32 @@ function pickUnit(us, mode, forced) {
   const weak = (a, b) => (uCb(b) > 0) - (uCb(a) > 0) || uHp(a) - uHp(b), tough = (a, b) => (uCb(a) > 0) - (uCb(b) > 0) || uHp(b) - uHp(a);
   return pool.slice().sort(forced === 'kill' || (!forced && mode === 'strike') ? weak : tough)[0];
 }
-const SET_TOK = [0, 1, 2, 3, 4, 5, 10, 15, 20]; // settlement token values
-const setDown = n => { const t = SET_TOK.filter(v => v < Math.min(n, 21)); return t[t.length - 1]; };
+// Base hits (3.4): each hit is spent on one building: a facility (downgrades or is removed when its damage equals its size),
+// or a settlement (defense 3; at 3 damage one settlement is lost), or on resources (each hit destroys 2 resources of the
+// attacker's choice). A hit with no building left destroys the base. Hits are collected per base and assigned afterwards.
+const SETDEF = 3, FAC4 = ['def', 'lab', 'mine', 'sup'];
+function facHits(b, c) { let l = b.fac[c], h = -(b.dmg[c] || 0); while (l > 0) { h += sizeOfFac(c, l); l = DOWNFAC[c][l]; } return Math.max(0, h); }
+const setHitsLeft = b => Math.max(0, (b.set || 0) * SETDEF - (b.setHits || 0));
+const bldgHits = b => FAC4.reduce((a, c) => a + facHits(b, c), 0) + setHitsLeft(b);
+function baseCaps(b) { const c = {}; FAC4.forEach(k => c[k] = facHits(b, k)); c.set = setHitsLeft(b); c.res = Math.ceil(sum(b.stock) / 2); return c; }
+function autoAlloc(b, n) { const caps = baseCaps(b), al = { def: 0, lab: 0, mine: 0, sup: 0, set: 0, res: 0 }; for (const c of [...FAC4, 'set']) { const t = Math.min(n, caps[c]); al[c] = t; n -= t; } return al; }
+function applyAlloc(b, al, resPick) {
+  let lost = 0;
+  for (const c of FAC4) for (let i = 0; i < (al[c] || 0); i++) { b.dmg[c]++; if (b.dmg[c] >= sizeOfFac(c, b.fac[c])) { b.fac[c] = DOWNFAC[c][b.fac[c]]; b.dmg[c] = 0; lost++; } }
+  for (let i = 0; i < (al.set || 0); i++) { b.setHits = (b.setHits || 0) + 1; if (b.setHits >= SETDEF) { b.set = Math.max(0, b.set - 1); b.setHits = 0; lost++; } }
+  let destroyed = 0;
+  for (let i = 0; i < (al.res || 0) * 2; i++) {
+    let r = resPick && RES.find(x => resPick[x] > 0 && b.stock[x] > 0);
+    if (!r) r = RES.slice().sort((x, y) => b.stock[y] - b.stock[x])[0];
+    if (b.stock[r] > 0) { b.stock[r]--; destroyed++; if (resPick && resPick[r] > 0) resPick[r]--; }
+  }
+  return { lost, destroyed };
+}
+function checkAlloc(b, n, al) {
+  const caps = baseCaps(b); let t = 0;
+  for (const c of [...FAC4, 'set', 'res']) { const v = Math.floor(+al[c] || 0); if (v < 0 || v > caps[c]) return `Too many hits on ${c}.`; t += v; }
+  return t === n ? null : `Assign exactly ${n} hit${n > 1 ? 's' : ''}.`;
+}
 function applyHit(g, u, out) {
   if (u.t === 's') {
     const s = u.o;
@@ -1282,18 +1316,10 @@ function applyHit(g, u, out) {
     if (s.dmg >= s.sz) { u.dead = true; out.lostCV.push(s); }
     return;
   }
-  // a base takes hits on its buildings: facilities first (each downgrades or is removed when damage equals its size),
-  // then settlements (defense value 3 per settlement token); with no building left a hit destroys the base itself
-  const b = u.o, tg = ['def', 'lab', 'mine', 'sup'].filter(c => b.fac[c] > 0);
-  if (!tg.length) {
-    if (!(b.set > 0)) { u.dead = true; out.lostB.push(b); return; }
-    b.setHits = (b.setHits || 0) + 1;
-    if (b.setHits >= 3) { b.set = setDown(b.set); b.setHits = 0; out.facLost++; }
-    return;
-  }
-  const c = tg[0];
-  b.dmg[c]++;
-  if (b.dmg[c] >= sizeOfFac(c, b.fac[c])) { b.fac[c] = DOWNFAC[c][b.fac[c]]; b.dmg[c] = 0; out.facLost++; }
+  const b = u.o; u.bh = (u.bh || 0) + 1;
+  if (u.bh > bldgHits(b)) { u.dead = true; out.lostB.push(b); if (out.pend) out.pend = out.pend.filter(p => p.b !== b); return; }
+  if (!out.pend) { applyAlloc(b, autoAlloc(b, 1)); out.facLost++; return; }   // direct use (tests): assign at once
+  let p = out.pend.find(x => x.b === b); if (!p) out.pend.push(p = { b, n: 0 }); p.n++;
 }
 function resolveBattle(A, B, st, plan) {
   const r = resolveBattle0(A, B, st, plan);
@@ -1323,7 +1349,7 @@ function resolveBattle0(A, B, st, plan) {
   };
   let toB = dmg(A, totA, true, B, fb, fa), toA = dmg(B, totB, false, A, fa, fb);
   if (!tie) { if (aWins) toB += plan.extra; else toA += plan.extra; }
-  const mk = () => ({ hits: new Map(), lostCV: [], lostRE: [], lostB: [], facLost: 0 });
+  const mk = () => ({ hits: new Map(), lostCV: [], lostRE: [], lostB: [], facLost: 0, pend: [] });
   const outA = mk(), outB = mk();
   let picks = tie ? 0 : plan.tgt;
   const hit = aHits => {
@@ -1347,6 +1373,11 @@ function resolveBattle0(A, B, st, plan) {
       g.bases = g.bases.filter(x => x !== b); if (g.lv) delete g.lv[b.id];
       const got = [drawMarker(g, 'Eng')];
       blog(A, B, `${nm(g)}'s base ${b.name} is destroyed. ${nm(g)} learns ${markerTxt(got, 'Eng')}.`, 'x');
+    });
+    o.pend.forEach(p => {
+      if (!g.bases.includes(p.b)) return;
+      if (isHuman(other)) { other.ask.push({ k: 'basehit', f: g.f, base: p.b.id, name: p.b.name, n: p.n, caps: baseCaps(p.b), stock: { ...p.b.stock }, text: `Your fleet hit ${nm(g)}'s base ${p.b.name} ${p.n} time${p.n > 1 ? 's' : ''}. Choose what is hit.` }); return; }
+      const r = applyAlloc(p.b, autoAlloc(p.b, p.n)); o.facLost += r.lost;
     });
     if (o.facLost) blog(A, B, `${nm(g)} loses or downgrades ${o.facLost} facilit${o.facLost > 1 ? 'ies' : 'y'}.`, 'x');
     o.hits.forEach((n, s) => { for (let i = 0; i < n; i++) { if (!g.ships.includes(s) || s.res) break; recallCheck(g, s); } });
@@ -1855,7 +1886,7 @@ return {
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,
   canFoundBase, foundBase, builtThisTurn, unload, load, buyCargo, sellCargo, upgradeOptions, buildFacility, buildSettlement, repairFacility, terraform, trade, tradeLimitOwn,
   setDiplomacy, dipCost, develop, techState, techCost, techCostTxt, techHolders, convertPolitics, buyVictory, redrawMission, tradePoints, choosePolicy, transferRes, baseOutput, bestOutput,
-  lvRecover, lvReturn, score, lims, nonProbeRE, nCV, nBase, range, recall, malfBase, malfRate, engRate, engBase, mult, transfer, misTxt, lvCount, lvStockAt, launchLVs, atOwnBase, baseLoc, basePos, applyHit, cardFor, prodValue, has, polLv, setRow, cargoMul, resTxt, sum,
+  lvRecover, lvReturn, score, lims, nonProbeRE, nCV, nBase, range, recall, malfBase, malfRate, engRate, engBase, mult, transfer, misTxt, lvCount, lvStockAt, launchLVs, atOwnBase, baseLoc, basePos, applyHit, applyAlloc, autoAlloc, baseCaps, bldgHits, cardFor, prodValue, has, polLv, setRow, cargoMul, resTxt, sum,
 };
 }
 if (typeof module !== 'undefined') module.exports = make; else root.SHE = make;

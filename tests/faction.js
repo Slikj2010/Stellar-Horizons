@@ -78,7 +78,7 @@ if (out2 && (!out || out.n > Math.round(out2.n / 2) + 0)) fail('blockade should 
 // 5. bombardment: war only, hits the base
 link(na, cn, 4); na.turn.acted = {}; if (!E.combatAct(na, { k: 'bombard', f: 'cn', key: 'w:mar' })) fail('bombardment needs war');
 link(na, cn, 5); let hit = 0;
-for (let i = 0; i < 60; i++) { na.turn.acted = {}; const f0 = JSON.stringify(bse.fac) + JSON.stringify(bse.stock) + cn.bases.length; E.combatAct(na, { k: 'bombard', f: 'cn', key: 'w:mar' }); if (f0 !== JSON.stringify(bse.fac) + JSON.stringify(bse.stock) + cn.bases.length) hit++; cn.surr = {}; na.ships.forEach(s => { s.dmg = 0; s.res = false; }); if (!cn.bases.includes(bse)) break; }
+for (let i = 0; i < 60; i++) { na.turn.acted = {}; const f0 = JSON.stringify(bse.fac) + JSON.stringify(bse.stock) + cn.bases.length; E.combatAct(na, { k: 'bombard', f: 'cn', key: 'w:mar' }); while (na.ask.length) E.answer(na, na.ask[0].k === 'basehit' ? 'auto' : 'auto'); if (f0 !== JSON.stringify(bse.fac) + JSON.stringify(bse.stock) + cn.bases.length) hit++; cn.surr = {}; na.ships.forEach(s => { s.dmg = 0; s.res = false; }); if (!cn.bases.includes(bse)) break; }
 if (!hit) fail('bombardment never damaged the base');
 // 6. interception: a bot's armed CV catches ships leaving its location
 let caught = 0, stopped = 0, fights = 0;
@@ -146,17 +146,17 @@ if (!hum) fail('the human should be told of fights it is involved in');
   const ven = mkb('ven', 'surf'); g.tech.psh = 0; if (!/Pressure Shell/.test(mine(ven) || '')) fail('Venus mines need Pressure Shell'); g.tech.psh = 1; if (mine(ven)) fail('Venus mine allowed with Pressure Shell: ' + mine(ven));
   const jup = mkb('jup', 'orbit'); delete g.tech.psh; delete g.tech.elev; if (!mine(jup)) fail('Jupiter orbital mine needs tech'); g.tech.psh = 1; if (!/Elevator/.test(mine(jup) || '')) fail('Jupiter still needs Space Elevator'); g.tech.elev = 1; if (mine(jup)) fail('Jupiter mine allowed with both techs');
   const ear = mkb('ear', 'orbit'); if (!mine(ear)) fail('Earth can never mine'); }
-// 12. hits on a base: facilities first, then settlements (3 hits per token, then down one token), then the base itself
-{ const o = () => ({ hits: new Map(), lostCV: [], lostRE: [], lostB: [], facLost: 0 });
-  const b = { fac: { lab: 0, mine: 1, sup: 0, def: 0 }, dmg: { lab: 0, mine: 0, sup: 0, def: 0 }, stock: { ORE: 5, SUP: 0, FUEL: 0 }, set: 20, setHits: 0 };
-  let out = o(), u = { t: 'b', o: b };
-  E.applyHit(na, u, out); if (b.fac.mine !== 0 || b.set !== 20) fail('the first hit should remove the small mining station, not touch settlements');
-  E.applyHit(na, u, out); E.applyHit(na, u, out); if (b.set !== 20 || b.setHits !== 2) fail('settlement should have taken 2 of 3 hits, has ' + b.setHits);
-  E.applyHit(na, u, out); if (b.set !== 15) fail('third settlement hit should downgrade 20x to 15x, got ' + b.set);
-  for (let i = 0; i < 3; i++) E.applyHit(na, u, out); if (b.set !== 10) fail('15x should downgrade to 10x, got ' + b.set);
-  for (let i = 0; i < 6; i++) E.applyHit(na, u, out); if (b.set !== 4) fail('10x -> 5x -> 4x expected, got ' + b.set);
-  for (let i = 0; i < 12; i++) E.applyHit(na, u, out); if (b.set !== 0 || u.dead) fail('1x should be removed and the base survive until hit again: ' + b.set + ' ' + u.dead);
-  E.applyHit(na, u, out); if (!u.dead || out.lostB[0] !== b) fail('a hit with no buildings should destroy the base');
+// 12. hits on a base: buildings take hits (facility size, settlements 3 each), resources 2 per hit, then the base itself
+{ const mkb = () => ({ fac: { lab: 0, mine: 1, sup: 0, def: 0 }, dmg: { lab: 0, mine: 0, sup: 0, def: 0 }, stock: { ORE: 5, SUP: 0, FUEL: 2 }, set: 3, setHits: 0 });
+  let b = mkb(); const caps = E.baseCaps(b);
+  if (caps.mine !== 1 || caps.set !== 9 || caps.res !== 4 || E.bldgHits(b) !== 10) fail('caps wrong ' + JSON.stringify(caps));
+  let r = E.applyAlloc(b, { mine: 1, set: 3, res: 0 }); if (b.fac.mine !== 0 || b.set !== 2 || b.setHits !== 0) fail('mine removed and one settlement lost expected: ' + JSON.stringify(b));
+  b = mkb(); r = E.applyAlloc(b, { res: 2 }, { ORE: 0, SUP: 0, FUEL: 2 }); if (b.stock.FUEL !== 0 || b.stock.ORE !== 3 || r.destroyed !== 4) fail('resource sliders: ' + JSON.stringify(b.stock));
+  b = mkb(); E.applyAlloc(b, { set: 2 }); if (b.set !== 3 || b.setHits !== 2) fail('two hits should leave a settlement damaged, not lost');
+  const al = E.autoAlloc(mkb(), 2); if (al.mine !== 1 || al.set !== 1) fail('bots hit facilities first: ' + JSON.stringify(al));
+  const out = { hits: new Map(), lostCV: [], lostRE: [], lostB: [], facLost: 0, pend: [] }; b = mkb(); const u = { t: 'b', o: b };
+  for (let i = 0; i < 10; i++) E.applyHit(na, u, out); if (u.dead || out.pend[0].n !== 10) fail('ten hits are absorbed by the buildings');
+  E.applyHit(na, u, out); if (!u.dead || out.lostB[0] !== b || out.pend.length) fail('the 11th hit destroys the base');
   console.log('base hits ok'); }
 console.log(bad ? 'FAILED' : 'ALL OK');
 process.exit(bad ? 1 : 0);

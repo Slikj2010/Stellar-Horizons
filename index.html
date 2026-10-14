@@ -1791,6 +1791,13 @@ function renderAsk() {
       ${dx(Math.floor(r / 2)).map(n => `<button class="b" data-ans="sx${n}">Strike +${n} damage (${2 * n})</button>`).join('')}
       ${r >= 3 ? '<button class="b" data-ans="avoid">Call off the combat (3)</button>' : ''}</div>`;
   }
+  if (a.k === 'basehit') {
+    const nmz = { def: 'Defense Network', lab: 'Research Lab', mine: 'Mining', sup: 'Supply', set: 'Settlements (3 hits each)', res: 'Resources (2 destroyed per hit)' };
+    h += `<p class="dim">${a.n} hit${a.n > 1 ? 's' : ''} to assign. Each facility takes hits equal to its size, then it is downgraded or removed; each settlement takes 3 hits to be lost.</p>
+      <div class="bh">${Object.keys(nmz).filter(c => a.caps[c] > 0).map(c => `<label class="row">${esc(nmz[c])} <input type="number" min="0" max="${a.caps[c]}" value="0" data-bh="${c}" style="width:64px"> <span class="dim">up to ${a.caps[c]}</span></label>`).join('')}</div>
+      <div id="bhres" hidden><p class="dim">Resources destroyed: <b id="bhtot">0</b> to choose</p>${['ORE', 'SUP', 'FUEL'].map(r => `<label class="row">${r} <input type="range" min="0" max="${a.stock[r]}" value="0" data-bhr="${r}"> <b data-bhv="${r}">0</b> / ${a.stock[r]}</label>`).join('')}</div>
+      <div class="row"><button class="b pri" data-bhgo="1">Apply the hits</button><button class="b" data-ans="auto">Let the game choose</button></div>`;
+  }
   if (a.k === 'card') {
     const cur = G.w[a.w] && G.w[a.w].card;
     h += `<div class="cardpick">${a.opts.map(o => `<button class="cardopt" data-ans="${esc(o)}" title="Place ${esc(o)} on ${esc(D.W[a.w].n)}">${cardImg(o, a.opts.length > 1 ? 196 : 260)}<span>Place ${esc(o)}</span></button>`).join('')}</div>
@@ -1802,6 +1809,16 @@ function renderAsk() {
   if (a.k === 'immigration') h += `<div class="row">${G.bases.map(b => `<button class="b" data-ans="${b.id}">${esc(b.name)}</button>`).join('')}</div>`;
   if (a.k === 'publicity') h += `<p class="dim">Tap a world on the board, then use the button in the Selected tab. Or pick one here:</p><select id="pubsel">${Object.keys(G.w).filter(k => G.w[k].v > 0).map(k => `<option value="${k}">${esc(D.W[k].n)} (${G.w[k].v})</option>`).join('')}</select> <button class="b" data-ans="__pub">Raise by 2</button>`;
   $('mbox').innerHTML = h; m.hidden = false;
+  if (a.k === 'basehit') {
+    const mb = $('mbox'), tot = () => { const r = +(mb.querySelector('[data-bh="res"]') || { value: 0 }).value || 0; return Math.min(2 * r, (a.stock.ORE || 0) + (a.stock.SUP || 0) + (a.stock.FUEL || 0)); };
+    const upd = () => { const t = tot(); $('bhres').hidden = !t; $('bhtot').textContent = t; mb.querySelectorAll('[data-bhr]').forEach(i => mb.querySelector(`[data-bhv="${i.dataset.bhr}"]`).textContent = i.value); };
+    mb.querySelectorAll('[data-bh], [data-bhr]').forEach(i => i.oninput = upd);
+    mb.querySelector('[data-bhgo]').onclick = () => {
+      const alloc = {}; mb.querySelectorAll('[data-bh]').forEach(i => alloc[i.dataset.bh] = +i.value || 0);
+      const res = {}; mb.querySelectorAll('[data-bhr]').forEach(i => res[i.dataset.bhr] = +i.value || 0);
+      act(() => E.answer(G, 'set', { alloc, res: alloc.res ? res : null }));
+    };
+  }
   $('mbox').querySelectorAll('[data-ans]').forEach(b => b.onclick = () => { let v = b.dataset.ans; if (v === '__pub') v = $('pubsel').value; if (a.k === 'card' && v === '') v = null; G.lastRoll = null; act(() => E.answer(G, v)); if (G.lastRoll && G.lastRoll.kind === 'life') { ui = { k: 'result' }; render(); } });
 }
 
