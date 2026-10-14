@@ -988,7 +988,7 @@ function answer(G, choice, data) {
     const bad = checkAlloc(b, a.n, al); if (bad) return bad;
     let pick = null; if (al.res) { const tot = Math.min(2 * al.res, sum(b.stock)), pr = data && data.res; if (pr) { const t = RES.reduce((x, r) => x + (+pr[r] || 0), 0); if (t !== tot || RES.some(r => (+pr[r] || 0) > b.stock[r] || pr[r] < 0)) return `Choose exactly ${tot} resources, no more of a type than the base holds.`; pick = { ORE: +pr.ORE || 0, SUP: +pr.SUP || 0, FUEL: +pr.FUEL || 0 }; } }
     G.ask.shift(); const r = applyAlloc(b, al, pick);
-    blog(G, g, `${nm(G)} hits ${nm(g)}'s base ${b.name}: ${[...FAC4, 'res'].filter(c => al[c]).map(c => `${al[c]} on ${c === 'res' ? 'resources (' + r.destroyed + ' destroyed)' : c}`).join(', ')}.`, 'x');
+    blog(G, g, `${nm(G)} hits ${nm(g)}'s base ${b.name}: ${[...TGT, 'res'].filter(c => al[c]).map(c => `${al[c]} on ${c === 'set' ? 'settlements' : c === 'res' ? 'resources (' + r.destroyed + ' destroyed)' : c}`).join(', ')}.`, 'x');
     return null;
   }
   if (a.k === 'battle') {
@@ -1283,13 +1283,15 @@ function pickUnit(us, mode, forced) {
   return pool.slice().sort(forced === 'kill' || (!forced && mode === 'strike') ? weak : tough)[0];
 }
 // Base hits (3.4): each hit is spent on one facility (it takes a damage marker; downgraded or removed when damage equals its
-// size) or on resources (each hit destroys 2 resources: the attacker picks the types). A base with no facilities is
-// destroyed by a single hit. Hits are collected per base during the fight and assigned afterwards.
-const FAC4 = ['def', 'lab', 'mine', 'sup'];
-function facHits(b, c) { let l = b.fac[c], h = -(b.dmg[c] || 0); while (l > 0) { h += sizeOfFac(c, l); l = DOWNFAC[c][l]; } return Math.max(0, h); }
-const bldgHits = b => { const f = FAC4.reduce((a, c) => a + facHits(b, c), 0); return f ? f + Math.ceil(sum(b.stock) / 2) : 0; }; // hits the base can soak before one destroys it
-function baseCaps(b) { const c = {}; FAC4.forEach(k => c[k] = facHits(b, k)); c.res = FAC4.some(k => c[k] > 0) ? Math.ceil(sum(b.stock) / 2) : 0; return c; }
-function autoAlloc(b, n) { const caps = baseCaps(b), al = { def: 0, lab: 0, mine: 0, sup: 0, res: 0 }; for (const c of FAC4) { const t = Math.min(n, caps[c]); al[c] = t; n -= t; } return al; }
+// size), on the settlements (stacked as one facility whose defense is 3 per settlement; each 3 damage removes one settlement,
+// and a settlement carrying damage does not count for trade or production), or on resources (each hit destroys 2 resources,
+// the attacker picks the types). A base with no facilities or settlements is destroyed by a single hit. Hits are collected per
+// base during the fight and assigned afterwards.
+const FAC4 = ['def', 'lab', 'mine', 'sup'], TGT = [...FAC4, 'set'], SETDEF = 3;
+function facHits(b, c) { if (c === 'set') return Math.max(0, (b.set || 0) * SETDEF - (b.setHits || 0)); let l = b.fac[c], h = -(b.dmg[c] || 0); while (l > 0) { h += sizeOfFac(c, l); l = DOWNFAC[c][l]; } return Math.max(0, h); }
+const bldgHits = b => { const f = TGT.reduce((a, c) => a + facHits(b, c), 0); return f ? f + Math.ceil(sum(b.stock) / 2) : 0; }; // hits the base can soak before one destroys it
+function baseCaps(b) { const c = {}; TGT.forEach(k => c[k] = facHits(b, k)); c.res = TGT.some(k => c[k] > 0) ? Math.ceil(sum(b.stock) / 2) : 0; return c; }
+function autoAlloc(b, n) { const caps = baseCaps(b), al = { def: 0, lab: 0, mine: 0, sup: 0, set: 0, res: 0 }; for (const c of TGT) { const t = Math.min(n, caps[c]); al[c] = t; n -= t; } return al; }
 function applyAlloc(b, al, resPick) {
   let lost = 0, destroyed = 0;
   for (let i = 0; i < (al.res || 0) * 2; i++) { // resources first: they are only a valid target while a facility stands
@@ -1298,11 +1300,13 @@ function applyAlloc(b, al, resPick) {
     if (b.stock[r] > 0) { b.stock[r]--; destroyed++; if (resPick && resPick[r] > 0) resPick[r]--; }
   }
   for (const c of FAC4) for (let i = 0; i < (al[c] || 0); i++) { b.dmg[c]++; if (b.dmg[c] >= sizeOfFac(c, b.fac[c])) { b.fac[c] = DOWNFAC[c][b.fac[c]]; b.dmg[c] = 0; lost++; } }
+  for (let i = 0; i < (al.set || 0); i++) { b.setHits = (b.setHits || 0) + 1; if (b.setHits >= SETDEF) { b.set = Math.max(0, b.set - 1); b.setHits = 0; lost++; } }
+  b.setDmg = b.setHits > 0 && b.set > 0 ? 1 : 0; // the damaged settlement does not count
   return { lost, destroyed };
 }
 function checkAlloc(b, n, al) {
   const caps = baseCaps(b); let t = 0;
-  for (const c of [...FAC4, 'res']) { const v = Math.floor(+al[c] || 0); if (v < 0 || v > caps[c]) return `Too many hits on ${c}.`; t += v; }
+  for (const c of [...TGT, 'res']) { const v = Math.floor(+al[c] || 0); if (v < 0 || v > caps[c]) return `Too many hits on ${c}.`; t += v; }
   return t === n ? null : `Assign exactly ${n} hit${n > 1 ? 's' : ''}.`;
 }
 function applyHit(g, u, out) {
@@ -1733,6 +1737,7 @@ function buildSettlement(G, b) {
   return null;
 }
 function repairFacility(G, b, c) {
+  if (c === 'set') { if (!b.setHits) return 'No damage to repair.'; if (b.stock.ORE < 1) return 'Repairs cost 1 ORE per damage marker.'; b.stock.ORE--; b.setHits--; b.setDmg = b.setHits > 0 ? 1 : 0; log(G, `${b.name} repairs a settlement.`); return null; }
   if (!b.dmg[c]) return 'No damage to repair.';
   if (b.stock.ORE < 1) return 'Repairs cost 1 ORE per damage marker.';
   b.stock.ORE--; b.dmg[c]--; log(G, `${b.name} repairs its ${c} facility.`); return null;
