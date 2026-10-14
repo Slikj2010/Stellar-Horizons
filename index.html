@@ -105,6 +105,16 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
 #bar .pz { font: 600 12px var(--f-disp); letter-spacing: .12em; padding: 5px 10px; }
 .toggle { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
 .board-img { width: 100%; border-radius: 4px; border: 1px solid var(--line); }
+/* zoom / inspect overlay */
+#zov { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(2,4,8,.82); padding: 16px; }
+#zov .zb { width: min(720px, 100%); max-height: calc(100% - 24px); overflow: auto; background: var(--hull); border: 1px solid var(--ion); border-radius: 8px; padding: 18px; position: relative; }
+#zov .zx { position: absolute; right: 10px; top: 10px; }
+#zov .zimg { display: grid; place-items: center; padding: 10px; background: #070b11; border: 1px solid var(--line); border-radius: 6px; margin: 8px 0; min-height: 200px; }
+#zov .zimg .cnt, #zov .zimg .cardimg { image-rendering: auto; }
+#zov .zgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+#zov .zcell { display: grid; gap: 4px; justify-items: center; text-align: center; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--hull2); font-size: 12.5px; }
+#zov .zcell small { color: var(--dim); font-size: 11.5px; }
+.zoomable { cursor: zoom-in; } .zoomable:hover { outline: 1px solid var(--ion); }
 @media (max-width: 820px) {
   #main { grid-template-columns: 1fr; grid-template-rows: 1fr minmax(260px, 46%); }
   #rail { border-left: 0; border-top: 1px solid var(--line); }
@@ -203,6 +213,7 @@ p.order { margin: -2px 0 10px; }
 <div id="pause" hidden><div class="box" id="pbox"></div></div>
 <div id="dev" hidden></div>
 <div id="modal" hidden><div class="box" id="mbox"></div></div>
+<div id="zov" hidden><div class="zb" id="zbox"></div></div>
 
 <script src="data.js"></script>
 <script src="rules.js"></script>
@@ -497,7 +508,7 @@ function paintSun() {
   x.fillStyle = g; x.fillRect(X0, Y0, W, H + 10);
   ctx.drawImage(sc, X0, Y0, W, H);
 }
-function cssCounter(key, size) { const a = ATL[G.f]; const f = a && a.fr[key]; if (!f) return ''; const sc = size / 96; return `<span class="cnt" style="width:${size}px;height:${size}px;background-image:url(atlas_${G.f}.webp);background-size:${1152 * sc}px auto;background-position:-${f[0] * sc}px -${f[1] * sc}px"></span>`; }
+function cssCounter(key, size) { const a = ATL[G.f]; const f = a && a.fr[key]; if (!f) return ''; const sc = size / 96; return `<span class="cnt zoomable" data-zoomu="${esc(key)}" title="Click to enlarge" style=""width:${size}px;height:${size}px;background-image:url(atlas_${G.f}.webp);background-size:${1152 * sc}px auto;background-position:-${f[0] * sc}px -${f[1] * sc}px"></span>`; }
 
 function showPicker() {
   // new game: scenario, your faction (China: Military or Robotic variant), and up to six bots; unused factions stay NPFs
@@ -1066,7 +1077,7 @@ const uf = key => ATL[G.f].fr[key];
 function mkImg(key, w, title) {
   const f = MK[key]; if (!f || !IMG.markers) return `<b>${esc(title || key)}</b>`;
   const k = w / f[2], h = Math.round(f[3] * k);
-  return `<span class="cardimg" role="img" aria-label="${esc(title || key)}" title="${esc(title || key)}" style="width:${w}px;height:${h}px;background-image:url(markers.webp);background-size:${IMG.markers.width * k}px auto;background-position:-${f[0] * k}px -${f[1] * k}px"></span>`;
+  return `<span class="cardimg zoomable" data-zoomm="${esc(key)}" role="img" aria-label="${esc(title || key)}" title="${esc((title || key) + ' (click to enlarge)')}" style="width:${w}px;height:${h}px;background-image:url(markers.webp);background-size:${IMG.markers.width * k}px auto;background-position:-${f[0] * k}px -${f[1] * k}px"></span>`;
 }
 const MIS_KIND = { mine: ['Your mission', '#f2a93b'], common: ['Common mission', '#4fb3e8'], dated: ['Dated mission (open to all)', '#e2675b'] };
 function misLine(id, kind) {
@@ -1406,6 +1417,75 @@ function panelShip(s) {
     h += `<div class="row" style="margin-top:14px"><button class="b" data-scrap="${s.id}">Destroy</button><span class="dim">${site ? `Scrapped at ${esc(at)}: you get back <b style="color:var(--ink)">${resHTML(sv.back)}</b> (half its cost ${resHTML(s.cost)}${s.res ? ', less 1 SUP and 1 Fuel because it is reserved' : ''})${site.where === 'earth' ? ' onto your faction board' : ' into the base'}.${cargoBack}` : s.cls === 'RE' && !E.scrapRule(G) ? 'Destroyed with nothing recovered (scrapping explorers is an optional rule in Settings).' : 'Not at one of your bases: destroyed with nothing recovered.'}</span></div>`; }
   return h;
 }
+// ---------------- inspect / zoom overlay ----------------
+let ZST = null; // { kind:'unit'|'marker'|'gallery', ... }
+function bigCounter(f, key, size) {
+  const a = ATL[f], fr = a && a.fr[key]; if (!fr) return '';
+  const k = size / 96;
+  return `<span class="cnt" role="img" aria-label="${esc(key)}" style="width:${size}px;height:${size}px;background-image:url(atlas_${f}.webp);background-size:${(a.img.naturalWidth || a.img.width) * k}px auto;background-position:-${fr[0] * k}px -${fr[1] * k}px"></span>`;
+}
+// the two counter faces of a base for this faction: surface and orbital art (the same pick as baseKey)
+function baseArt(f, name, orbital) {
+  const fr = ATL[f].fr, keys = Object.keys(fr).filter(k => k.startsWith('Base|' + name.slice(0, 4)));
+  const plain = keys.find(k => !/ (b|rv|bi|orbit)$/i.test(k)) || keys[0], alt = keys.find(k => k !== plain) || plain;
+  return (orbital !== !!STATION_ALT[f]) ? plain : alt;
+}
+function unitFacts(f, key) {
+  const [kind, name] = key.split('|');
+  if (/^LV-\d$/.test(kind)) { const n = +kind.slice(3); return `<table><tr><th>Launch vehicle</th><td>${kind}</td></tr><tr><td>Cost</td><td>${resHTML({ ORE: 1, FUEL: n })}</td></tr><tr><td>Launches</td><td>${n <= 2 ? 'robotic explorers and crew vehicles up to size ' + n : 'crew vehicles up to size ' + n}</td></tr><tr><td>Built at</td><td>${n <= 2 ? 'a Supply Station' : 'a large Supply Station'}, or on Earth</td></tr><tr><td>Two sides</td><td>Flip it to show it is used or ready</td></tr></table>`; }
+  const u = UNITS[f + '|' + name]; if (!u) return '';
+  const row = (a, b) => `<tr><td>${a}</td><td>${b}</td></tr>`;
+  return `<table>${row('Type', esc(u.k))}${row('Cost', resHTML({ ORE: u.ore, SUP: u.sup, FUEL: u.fuel }))}${row('Search / exploration', u.ev)}${row('Cargo', u.cargo || 'none')}${u.k.startsWith('CV') ? row('Combat value', u.cb || 'none') + row('Fighter / bomber drones', u.dr || 'none') : ''}${row('Can produce', u.prod ? 'yes' : 'no')}${row('Mobile lab', u.lab ? 'yes (roll 2, keep 1)' : 'no')}${row('Spectrometer', u.spec ? 'yes' : 'no')}</table>`;
+}
+function zoomHTML() {
+  const z = ZST; if (!z) return '';
+  const close = `<button class="b zx" data-zclose="1" aria-label="Close">Close</button>`;
+  if (z.kind === 'unit') {
+    const base = z.key.replace(/\|back$/, ''), hasBack = !!ATL[z.f].fr[base + '|back'], key = z.back && hasBack ? base + '|back' : base, [kind, name] = base.split('|');
+    return `${close}<h2>${esc(name || kind)}</h2><p class="dim">${esc(kind)}${hasBack ? ' · ' + (z.back ? 'back side (reserve)' : 'front side') : ''}</p>
+      ${hasBack ? `<div class="row"><button class="b ${z.back ? '' : 'pri'}" data-zside="front">Front</button><button class="b ${z.back ? 'pri' : ''}" data-zside="back">Back</button><button class="b" data-zside="flip">Flip</button></div>` : ''}
+      <div class="zimg">${bigCounter(z.f, key, 300)}</div>${unitFacts(z.f, base)}`;
+  }
+  if (z.kind === 'marker') {
+    const fac = Object.entries(D.FACIL).flatMap(([c, a]) => a.map((x, i) => ({ c, i, x }))).find(o => o.x.m === z.key);
+    const pair = fac ? { lab_s: 'lab_l', lab_l: 'lab_s', mine_s: 'mine_l', mine_l: 'mine_s', ref_s: 'ref_l', ref_l: 'ref_s', sup_s: 'sup_l', sup_l: 'sup_s', port_s: 'port_l', port_l: 'port_s' }[z.key] : null;
+    return `${close}<h2>${esc(fac ? fac.x.n : z.title || z.key)}</h2>${fac ? `<p class="dim">Cost ${resHTML(fac.x.c)}</p><p>${esc(FACDESC[fac.c][fac.i])}</p>` : ''}
+      ${pair ? `<div class="row"><button class="b" data-zmk="${pair}">Show the ${z.key.endsWith('_l') ? 'small' : 'large'} version</button></div>` : ''}
+      <div class="zimg">${mkImgPlain(z.key, 300)}</div>`;
+  }
+  if (z.kind === 'buildings') {
+    const f = G.f;
+    return `${close}<h2>Buildings</h2><p class="dim">Every facility a base can build, small first then large. Tap a token to enlarge it. One of each type per base, one tier per turn.</p>
+      <div class="zgrid">${Object.entries(D.FACIL).flatMap(([c, a]) => a.map((x, i) => `<div class="zcell">${x.m ? mkImg(x.m, 96, x.n) : '<span class="dim">No token</span>'}<b>${esc(x.n)}</b>${resHTML(x.c)}<small>${esc(FACDESC[c][i])}</small></div>`)).join('')}</div>
+      <h3>Base counters</h3><p class="dim">Each base is placed in orbit or on the surface; the counter shows the matching art.</p>
+      <div class="zgrid">${D.BASE_NAMES[f].map(n => `<div class="zcell"><div class="row" style="margin:0">${cssCounter(baseArt(f, n, false), 64)}${cssCounter(baseArt(f, n, true), 64)}</div><b>${esc(n)}</b><small>surface · orbital</small></div>`).join('')}</div>`;
+  }
+  if (z.kind === 'units') {
+    const f = G.f, avail = new Set(E.buildOptions(G, 'earth').map(o => o.kind + '|' + o.u.n));
+    const keys = Object.keys(ATL[f].fr).filter(k => !k.endsWith('|back') && !k.startsWith('Base|'));
+    return `${close}<h2>Units</h2><p class="dim">Every counter of your faction. Tap one to enlarge it and flip to its back. Units you can build on Earth now are marked.</p>
+      <div class="zgrid">${keys.map(k => { const [kind, name] = k.split('|'); return `<div class="zcell">${cssCounter(k, 80)}<b>${esc(name || kind)}</b><small>${esc(kind)}${avail.has(k) ? ' · can build now' : ''}</small></div>`; }).join('')}</div>`;
+  }
+  return close;
+}
+function mkImgPlain(key, w) { return mkImg(key, w, key).replace('zoomable', '').replace(/data-zoomm="[^"]*"/, ''); }
+function openZoom(z) { ZST = z; $('zbox').innerHTML = zoomHTML(); $('zov').hidden = false; }
+function closeZoom() { ZST = null; $('zov').hidden = true; }
+document.addEventListener('click', e => {
+  const t = e.target;
+  if (!$('zov').hidden) {
+    if (t === $('zov') || t.closest('[data-zclose]')) return closeZoom();
+    const sd = t.closest('[data-zside]'); if (sd && ZST) { ZST.back = sd.dataset.zside === 'flip' ? !ZST.back : sd.dataset.zside === 'back'; $('zbox').innerHTML = zoomHTML(); return; }
+    const mk = t.closest('[data-zmk]'); if (mk) { openZoom({ kind: 'marker', key: mk.dataset.zmk }); return; }
+    const u2 = t.closest('[data-zoomu]'); if (u2 && G) { openZoom({ kind: 'unit', f: G.f, key: u2.dataset.zoomu, back: /\|back$/.test(u2.dataset.zoomu) }); return; }
+    const m2 = t.closest('[data-zoomm]'); if (m2) { openZoom({ kind: 'marker', key: m2.dataset.zoomm }); return; }
+    return;
+  }
+  const g = t.closest('[data-zoomg]'); if (g && G) { openZoom({ kind: g.dataset.zoomg }); e.stopPropagation(); return; }
+  const u = t.closest('[data-zoomu]'); if (u && G && !u.closest('button')) { openZoom({ kind: 'unit', f: G.f, key: u.dataset.zoomu, back: /\|back$/.test(u.dataset.zoomu) }); e.stopPropagation(); return; }
+  const m = t.closest('[data-zoomm]'); if (m && !m.closest('button')) { openZoom({ kind: 'marker', key: m.dataset.zoomm }); e.stopPropagation(); }
+}, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('zov').hidden) { e.stopImmediatePropagation(); e.preventDefault(); closeZoom(); } }, true);
 // what each facility level does (rules 2.7), shown on the base panel with its counter
 const FACDESC = {
   lab: ['Required for the base to produce tech points (the world card\'s research value, plus bonuses for settlements, signs of life and existing life).', 'Adds +3 tech points to the base\'s research output.'],
@@ -1446,6 +1526,7 @@ function factionsTable() {
 function panelFac() {
   const F = D.FAC[G.f], [lre, lcv, lb] = E.lims(G);
   return `<h2>${esc(F.n)}${G.variant ? ' · ' + esc(F.variants[G.variant].n) : ''}</h2>${factionsTable()}<img class="board-img" src="boards/${G.f}.webp" alt="${esc(F.n)} faction sheet">
+  <div class="row"><button class="b" data-zoomg="buildings">All buildings</button><button class="b" data-zoomg="units">All units</button></div>
   <p class="dim">${esc(F.ab)}</p>
   <table><tr><th>Support</th><th>Used</th><th>Limit</th></tr><tr><td>Robotic explorers</td><td class="mono">${E.nonProbeRE(G)}</td><td class="mono">${lre}</td></tr><tr><td>Crew vehicles</td><td class="mono">${E.nCV(G)}</td><td class="mono">${lcv}</td></tr><tr><td>Bases</td><td class="mono">${E.nBase(G)}</td><td class="mono">${lb}</td></tr></table>
   <h3>Missions</h3>
