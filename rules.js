@@ -745,7 +745,9 @@ function startMovement(G) {
 }
 function endMovement(G) { G.ships.forEach(s => { if (P(s.loc).t === 'fly' && s.kind === 'Flyby') s.flyArrive = G.y; }); }
 const atOwnBase = (G, s) => { const w = worldOf(s.loc); if (!w || P(s.loc).t === 'fly' || P(s.loc).t === 'box') return null; return G.bases.find(b => b.w === w && (baseLoc(b) === s.loc || (has(G, 'elev') && P(s.loc).t === 'orbit'))) || null; };
-const baseLoc = b => (W[b.w].tags.includes('station') ? 'orbit:' : 'surf:') + b.w;
+// a base is in orbit or on the surface of its world (chosen where the founding crew vehicle was); older saves and station-only worlds default as before
+const basePos = b => b.pos || (W[b.w].tags.includes('station') ? 'orbit' : 'surf');
+const baseLoc = b => basePos(b) + ':' + b.w;
 // can a CV be at this location (range + hazards)?
 function cvAllowed(G, s, loc) {
   const p = P(loc), sy = sysOf(loc);
@@ -1462,7 +1464,6 @@ function exploreOptions(G, s) {
   // CV
   if (s.res || p.t === 'box') return out;
   if (p.t === 'fly') { if (s.prod && has(G, 'mine') && G.fly[p.s].ast) out.push({ w: null, kind: 'harvest', value: 0 }); return out; }
-  if (atOwnBase(G, s) && !has(G, 'elev')) return out;
   const w = worldOf(s.loc);
   // severe atmospheres (Venus, gas giants) need Pressure Shell for any crewed exploration or production; gas giants are never explored by crew
   const atmOk = !W[w].tags.includes('severeAtm') || has(G, 'psh');
@@ -1628,11 +1629,11 @@ function canFoundBase(G, s) {
   const p = P(s.loc); if (!p.w) return null;
   const w = p.w;
   if (!W[w].base) return null;
-  const station = W[w].tags.includes('station');
-  if (station ? p.t !== 'orbit' : p.t !== 'surf') return null;
+  // from orbit or from the surface (worlds without a surface: orbit only); one base per world
+  if (p.t !== 'orbit' && p.t !== 'surf') return null;
   if (G.bases.some(b => b.w === w)) return null;
   if (G.bases.length >= 6) return null;
-  return { w, cost: baseCost(G, w) };
+  return { w, cost: baseCost(G, w), pos: p.t };
 }
 function foundBase(G, s) {
   const c = canFoundBase(G, s);
@@ -1641,9 +1642,9 @@ function foundBase(G, s) {
   const [, , lb] = lims(G); if (nBase(G) >= lb + 4) return 'You are already 4 bases over your support limit.';
   s.cargo.SUP -= c.cost;
   const used = new Set(G.bases.map(b => b.name)); const name = D.BASE_NAMES[G.f].find(n => !used.has(n));
-  const b = { id: 'b' + G.nid++, name, w: c.w, stock: { ORE: 0, SUP: 0, FUEL: 0 }, fac: { lab: 0, mine: 0, sup: 0, def: 0 }, dmg: { lab: 0, mine: 0, sup: 0, def: 0 }, set: 0, setDmg: 0, trade: null, out: 'ORE', built: G.y, techField: 'Phy' };
+  const b = { id: 'b' + G.nid++, name, w: c.w, stock: { ORE: 0, SUP: 0, FUEL: 0 }, fac: { lab: 0, mine: 0, sup: 0, def: 0 }, dmg: { lab: 0, mine: 0, sup: 0, def: 0 }, set: 0, setDmg: 0, trade: null, out: 'ORE', built: G.y, techField: 'Phy', pos: c.pos };
   G.bases.push(b); b.out = bestOutput(G, b);
-  log(G, `${s.name} founds base ${name} at ${W[c.w].n} for ${c.cost} SUP.`, 'g');
+  log(G, `${s.name} founds ${c.pos === 'orbit' ? 'an orbital' : 'a surface'} base ${name} at ${W[c.w].n} for ${c.cost} SUP.`, 'g');
   return null;
 }
 function buyCargo(G, s, r, n) { // at Earth: buy resources straight into a ship's hold
@@ -1671,6 +1672,7 @@ function upgradeOptions(G, b) {
     else if (builtThisTurn(G, b)[c]) why = 'one tier per turn: upgrade it next turn';
     else if (b.dmg[c]) why = 'repair it first';
     else if (c === 'mine' && b.w === 'ear') why = 'Earth orbit cannot produce resources';
+    else if (c === 'mine' && basePos(b) === 'orbit' && !W[b.w].tags.includes('station') && !has(G, 'elev')) why = 'an orbital base needs the Space Elevator technology to build mines';
     return { c, lv, next, why };
   });
 }
@@ -1843,7 +1845,7 @@ return {
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,
   canFoundBase, foundBase, builtThisTurn, unload, load, buyCargo, sellCargo, upgradeOptions, buildFacility, buildSettlement, repairFacility, terraform, trade, tradeLimitOwn,
   setDiplomacy, dipCost, develop, techState, techCost, techCostTxt, techHolders, convertPolitics, buyVictory, redrawMission, tradePoints, choosePolicy, transferRes, baseOutput, bestOutput,
-  lvRecover, lvReturn, score, lims, nonProbeRE, nCV, nBase, range, recall, malfBase, malfRate, engRate, engBase, mult, transfer, misTxt, lvCount, lvStockAt, launchLVs, atOwnBase, baseLoc, cardFor, prodValue, has, polLv, setRow, cargoMul, resTxt, sum,
+  lvRecover, lvReturn, score, lims, nonProbeRE, nCV, nBase, range, recall, malfBase, malfRate, engRate, engBase, mult, transfer, misTxt, lvCount, lvStockAt, launchLVs, atOwnBase, baseLoc, basePos, cardFor, prodValue, has, polLv, setRow, cargoMul, resTxt, sum,
 };
 }
 if (typeof module !== 'undefined') module.exports = make; else root.SHE = make;

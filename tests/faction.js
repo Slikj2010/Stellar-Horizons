@@ -124,5 +124,19 @@ if (!hum) fail('the human should be told of fights it is involved in');
   const fl = (loc, hold) => ({ id: 950, name: 'F', kind: 'Flyby', cls: 'RE', sz: 1, ev: 1, cb: 0, dmg: 0, cargo: { ORE: 0, SUP: 0, FUEL: 0 }, loc, hold, launched: true });
   let s = fl('box:alp:6', 35); g.ships = [s]; if (E.exploreOptions(g, s).length) fail('a Flyby 41 turns from Alpha Centauri must not be able to explore it');
   s = fl('box:alp:1', 0); g.ships = [s]; if (!E.exploreOptions(g, s).length) fail('a Flyby one turn out should explore Alpha Centauri'); }
+// 10. bases can be founded from orbit or the surface; orbital bases need the Space Elevator for mines; a CV can explore on a world where it has a base
+{ const w2 = mkW(), g = w2.world.facs.na; g.ships = []; g.bases = []; g.phase = 'trade';
+  const c1 = mk(g, 'Orb', 3, 2, 'orbit:mar'); c1.ev = 3; c1.cargo.SUP = 5; const c2 = mk(g, 'Srf', 3, 2, 'surf:pho'); c2.ev = 3; c2.cargo.SUP = 5;
+  const f1 = E.canFoundBase(g, c1); if (!f1 || f1.pos !== 'orbit') fail('should found from orbit: ' + JSON.stringify(f1));
+  if (E.foundBase(g, c1)) fail('orbital founding failed'); const b1 = g.bases[0];
+  if (E.baseLoc(b1) !== 'orbit:mar') fail('orbital base location ' + E.baseLoc(b1));
+  if (E.canFoundBase(g, mk(g, 'Srf2', 3, 2, 'surf:mar'))) fail('only one base per world');
+  const mo = E.upgradeOptions(g, b1).find(o => o.c === 'mine'); if (!mo.why) fail('orbital base should not build mines without Space Elevator');
+  g.tech.elev = 1; if (E.upgradeOptions(g, b1).find(o => o.c === 'mine').why) fail('Space Elevator should allow mines'); delete g.tech.elev;
+  const lab = E.upgradeOptions(g, b1).find(o => o.c === 'lab'); if (lab.why) fail('orbital base can build other facilities: ' + lab.why);
+  if (E.foundBase(g, c2)) fail('surface founding failed'); const b2 = g.bases[1]; if (E.baseLoc(b2) !== 'surf:pho') fail('surface base location');
+  g.phase = 'explore'; g.turn.acted = {}; const surfOnMars = mk(g, 'OnMars', 3, 2, 'surf:mar'); surfOnMars.ev = 3;
+  if (!E.exploreOptions(g, surfOnMars).some(o => o.w === 'mar')) fail('a CV on the surface of a world with our (orbital) base can explore');
+  g.turn.acted = {}; c2.loc = 'surf:pho'; if (!E.exploreOptions(g, c2).some(o => o.w === 'pho')) fail('a CV on the surface at our surface base can explore'); }
 console.log(bad ? 'FAILED' : 'ALL OK');
 process.exit(bad ? 1 : 0);

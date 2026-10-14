@@ -42,6 +42,7 @@ Severe radiation covers the whole Mercury section (Mercury, Sun Observation, its
 ## Bases & facilities (2.7)
 Stations (Earth orbit, gas giants) / surface bases. One base per faction per location. Built in base construction step (3.6.2) only Earth orbit or worlds with base cost. Destroyed by 1 hit after facilities gone.
 Facilities: one of each type per base (settlements unlimited), small then large (upgrade later turn). A base may build any number of different things in one turn (e.g. a small lab and a settlement right after it is founded), but only one tier of each building per turn, and one settlement per turn.
+- A base is founded from where its crew vehicle is: in orbit or on the surface (one base per world; Earth and gas giants are orbit only). An orbital base cannot build mines until the Space Elevator technology; it can build every other facility. A CV can explore on a world where it has a base (orbit or surface).
 - Mining Station small: enables resource production (world prod >0). large: +1.
 - Refinery (upgrade of large Mining): small +3, large +5.
 - Research Lab small: required for tech production; large +3.
