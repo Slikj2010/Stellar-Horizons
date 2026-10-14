@@ -988,7 +988,7 @@ function answer(G, choice, data) {
     const bad = checkAlloc(b, a.n, al); if (bad) return bad;
     let pick = null; if (al.res) { const tot = Math.min(2 * al.res, sum(b.stock)), pr = data && data.res; if (pr) { const t = RES.reduce((x, r) => x + (+pr[r] || 0), 0); if (t !== tot || RES.some(r => (+pr[r] || 0) > b.stock[r] || pr[r] < 0)) return `Choose exactly ${tot} resources, no more of a type than the base holds.`; pick = { ORE: +pr.ORE || 0, SUP: +pr.SUP || 0, FUEL: +pr.FUEL || 0 }; } }
     G.ask.shift(); const r = applyAlloc(b, al, pick);
-    blog(G, g, `${nm(G)} hits ${nm(g)}'s base ${b.name}: ${[...FAC4, 'set', 'res'].filter(c => al[c]).map(c => `${al[c]} on ${c === 'set' ? 'settlements' : c === 'res' ? 'resources (' + r.destroyed + ' destroyed)' : c}`).join(', ')}.`, 'x');
+    blog(G, g, `${nm(G)} hits ${nm(g)}'s base ${b.name}: ${[...FAC4, 'res'].filter(c => al[c]).map(c => `${al[c]} on ${c === 'res' ? 'resources (' + r.destroyed + ' destroyed)' : c}`).join(', ')}.`, 'x');
     return null;
   }
   if (a.k === 'battle') {
@@ -1133,7 +1133,7 @@ const uS = o => ({ t: 's', o }), uB = o => ({ t: 'b', o });
 const uCb = u => u.t === 's' ? cbOf(u.o) : dnOf(u.o);
 const uHp = u => u.t === 's' ? (u.o.cls === 'CV' ? u.o.sz - u.o.dmg : 1) : 1 + ['lab', 'mine', 'sup', 'def'].filter(c => u.o.fac[c]).length;
 const uCV = u => u.t === 's' && u.o.cls === 'CV';
-const droneCount = (g, us) => !has(g, 'fd') ? 0 : us.reduce((a, u) => a + (u.t === 's' ? (u.o.cls === 'CV' ? (u.o.dr || 0) : 0) : dnDrones(u.o)), 0);
+const droneCount = (g, us) => !has(g, 'fd') ? 0 : us.reduce((a, u) => a + (u.t === 's' ? (u.o.cls === 'CV' ? Math.max(0, (u.o.dr || 0) - Math.floor((u.o.dmg || 0) / 2)) : 0) : dnDrones(u.o)), 0);
 const droneMod = (g, us) => { const n = droneCount(g, us); return n >= 5 ? 2 : n >= 1 ? 1 : 0; };
 const power = (g, us) => us.reduce((a, u) => a + uCb(u), 0) + (us.some(u => uCb(u) > 0) ? weapons(g) : 0);
 const unitsOf = (g, ids, bids) => g.ships.filter(s => ids.includes(s.id)).map(uS).concat(g.bases.filter(b => (bids || []).includes(b.id)).map(uB));
@@ -1282,30 +1282,27 @@ function pickUnit(us, mode, forced) {
   const weak = (a, b) => (uCb(b) > 0) - (uCb(a) > 0) || uHp(a) - uHp(b), tough = (a, b) => (uCb(a) > 0) - (uCb(b) > 0) || uHp(b) - uHp(a);
   return pool.slice().sort(forced === 'kill' || (!forced && mode === 'strike') ? weak : tough)[0];
 }
-// Base hits (3.4): each hit is spent on one building: a facility (downgrades or is removed when its damage equals its size),
-// or a settlement (defense 3; at 3 damage one settlement is lost), or on resources (each hit destroys 2 resources of the
-// attacker's choice). A hit with no building left destroys the base. Hits are collected per base and assigned afterwards.
-const SETDEF = 3, FAC4 = ['def', 'lab', 'mine', 'sup'];
+// Base hits (3.4): each hit is spent on one facility (it takes a damage marker; downgraded or removed when damage equals its
+// size) or on resources (each hit destroys 2 resources: the attacker picks the types). A base with no facilities is
+// destroyed by a single hit. Hits are collected per base during the fight and assigned afterwards.
+const FAC4 = ['def', 'lab', 'mine', 'sup'];
 function facHits(b, c) { let l = b.fac[c], h = -(b.dmg[c] || 0); while (l > 0) { h += sizeOfFac(c, l); l = DOWNFAC[c][l]; } return Math.max(0, h); }
-const setHitsLeft = b => Math.max(0, (b.set || 0) * SETDEF - (b.setHits || 0));
-const bldgHits = b => FAC4.reduce((a, c) => a + facHits(b, c), 0) + setHitsLeft(b);
-function baseCaps(b) { const c = {}; FAC4.forEach(k => c[k] = facHits(b, k)); c.set = setHitsLeft(b); c.res = Math.ceil(sum(b.stock) / 2); return c; }
-function autoAlloc(b, n) { const caps = baseCaps(b), al = { def: 0, lab: 0, mine: 0, sup: 0, set: 0, res: 0 }; for (const c of [...FAC4, 'set']) { const t = Math.min(n, caps[c]); al[c] = t; n -= t; } return al; }
+const bldgHits = b => { const f = FAC4.reduce((a, c) => a + facHits(b, c), 0); return f ? f + Math.ceil(sum(b.stock) / 2) : 0; }; // hits the base can soak before one destroys it
+function baseCaps(b) { const c = {}; FAC4.forEach(k => c[k] = facHits(b, k)); c.res = FAC4.some(k => c[k] > 0) ? Math.ceil(sum(b.stock) / 2) : 0; return c; }
+function autoAlloc(b, n) { const caps = baseCaps(b), al = { def: 0, lab: 0, mine: 0, sup: 0, res: 0 }; for (const c of FAC4) { const t = Math.min(n, caps[c]); al[c] = t; n -= t; } return al; }
 function applyAlloc(b, al, resPick) {
-  let lost = 0;
-  for (const c of FAC4) for (let i = 0; i < (al[c] || 0); i++) { b.dmg[c]++; if (b.dmg[c] >= sizeOfFac(c, b.fac[c])) { b.fac[c] = DOWNFAC[c][b.fac[c]]; b.dmg[c] = 0; lost++; } }
-  for (let i = 0; i < (al.set || 0); i++) { b.setHits = (b.setHits || 0) + 1; if (b.setHits >= SETDEF) { b.set = Math.max(0, b.set - 1); b.setHits = 0; lost++; } }
-  let destroyed = 0;
-  for (let i = 0; i < (al.res || 0) * 2; i++) {
+  let lost = 0, destroyed = 0;
+  for (let i = 0; i < (al.res || 0) * 2; i++) { // resources first: they are only a valid target while a facility stands
     let r = resPick && RES.find(x => resPick[x] > 0 && b.stock[x] > 0);
     if (!r) r = RES.slice().sort((x, y) => b.stock[y] - b.stock[x])[0];
     if (b.stock[r] > 0) { b.stock[r]--; destroyed++; if (resPick && resPick[r] > 0) resPick[r]--; }
   }
+  for (const c of FAC4) for (let i = 0; i < (al[c] || 0); i++) { b.dmg[c]++; if (b.dmg[c] >= sizeOfFac(c, b.fac[c])) { b.fac[c] = DOWNFAC[c][b.fac[c]]; b.dmg[c] = 0; lost++; } }
   return { lost, destroyed };
 }
 function checkAlloc(b, n, al) {
   const caps = baseCaps(b); let t = 0;
-  for (const c of [...FAC4, 'set', 'res']) { const v = Math.floor(+al[c] || 0); if (v < 0 || v > caps[c]) return `Too many hits on ${c}.`; t += v; }
+  for (const c of [...FAC4, 'res']) { const v = Math.floor(+al[c] || 0); if (v < 0 || v > caps[c]) return `Too many hits on ${c}.`; t += v; }
   return t === n ? null : `Assign exactly ${n} hit${n > 1 ? 's' : ''}.`;
 }
 function applyHit(g, u, out) {

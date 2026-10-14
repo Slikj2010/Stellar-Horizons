@@ -1792,8 +1792,8 @@ function renderAsk() {
       ${r >= 3 ? '<button class="b" data-ans="avoid">Call off the combat (3)</button>' : ''}</div>`;
   }
   if (a.k === 'basehit') {
-    const nmz = { def: 'Defense Network', lab: 'Research Lab', mine: 'Mining', sup: 'Supply', set: 'Settlements (3 hits each)', res: 'Resources (2 destroyed per hit)' };
-    h += `<p class="dim">${a.n} hit${a.n > 1 ? 's' : ''} to assign. Each facility takes hits equal to its size, then it is downgraded or removed; each settlement takes 3 hits to be lost.</p>
+    const nmz = { def: 'Defense Network', lab: 'Research Lab', mine: 'Mining', sup: 'Supply', res: 'Resources (2 destroyed per hit)' };
+    h += `<p class="dim">${a.n} hit${a.n > 1 ? 's' : ''} to assign. Each facility takes hits equal to its size, then it is downgraded or removed. Resources are a valid target only while a facility stands.</p>
       <div class="bh">${Object.keys(nmz).filter(c => a.caps[c] > 0).map(c => `<label class="row">${esc(nmz[c])} <input type="number" min="0" max="${a.caps[c]}" value="0" data-bh="${c}" style="width:64px"> <span class="dim">up to ${a.caps[c]}</span></label>`).join('')}</div>
       <div id="bhres" hidden><p class="dim">Resources destroyed: <b id="bhtot">0</b> to choose</p>${['ORE', 'SUP', 'FUEL'].map(r => `<label class="row">${r} <input type="range" min="0" max="${a.stock[r]}" value="0" data-bhr="${r}"> <b data-bhv="${r}">0</b> / ${a.stock[r]}</label>`).join('')}</div>
       <div class="row"><button class="b pri" data-bhgo="1">Apply the hits</button><button class="b" data-ans="auto">Let the game choose</button></div>`;

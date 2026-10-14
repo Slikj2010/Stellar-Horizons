@@ -39,11 +39,11 @@ try:
         print('closed:', pg.evaluate("$('zov').hidden"))
         # base-hit allocation dialog
         pg.evaluate("""() => { const o = Object.values(G.world.facs).find(f => f.f !== G.f);
-          const b = { id: 'bx1', name: 'Testbase', w: 'mar', stock: { ORE: 3, SUP: 1, FUEL: 0 }, fac: { lab: 0, mine: 2, sup: 0, def: 1 }, dmg: { lab: 0, mine: 0, sup: 0, def: 0 }, set: 2, setHits: 0, setDmg: 0 };
-          o.bases.push(b); window.__o = o; G.ask.push({ k: 'basehit', f: o.f, base: 'bx1', name: 'Testbase', n: 4, caps: E.baseCaps(b), stock: { ...b.stock }, text: 'test hits' }); render(); }""")
+          const b = { id: 'bx1', name: 'Testbase', w: 'mar', stock: { ORE: 3, SUP: 1, FUEL: 0 }, fac: { lab: 0, mine: 2, sup: 0, def: 1 }, dmg: { lab: 0, mine: 0, sup: 0, def: 0 }, set: 2, setDmg: 0 };
+          o.bases.push(b); window.__o = o; G.ask.push({ k: 'basehit', f: o.f, base: 'bx1', name: 'Testbase', n: 3, caps: E.baseCaps(b), stock: { ...b.stock }, text: 'test hits' }); render(); }""")
         time.sleep(.4)
         pg.screenshot(path=os.path.join(out, 'z_basehit.png'))
-        pg.fill('[data-bh="def"]', '1'); pg.fill('[data-bh="res"]', '1'); pg.fill('[data-bh="set"]', '1'); pg.fill('[data-bh="mine"]', '1')
+        pg.fill('[data-bh="def"]', '1'); pg.fill('[data-bh="res"]', '1'); pg.fill('[data-bh="mine"]', '1')
         pg.locator('[data-bhr="ORE"]').fill('2'); 
         print('res total shown:', pg.inner_text('#bhtot'))
         pg.click('[data-bhgo]'); time.sleep(.3)
