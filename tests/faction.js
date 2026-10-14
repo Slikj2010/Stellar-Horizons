@@ -146,5 +146,17 @@ if (!hum) fail('the human should be told of fights it is involved in');
   const ven = mkb('ven', 'surf'); g.tech.psh = 0; if (!/Pressure Shell/.test(mine(ven) || '')) fail('Venus mines need Pressure Shell'); g.tech.psh = 1; if (mine(ven)) fail('Venus mine allowed with Pressure Shell: ' + mine(ven));
   const jup = mkb('jup', 'orbit'); delete g.tech.psh; delete g.tech.elev; if (!mine(jup)) fail('Jupiter orbital mine needs tech'); g.tech.psh = 1; if (!/Elevator/.test(mine(jup) || '')) fail('Jupiter still needs Space Elevator'); g.tech.elev = 1; if (mine(jup)) fail('Jupiter mine allowed with both techs');
   const ear = mkb('ear', 'orbit'); if (!mine(ear)) fail('Earth can never mine'); }
+// 12. hits on a base: facilities first, then settlements (3 hits per token, then down one token), then the base itself
+{ const o = () => ({ hits: new Map(), lostCV: [], lostRE: [], lostB: [], facLost: 0 });
+  const b = { fac: { lab: 0, mine: 1, sup: 0, def: 0 }, dmg: { lab: 0, mine: 0, sup: 0, def: 0 }, stock: { ORE: 5, SUP: 0, FUEL: 0 }, set: 20, setHits: 0 };
+  let out = o(), u = { t: 'b', o: b };
+  E.applyHit(na, u, out); if (b.fac.mine !== 0 || b.set !== 20) fail('the first hit should remove the small mining station, not touch settlements');
+  E.applyHit(na, u, out); E.applyHit(na, u, out); if (b.set !== 20 || b.setHits !== 2) fail('settlement should have taken 2 of 3 hits, has ' + b.setHits);
+  E.applyHit(na, u, out); if (b.set !== 15) fail('third settlement hit should downgrade 20x to 15x, got ' + b.set);
+  for (let i = 0; i < 3; i++) E.applyHit(na, u, out); if (b.set !== 10) fail('15x should downgrade to 10x, got ' + b.set);
+  for (let i = 0; i < 6; i++) E.applyHit(na, u, out); if (b.set !== 4) fail('10x -> 5x -> 4x expected, got ' + b.set);
+  for (let i = 0; i < 12; i++) E.applyHit(na, u, out); if (b.set !== 0 || u.dead) fail('1x should be removed and the base survive until hit again: ' + b.set + ' ' + u.dead);
+  E.applyHit(na, u, out); if (!u.dead || out.lostB[0] !== b) fail('a hit with no buildings should destroy the base');
+  console.log('base hits ok'); }
 console.log(bad ? 'FAILED' : 'ALL OK');
 process.exit(bad ? 1 : 0);

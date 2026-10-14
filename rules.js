@@ -1272,6 +1272,8 @@ function pickUnit(us, mode, forced) {
   const weak = (a, b) => (uCb(b) > 0) - (uCb(a) > 0) || uHp(a) - uHp(b), tough = (a, b) => (uCb(a) > 0) - (uCb(b) > 0) || uHp(b) - uHp(a);
   return pool.slice().sort(forced === 'kill' || (!forced && mode === 'strike') ? weak : tough)[0];
 }
+const SET_TOK = [0, 1, 2, 3, 4, 5, 10, 15, 20]; // settlement token values
+const setDown = n => { const t = SET_TOK.filter(v => v < Math.min(n, 21)); return t[t.length - 1]; };
 function applyHit(g, u, out) {
   if (u.t === 's') {
     const s = u.o;
@@ -1280,10 +1282,16 @@ function applyHit(g, u, out) {
     if (s.dmg >= s.sz) { u.dead = true; out.lostCV.push(s); }
     return;
   }
-  const b = u.o, tg = ['def', 'lab', 'mine', 'sup'].filter(c => b.fac[c] > 0), res = sum(b.stock) > 0;
-  if (!tg.length && !res) { u.dead = true; out.lostB.push(b); return; }
-  const c = tg.length ? tg[0] : 'res';
-  if (c === 'res') { for (let i = 0; i < 2; i++) { const r = RES.slice().sort((x, y) => b.stock[y] - b.stock[x])[0]; if (b.stock[r] > 0) b.stock[r]--; } return; }
+  // a base takes hits on its buildings: facilities first (each downgrades or is removed when damage equals its size),
+  // then settlements (defense value 3 per settlement token); with no building left a hit destroys the base itself
+  const b = u.o, tg = ['def', 'lab', 'mine', 'sup'].filter(c => b.fac[c] > 0);
+  if (!tg.length) {
+    if (!(b.set > 0)) { u.dead = true; out.lostB.push(b); return; }
+    b.setHits = (b.setHits || 0) + 1;
+    if (b.setHits >= 3) { b.set = setDown(b.set); b.setHits = 0; out.facLost++; }
+    return;
+  }
+  const c = tg[0];
   b.dmg[c]++;
   if (b.dmg[c] >= sizeOfFac(c, b.fac[c])) { b.fac[c] = DOWNFAC[c][b.fac[c]]; b.dmg[c] = 0; out.facLost++; }
 }
@@ -1847,7 +1855,7 @@ return {
   exploreOptions, explore, flybySkip, outward, combatOptions, combatAct,
   canFoundBase, foundBase, builtThisTurn, unload, load, buyCargo, sellCargo, upgradeOptions, buildFacility, buildSettlement, repairFacility, terraform, trade, tradeLimitOwn,
   setDiplomacy, dipCost, develop, techState, techCost, techCostTxt, techHolders, convertPolitics, buyVictory, redrawMission, tradePoints, choosePolicy, transferRes, baseOutput, bestOutput,
-  lvRecover, lvReturn, score, lims, nonProbeRE, nCV, nBase, range, recall, malfBase, malfRate, engRate, engBase, mult, transfer, misTxt, lvCount, lvStockAt, launchLVs, atOwnBase, baseLoc, basePos, cardFor, prodValue, has, polLv, setRow, cargoMul, resTxt, sum,
+  lvRecover, lvReturn, score, lims, nonProbeRE, nCV, nBase, range, recall, malfBase, malfRate, engRate, engBase, mult, transfer, misTxt, lvCount, lvStockAt, launchLVs, atOwnBase, baseLoc, basePos, applyHit, cardFor, prodValue, has, polLv, setRow, cargoMul, resTxt, sum,
 };
 }
 if (typeof module !== 'undefined') module.exports = make; else root.SHE = make;
