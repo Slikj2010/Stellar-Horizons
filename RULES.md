@@ -48,7 +48,7 @@ Facilities: one of each type per base (settlements unlimited), small then large 
 - Research Lab small: required for tech production; large +3.
 - Supply Station small: builds LV-1/2, unreserves CV-2, repairs 1/CV/turn. large: LV-3/4, CV-3, repairs 2.
 - Spaceport (upgrade of large Supply): small builds REs & CV-2, unreserve CV-4/5, repair 3; large: all CVs, unlimited repair.
-- Defense Network: base defense; blockade needs combat >= DN.
+- Defense Network: base defense with combat value 3 (small, 1 drone) or 7 (large, 3 drones); blockade needs fleet combat >= that value.
 - Settlements: +1 increments; trade/production; victory.
 Facility COSTS: NOT in rules text -> look in Vassal images (player aid).
 Damage: CV marker -1 explore & combat. Damaged settlements don't count; damaged mines/labs -1 per damage; repair 1 ORE/marker ($1B on Earth).
@@ -154,7 +154,7 @@ Infrastructure 1 VP per non-settlement facility level (large refinery = 4); -3 V
 Small Research St 1 ORE+1 SUP; Large +2 ORE +2 SUP (+3 tech).
 Small Mining 1 ORE+1 SUP; Large Mining +2/+2 (+1 res); Small Refinery +3 ORE +3 SUP (+3); Large Refinery +4/+4 (+5).
 Small Supply St 1 ORE+1 FUEL (LV2/CV2); Large +2 ORE+2 FUEL (LV4/CV3); Small Spaceport +3 ORE+3 FUEL (CV2 build / CV5 service); Large Spaceport +4 ORE +4 FUEL (all).
-Small Defense Network 3 ORE (1 combat drone); Large +6 ORE (3 drones).
+Small Defense Network 3 ORE (combat value 3, 1 combat drone); Large +6 ORE (combat value 7, 3 drones).
 Settlement: 2 ORE + 2 SUP + 1 FUEL each.
 
 ## Combat table 11.0: total = combat values + d10 + 1 per enemy unit beyond first (+tech mods)

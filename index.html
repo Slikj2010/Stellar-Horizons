@@ -1491,7 +1491,7 @@ const FACDESC = {
   lab: ['Required for the base to produce tech points (the world card\'s research value, plus bonuses for settlements, signs of life and existing life).', 'Adds +3 tech points to the base\'s research output.'],
   mine: ['Lets the base produce resources of one type per decade (world card production plus the world\'s intrinsic production; the total must be above 0).', 'Adds +1 to resource production.', 'Small Refinery (upgrade of a large Mining Station): adds +3 to resource production.', 'Large Refinery: adds +5 to resource production.'],
   sup: ['Builds LV-1 and LV-2 launch vehicles, unreserves CV-2s, and repairs 1 damage marker per CV each turn.', 'Builds LV-3 and LV-4, unreserves CV-3s, and repairs 2 damage markers per CV.', 'Small Spaceport (upgrade of a large Supply Station): builds robotic explorers and CV-2s, unreserves CV-4s and CV-5s, repairs 3 per CV.', 'Large Spaceport: builds every crew vehicle, unreserves any size, unlimited repairs per CV.'],
-  def: ['Gives the base 1 combat drone (combat value 1): a fleet must match it to blockade the base, and it fires in defence.', 'Gives the base 3 combat drones (combat value 3).'],
+  def: ['Combat value 3 with 1 combat drone: the base fights with it, and a blockading fleet needs combined combat value of at least 3.', 'Combat value 7 with 3 combat drones (replaces the small network); a blockading fleet needs combined combat value of at least 7.'],
 };
 const FACNAME = { lab: 'Research Lab', mine: 'Mining', sup: 'Supply', def: 'Defense Network' };
 function panelBase(b) {

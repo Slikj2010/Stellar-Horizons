@@ -1113,7 +1113,8 @@ const shipsAt = (g, key) => g.ships.filter(s => keyOf(s.loc) === key && (s.cls !
 const cvsAt = (g, key) => shipsAt(g, key).filter(s => s.cls === 'CV');
 const basesAt = (g, key) => key.startsWith('w:') ? g.bases.filter(b => b.w === key.slice(2)) : [];
 const cbOf = s => s.cls === 'CV' ? Math.max(0, (s.cb || 0) - s.dmg) : 0;
-const dnOf = b => b.fac.def >= 2 ? 3 : b.fac.def === 1 ? 1 : 0;
+const dnOf = b => b.fac.def >= 2 ? 7 : b.fac.def === 1 ? 3 : 0; // Defense Network combat value (the red triangle)
+const dnDrones = b => b.fac.def >= 2 ? 3 : b.fac.def === 1 ? 1 : 0; // combat drones it carries
 const surrendered = (g, f) => !!(g.surr && g.surr[f] === g.y);
 const sizeOfFac = (c, l) => (c === 'mine' || c === 'sup') ? (l === 2 || l === 4 ? 2 : 1) : l;
 const DOWNFAC = { lab: [0, 0, 1], def: [0, 0, 1], mine: [0, 0, 1, 1, 2], sup: [0, 0, 1, 1, 2] };
@@ -1122,7 +1123,7 @@ const uS = o => ({ t: 's', o }), uB = o => ({ t: 'b', o });
 const uCb = u => u.t === 's' ? cbOf(u.o) : dnOf(u.o);
 const uHp = u => u.t === 's' ? (u.o.cls === 'CV' ? u.o.sz - u.o.dmg : 1) : 1 + ['lab', 'mine', 'sup', 'def'].filter(c => u.o.fac[c]).length;
 const uCV = u => u.t === 's' && u.o.cls === 'CV';
-const droneCount = (g, us) => !has(g, 'fd') ? 0 : us.reduce((a, u) => a + (u.t === 's' ? (u.o.cls === 'CV' ? (u.o.dr || 0) : 0) : dnOf(u.o)), 0);
+const droneCount = (g, us) => !has(g, 'fd') ? 0 : us.reduce((a, u) => a + (u.t === 's' ? (u.o.cls === 'CV' ? (u.o.dr || 0) : 0) : dnDrones(u.o)), 0);
 const droneMod = (g, us) => { const n = droneCount(g, us); return n >= 5 ? 2 : n >= 1 ? 1 : 0; };
 const power = (g, us) => us.reduce((a, u) => a + uCb(u), 0) + (us.some(u => uCb(u) > 0) ? weapons(g) : 0);
 const unitsOf = (g, ids, bids) => g.ships.filter(s => ids.includes(s.id)).map(uS).concat(g.bases.filter(b => (bids || []).includes(b.id)).map(uB));
