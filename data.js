@@ -255,7 +255,7 @@ D.FACIL = {
   lab: [{ n: 'Small Research Lab', c: { ORE: 1, SUP: 1 }, m: 'lab_s' }, { n: 'Large Research Lab', c: { ORE: 2, SUP: 2 }, m: 'lab_l' }],
   mine: [{ n: 'Small Mining Station', c: { ORE: 1, SUP: 1 }, m: 'mine_s' }, { n: 'Large Mining Station', c: { ORE: 2, SUP: 2 }, m: 'mine_l' }, { n: 'Small Refinery', c: { ORE: 3, SUP: 3 }, m: 'ref_s' }, { n: 'Large Refinery', c: { ORE: 4, SUP: 4 }, m: 'ref_l' }],
   sup: [{ n: 'Small Supply Station', c: { ORE: 1, FUEL: 1 }, m: 'sup_s' }, { n: 'Large Supply Station', c: { ORE: 2, FUEL: 2 }, m: 'sup_l' }, { n: 'Small Spaceport', c: { ORE: 3, FUEL: 3 }, m: 'port_s' }, { n: 'Large Spaceport', c: { ORE: 4, FUEL: 4 }, m: 'port_l' }],
-  def: [{ n: 'Small Defense Network', c: { ORE: 3 }, m: null, drones: 1 }, { n: 'Large Defense Network', c: { ORE: 6 }, m: null, drones: 3 }],
+  def: [{ n: 'Small Defense Network', c: { ORE: 3 }, m: 'def_s', drones: 1 }, { n: 'Large Defense Network', c: { ORE: 6 }, m: 'def_l', drones: 3 }],
 };
 D.MINE_BONUS = [0, 0, 1, 3, 5];
 D.SETTLE_COST = { ORE: 2, SUP: 2, FUEL: 1 };

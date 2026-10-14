@@ -1448,7 +1448,7 @@ function zoomHTML() {
   }
   if (z.kind === 'marker') {
     const fac = Object.entries(D.FACIL).flatMap(([c, a]) => a.map((x, i) => ({ c, i, x }))).find(o => o.x.m === z.key);
-    const pair = fac ? { lab_s: 'lab_l', lab_l: 'lab_s', mine_s: 'mine_l', mine_l: 'mine_s', ref_s: 'ref_l', ref_l: 'ref_s', sup_s: 'sup_l', sup_l: 'sup_s', port_s: 'port_l', port_l: 'port_s' }[z.key] : null;
+    const pair = fac ? { lab_s: 'lab_l', lab_l: 'lab_s', mine_s: 'mine_l', mine_l: 'mine_s', ref_s: 'ref_l', ref_l: 'ref_s', sup_s: 'sup_l', sup_l: 'sup_s', def_s: 'def_l', def_l: 'def_s', port_s: 'port_l', port_l: 'port_s' }[z.key] : null;
     return `${close}<h2>${esc(fac ? fac.x.n : z.title || z.key)}</h2>${fac ? `<p class="dim">Cost ${resHTML(fac.x.c)}</p><p>${esc(FACDESC[fac.c][fac.i])}</p>` : ''}
       ${pair ? `<div class="row"><button class="b" data-zmk="${pair}">Show the ${z.key.endsWith('_l') ? 'small' : 'large'} version</button></div>` : ''}
       <div class="zimg">${mkImgPlain(z.key, 300)}</div>`;
