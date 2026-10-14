@@ -138,5 +138,12 @@ if (!hum) fail('the human should be told of fights it is involved in');
   g.phase = 'explore'; g.turn.acted = {}; const surfOnMars = mk(g, 'OnMars', 3, 2, 'surf:mar'); surfOnMars.ev = 3;
   if (!E.exploreOptions(g, surfOnMars).some(o => o.w === 'mar')) fail('a CV on the surface of a world with our (orbital) base can explore');
   g.turn.acted = {}; c2.loc = 'surf:pho'; if (!E.exploreOptions(g, c2).some(o => o.w === 'pho')) fail('a CV on the surface at our surface base can explore'); }
+// 11. severe atmospheres need Pressure Shell for mines; gas-giant (orbital) bases also need the Space Elevator
+{ const w2 = mkW(), g = w2.world.facs.na; g.bases = [];
+  const mkb = (w, pos) => { const b = { id: 'b' + g.nid++, name: 'T' + w, w, stock: { ORE: 9, SUP: 9, FUEL: 9 }, fac: { lab: 0, mine: 0, sup: 0, def: 0 }, dmg: { lab: 0, mine: 0, sup: 0, def: 0 }, set: 0, setDmg: 0, trade: null, out: 'ORE', built: 2030, techField: 'Phy', pos }; g.bases.push(b); return b; };
+  const mine = b => E.upgradeOptions(g, b).find(o => o.c === 'mine').why;
+  const ven = mkb('ven', 'surf'); g.tech.psh = 0; if (!/Pressure Shell/.test(mine(ven) || '')) fail('Venus mines need Pressure Shell'); g.tech.psh = 1; if (mine(ven)) fail('Venus mine allowed with Pressure Shell: ' + mine(ven));
+  const jup = mkb('jup', 'orbit'); delete g.tech.psh; delete g.tech.elev; if (!mine(jup)) fail('Jupiter orbital mine needs tech'); g.tech.psh = 1; if (!/Elevator/.test(mine(jup) || '')) fail('Jupiter still needs Space Elevator'); g.tech.elev = 1; if (mine(jup)) fail('Jupiter mine allowed with both techs');
+  const ear = mkb('ear', 'orbit'); if (!mine(ear)) fail('Earth can never mine'); }
 console.log(bad ? 'FAILED' : 'ALL OK');
 process.exit(bad ? 1 : 0);

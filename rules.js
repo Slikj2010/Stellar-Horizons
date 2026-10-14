@@ -1672,7 +1672,8 @@ function upgradeOptions(G, b) {
     else if (builtThisTurn(G, b)[c]) why = 'one tier per turn: upgrade it next turn';
     else if (b.dmg[c]) why = 'repair it first';
     else if (c === 'mine' && b.w === 'ear') why = 'Earth orbit cannot produce resources';
-    else if (c === 'mine' && basePos(b) === 'orbit' && !W[b.w].tags.includes('station') && !has(G, 'elev')) why = 'an orbital base needs the Space Elevator technology to build mines';
+    else if (c === 'mine' && basePos(b) === 'orbit' && !has(G, 'elev')) why = 'an orbital base needs the Space Elevator technology to build mines';
+    else if (c === 'mine' && W[b.w].tags.includes('severeAtm') && !has(G, 'psh')) why = 'a severe atmosphere needs the Pressure Shell technology to build mines';
     return { c, lv, next, why };
   });
 }
