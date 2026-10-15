@@ -249,7 +249,7 @@
     if (label) { const sz = Math.min(cs * .78, 46), key = label + '|' + pal.gc; flatQuad(out.num[key] = out.num[key] || [], cx, cz, sz, sz, angle, hgt + .8, [0, 0, 1, 1], WHITE); }
   }
   const PAL = { box: { top: [.03, .11, .19, .84], rim: [.35, .85, 1, .95], side: [.25, .7, .9], glow: [.4, .9, 1], gc: '#59d5ff' }, fly: { top: [.13, .08, .03, .66], rim: [1, .72, .28, .95], side: [.95, .6, .22], glow: [1, .75, .35], gc: '#ffb347' } };
-  // ---------- regular box shapes: squares for the numbered transfer boxes, a trapezoid for the flyby box ----------
+  // ---------- regular box shapes: squares for the numbered transfer boxes, the flyby box keeps its printed outline ----------
   let BOXSH = {};
   const polyArea = p => Math.abs(p.reduce((a, q, i) => { const r = p[(i + 1) % p.length]; return a + q[0] * r[1] - r[0] * q[1]; }, 0) / 2);
   const cen2 = p => [p.reduce((a, q) => a + q[0], 0) / p.length, p.reduce((a, q) => a + q[1], 0) / p.length];
@@ -282,12 +282,7 @@
         const side = Math.min(it.s * .92, nd * .86), h = side / 2, ca = Math.cos(toHub), sa = Math.sin(toHub);
         shape = [[-h, -h], [h, -h], [h, h], [-h, h]].map(([u, v]) => [c[0] + u * ca - v * sa, c[1] + u * sa + v * ca]); cs = side;
       } else {
-        const r = orientedRect(pts), dx = Math.cos(r.th), dz = Math.sin(r.th), px = -dz, pz = dx, L = r.L * .94, Wd = r.W * .94;
-        // the narrow end of the trapezoid points at the hub
-        const toward = (hub[0] - r.c[0]) * dx + (hub[1] - r.c[1]) * dz >= 0 ? 1 : -1;
-        const nar = Wd * .56, far = Wd, e = toward * L / 2;
-        shape = [[r.c[0] + dx * e + px * nar / 2, r.c[1] + dz * e + pz * nar / 2], [r.c[0] + dx * e - px * nar / 2, r.c[1] + dz * e - pz * nar / 2], [r.c[0] - dx * e - px * far / 2, r.c[1] - dz * e - pz * far / 2], [r.c[0] - dx * e + px * far / 2, r.c[1] - dz * e + pz * far / 2]];
-        cs = Wd;
+        shape = pts; cs = it.s;   // the flyby box keeps its printed outline
       }
       BOXSH[B.id] = shape;
       slab(out, shape, B.fly ? 9 : 7, B.fly ? PAL.fly : PAL.box, T, hi.has(B.id), B.fly ? 'FLYBY' : B.n, -C.yaw, cs);
@@ -335,7 +330,7 @@
     // stat boxes
     const stat = (a, label, val, col) => { rrect(x, a, 112, 128, 92, 12); x.fillStyle = 'rgba(255,255,255,.06)'; x.fill(); x.textAlign = 'left'; x.font = `600 19px ${FONT}`; x.fillStyle = '#8fa6bb'; x.fillText(label, a + 12, 132); x.font = `700 46px ${FONT}`; x.fillStyle = col || '#fff'; x.fillText(val, a + 12, 172); };
     stat(196, 'LIFE CHANCE', ws.life ? 'FOUND' : (w.life ? w.life + '%' : '—'), ws.life ? '#6edc8c' : '#fff');
-    stat(334, 'BASE SLOTS', w.base ? String(w.base) : '—');
+    stat(334, 'BASE COST', w.base ? String(w.base) : '—');
     rrect(x, 472, 112, 152, 92, 12); x.fillStyle = 'rgba(255,255,255,.06)'; x.fill(); x.textAlign = 'left'; x.font = `600 19px ${FONT}`; x.fillStyle = '#8fa6bb'; x.fillText('PRODUCES', 484, 132);
     const pr = Object.entries(w.prod || {}); if (!pr.length) { x.font = `700 46px ${FONT}`; x.fillStyle = '#fff'; x.fillText('—', 484, 172); }
     pr.forEach(([r, n], i) => { const yy = 156 + i * 24; x.fillStyle = RESC[r] || '#fff'; x.beginPath(); x.arc(492, yy + 8, 7, 0, 6.2832); x.fill(); x.font = `700 26px ${FONT}`; x.fillStyle = '#fff'; x.fillText(`${r} ${n}`, 506, yy + 9); });
