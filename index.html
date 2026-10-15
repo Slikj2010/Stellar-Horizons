@@ -1782,6 +1782,13 @@ function lifeBlock(f) {
 }
 // ---------------- combat screen ----------------
 const unitRows = us => us.map(u => `<div class="item" style="padding:4px 0"><div class="t"><b>${esc(u.n)}</b></div><span class="chip">combat ${u.cb}</span></div>`).join('') || '<p class="dim">No armed units.</p>';
+function assignScreen(a) {
+  const side = { foe: 'their units', mine: 'your units', fleet: 'your ships' };
+  return `<h2>Assign damage</h2><p class="dim">${esc(a.text)}</p>
+    ${a.screen && a.screen.length ? `<div class="item"><div class="t"><b>Screen units</b><small>Screened units are excluded from direct-fire combat and cannot be hit.</small>${a.screen.map(u => `<label class="row"><input type="checkbox" data-scr="${esc(u.key)}" checked> ${esc(u.n)}</label>`).join('')}</div></div>` : ''}
+    ${a.groups.map(g => `<h3 style="margin-top:10px">${g.n} hit${g.n > 1 ? 's' : ''} on ${side[g.side]}</h3><div data-grp="${g.side}" data-n="${g.n}">${g.units.map(u => `<label class="row">${esc(u.n)} <small class="dim">combat ${u.cb}, ${u.hp} to destroy</small> <input type="number" min="0" max="${g.n}" value="0" data-un="${esc(u.key)}" style="width:60px"></label>`).join('')}<p class="dim">Assigned <b data-cnt="${g.side}">0</b> of ${g.n}</p></div>`).join('')}
+    <div class="row"><button class="b pri" data-asgo="1">Deal the damage</button><button class="b" data-ans="auto" data-yes="1">Let the game choose</button></div>`;
+}
 function searchScreen(a) {
   return `<h2>Search</h2><p class="dim">${esc(a.where)}</p>
     <div class="row" style="gap:22px;align-items:center">${a.rolls.map(x => `<div style="text-align:center"><div class="dim">${esc(x.n)}</div>${dieFace(x.r, x.r <= a.T)}</div>`).join('')}</div>
@@ -1801,14 +1808,15 @@ function combatScreen(a) {
       <tr><td>Strike</td><td>${sx.tot}</td><td>${sx.otot}</td><td>${sx.dealt}</td><td>${sx.taken}</td></tr>
       <tr><td>Direct fire</td><td>${dr.tot}</td><td>${dr.otot}</td><td>${dr.dealt}</td><td>${dr.taken}</td></tr></table>
     <p class="dim">Strike only damages a side with Space Missiles. Direct fire costs 1 tactics point.</p>
-    <p><b>Tactics points:</b> you ${a.tp}, them ${a.opp}. ${r > 0 && !a.lose ? `You can spend ${r}: 1 for direct fire, 2 for +1 damage, 1 to pick a target (3 to call off the combat).` : a.lose ? 'They won the tactics points and will decide how to fight.' : 'Tied: the combat is a strike.'}</p>`;
+    <p><b>Tactics points:</b> you ${a.tp}, them ${a.opp}. ${r > 0 && !a.lose ? `You can spend ${r}: 1 for direct fire, 2 to deal +1 damage or take 1 less, 1 to pick a target instead of your opponent (3 to call off the combat).` : a.lose ? 'They won the tactics points and will decide how to fight.' : 'Tied: the combat is a strike.'}</p>`;
   if (r > 0 && !a.lose) {
-    h += `<div class="col" style="display:grid;gap:6px">${opt('auto', 'Let the game choose', sx, 0, '?', 0, true)}
-      ${opt('strike', 'Strike', sx, r, 0)}
-      ${r >= 1 ? opt('direct', 'Direct fire', dr, r - 1, 1) : ''}
-      ${dx(Math.floor((r - 1) / 2)).map(n => opt('dx' + n, `Direct fire +${n} damage`, dr, r - 1 - 2 * n, 1 + 2 * n, n)).join('')}
-      ${dx(Math.floor(r / 2)).map(n => opt('sx' + n, `Strike +${n} damage`, sx, r - 2 * n, 2 * n, n)).join('')}
-      ${r >= 3 ? '<button class="b" data-ans="avoid">Call off the combat <small class="dim">(3 TP)</small></button>' : ''}</div>`;
+    h += `<div class="plan" data-r="${r}">
+      <div class="row"><label><input type="radio" name="pm" value="strike" checked> Strike <small class="dim">(free; only Space Missiles do damage)</small></label><label><input type="radio" name="pm" value="direct"> Direct fire <small class="dim">(1 point)</small></label></div>
+      <label class="row">Increase damage you deal <input type="number" min="0" max="${Math.floor(r / 2)}" value="0" data-pp="inc" style="width:60px"> <small class="dim">2 points each</small></label>
+      <label class="row">Decrease damage you take <input type="number" min="0" max="${Math.floor(r / 2)}" value="0" data-pp="red" style="width:60px"> <small class="dim">2 points each</small></label>
+      <label class="row">Pick targets instead of your opponent <input type="number" min="0" max="${r}" value="0" data-pp="picks" style="width:60px"> <small class="dim">1 point each</small></label>
+      <p><b id="pcost">0</b> of ${r} points spent. <span id="pprev"></span></p>
+      <div class="row"><button class="b pri" data-plango="1">Fight with this plan</button>${r >= 3 ? '<button class="b" data-ans="avoid" data-no="1">Call off the combat <small class="dim">(3 points)</small></button>' : ''}<button class="b" data-ans="auto" data-yes="1">Let the game choose</button></div></div>`;
   } else h += `<div class="row"><button class="b pri" data-ans="auto" data-yes="1">Fight</button></div>`;
   return h;
 }
@@ -1820,8 +1828,11 @@ function pirateScreen(a) {
       <div style="flex:1;min-width:200px"><h3>${p.strong ? 'Strong' : 'Weak'} pirate</h3>${unitRows([{ n: 'Pirate (size ' + p.size + ', ' + p.dmg + ' damage)', cb: p.cb }])}<div class="row" style="align-items:center;gap:10px">${dieFace(a.st.dp, true)}<b>Total ${a.pTot}</b></div><p class="dim">Table (direct fire): ${a.pDmg} damage to you</p></div>
     </div>
     <p><b>Tactics points:</b> you ${a.myTP}, the pirate ${a.pTP}. ${ex > 0 ? `You can spend ${ex}: 2 points buy +1 damage${ex >= 3 ? ', or 3 points call off the combat' : ''}.` : 'The pirate has the advantage or it is even: no points to spend.'}</p><div style="display:grid;gap:6px">`;
-  for (let n = a.can; n >= 0; n--) h += `<button class="b ${n === a.can ? 'pri' : ''}" data-ans="u${n}"${n === a.can ? ' data-yes="1"' : ''}>${n ? `Spend ${2 * n} tactics points: +${n} damage` : (a.can ? 'Spend nothing' : 'Fight')} <small class="dim">deal ${a.myBase + n}, take ${a.pDmg}</small></button>`;
-  if (ex >= 3) h += '<button class="b" data-ans="avoid" data-no="1">Call off the combat <small class="dim">(3 TP)</small></button>';
+  if (ex >= 2 || ex >= 3) h += `</div><div class="plan" data-r="${ex}" data-pir="1"><label class="row">Increase damage you deal <input type="number" min="0" max="${Math.floor(ex / 2)}" value="${a.can}" data-pp="inc" style="width:60px"> <small class="dim">2 points each</small></label>
+      <label class="row">Decrease damage you take <input type="number" min="0" max="${Math.floor(ex / 2)}" value="0" data-pp="red" style="width:60px"> <small class="dim">2 points each</small></label>
+      <p><b id="pcost">0</b> of ${ex} points spent. <span id="pprev"></span></p>
+      <div class="row"><button class="b pri" data-plango="1" data-yes="1">Fight with this plan</button>${ex >= 3 ? '<button class="b" data-ans="avoid" data-no="1">Call off the combat <small class="dim">(3 points)</small></button>' : ''}</div></div><div style="display:grid;gap:6px">`;
+  else h += '<button class="b pri" data-ans="auto" data-yes="1">Fight</button>';
   return h + '</div>';
 }
 function renderAsk() {
@@ -1839,7 +1850,7 @@ function renderAsk() {
   }
   const a = G.ask[0];
   if (!a) { m.hidden = true; return; }
-  let h = a.k === 'battle' || a.k === 'pbattle' || a.k === 'search' ? '' : `<h2>Decision</h2><p>${esc(a.text)}</p>`;
+  let h = a.k === 'battle' || a.k === 'pbattle' || a.k === 'search' || a.k === 'assign' ? '' : `<h2>Decision</h2><p>${esc(a.text)}</p>`;
   if (a.k === 'pirate') h += `<p class="dim">Pirate demand roll: ${a.roll}.</p><div class="row"><button class="b" data-ans="pay" data-yes="1">Pay $${a.roll}B and pass</button><button class="b" data-ans="remove">Pay $${a.roll * 2}B to drive it off</button><button class="b" data-ans="fight">Fight</button><button class="b" data-ans="surrender">Surrender</button><button class="b" data-ans="stay" data-no="1">Stay put</button></div>`;
   if (a.k === 'intercept') h += `<div class="row"><button class="b" data-ans="stop" data-no="1">Stop moving</button><button class="b" data-ans="fight">Fight</button><button class="b" data-ans="surrender">Surrender (cargo destroyed, crew vehicle reserved, 1 politics marker lost)</button></div>`;
   if (a.k === 'surrender') {
@@ -1848,6 +1859,7 @@ function renderAsk() {
       ${a.canDeny ? '<button class="b" data-ans="deny" data-no="1">Refuse and fight</button>' : ''}${a.split ? '<button class="b" data-ans="exclude">Fight their ships first, then take the base surrender</button>' : ''}</div>${!a.canDeny && !a.split ? '' : `<p class="dim">${a.split ? 'A base\'s surrender must be accepted, but the ships with it can be excluded and fought separately.' : 'At war a fleet\'s surrender may be refused; under embargo it must be accepted.'}</p>`}`;
   }
   if (a.k === 'search') h += searchScreen(a);
+  if (a.k === 'assign') h += assignScreen(a);
   if (a.k === 'battle') h += combatScreen(a);
   if (a.k === 'pbattle') h += pirateScreen(a);
   if (a.k === 'basehit') {
@@ -1876,6 +1888,29 @@ function renderAsk() {
       const alloc = {}; mb.querySelectorAll('[data-bh]').forEach(i => alloc[i.dataset.bh] = +i.value || 0);
       const res = {}; mb.querySelectorAll('[data-bhr]').forEach(i => res[i.dataset.bhr] = +i.value || 0);
       act(() => E.answer(G, 'set', { alloc, res: alloc.res ? res : null }));
+    };
+  }
+  if (a.k === 'battle' || a.k === 'pbattle') {
+    const mb = $('mbox'), pl = mb.querySelector('.plan'); if (pl) {
+      const r = +pl.dataset.r, val = k => { const i = pl.querySelector(`[data-pp="${k}"]`); return i ? Math.max(0, Math.floor(+i.value || 0)) : 0; };
+      const tb = a.k === 'battle' ? { strike: a.strike, direct: a.direct } : null;
+      const upd = () => {
+        const dir = !pl.dataset.pir && (pl.querySelector('[name="pm"]:checked') || {}).value === 'direct', cost = (dir ? 1 : 0) + 2 * val('inc') + 2 * val('red') + val('picks');
+        $('pcost').textContent = cost; $('pcost').style.color = cost > r ? 'var(--bad)' : '';
+        const base = tb ? tb[dir ? 'direct' : 'strike'] : { dealt: a.myBase, taken: a.pDmg };
+        $('pprev').textContent = `You deal ${base.dealt + val('inc')}, you take ${Math.max(0, base.taken - val('red'))}.`;
+      };
+      pl.querySelectorAll('input').forEach(i => i.oninput = i.onchange = upd); upd();
+      pl.querySelector('[data-plango]').onclick = () => { const mode = (pl.querySelector('[name="pm"]:checked') || {}).value || 'direct'; act(() => E.answer(G, 'plan', { mode, inc: val('inc'), red: val('red'), picks: val('picks') })); };
+    }
+  }
+  if (a.k === 'assign') {
+    const mb = $('mbox'), cnt = () => mb.querySelectorAll('[data-grp]').forEach(g => { let t = 0; g.querySelectorAll('[data-un]').forEach(i => t += Math.max(0, Math.floor(+i.value || 0))); mb.querySelector(`[data-cnt="${g.dataset.grp}"]`).textContent = t; });
+    mb.querySelectorAll('[data-un]').forEach(i => i.oninput = cnt);
+    mb.querySelector('[data-asgo]').onclick = () => {
+      const alloc = {}; mb.querySelectorAll('[data-grp]').forEach(g => { alloc[g.dataset.grp] = {}; g.querySelectorAll('[data-un]').forEach(i => { const v = Math.max(0, Math.floor(+i.value || 0)); if (v) alloc[g.dataset.grp][i.dataset.un] = v; }); });
+      const scr = [...mb.querySelectorAll('[data-scr]')].filter(c => c.checked).map(c => c.dataset.scr);
+      act(() => E.answer(G, 'set', { alloc, scr }));
     };
   }
   $('mbox').querySelectorAll('[data-ans]').forEach(b => b.onclick = () => { let v = b.dataset.ans; if (v === '__pub') v = $('pubsel').value; if (a.k === 'card' && v === '') v = null; G.lastRoll = null; act(() => E.answer(G, v)); if (G.lastRoll && G.lastRoll.kind === 'life') { ui = { k: 'result' }; render(); } });

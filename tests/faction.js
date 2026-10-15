@@ -163,5 +163,25 @@ if (!hum) fail('the human should be told of fights it is involved in');
   const bare = { fac: { lab: 0, mine: 0, sup: 0, def: 0 }, dmg: { lab: 0, mine: 0, sup: 0, def: 0 }, stock: { ORE: 9, SUP: 0, FUEL: 0 }, set: 0, setDmg: 0 }, o2 = { hits: new Map(), lostCV: [], lostRE: [], lostB: [], facLost: 0, pend: [] };
   E.applyHit(na, { t: 'b', o: bare }, o2); if (o2.lostB[0] !== bare) fail('a base with no facilities or settlements is destroyed by a single hit');
   console.log('base hits ok'); }
+// 13. human target choice: with Space Missiles a strike lets the human pick which enemy ships take the damage; tactics points can lower damage taken
+{ let got = 0, picked = 0, redTested = 0;
+  for (let i = 0; i < 200 && !picked; i++) {
+    w = mkW(); na = w.world.facs.na; cn = w.world.facs.cn; clear(na); clear(cn); na.tech.msl = 1; cn.tech.msl = 1;
+    mk(na, 'A1', 5, 6, 'orbit:mar'); const c1 = mk(cn, 'C1', 6, 2, 'orbit:mar'), c2 = mk(cn, 'C2', 6, 2, 'orbit:mar'); link(na, cn, 5); na.phase = 'combat'; na.turn.acted = {}; na.ask = [];
+    E.combatAct(na, { k: 'fleet', f: 'cn', key: 'w:mar' });
+    for (let k = 0; k < 6 && na.ask.length; k++) {
+      const q = na.ask[0];
+      if (q.k === 'search') E.answer(na, 'ok');
+      else if (q.k === 'battle') { if (q.rem >= 2 && !redTested) { redTested++; const bad = E.answer(na, 'plan', { mode: 'strike', red: 99 }); if (!/costs/.test(String(bad))) fail('overspending tactics points should be refused: ' + bad); } E.answer(na, 'plan', { mode: 'strike', inc: 0, red: q.rem >= 2 ? 1 : 0, picks: 0 }); }
+      else if (q.k === 'assign') {
+        got++; const g = q.groups.find(x => x.side === 'foe'); if (!g) { E.answer(na, 'auto'); continue; }
+        const target = g.units.find(u => u.n === 'C2'); if (!target) { E.answer(na, 'auto'); continue; }
+        const d0 = c2.dmg, r = E.answer(na, 'set', { alloc: { foe: { [target.key]: g.n } }, scr: [] }); if (r) fail('assign refused: ' + r);
+        if (cn.ships.includes(c2) && c2.dmg !== d0 + g.n && !c2.res) fail('the chosen ship should take all ' + g.n + ' hits: ' + d0 + ' -> ' + c2.dmg);
+        if (c1.dmg > 0 && cn.ships.includes(c1) && g.n > 0) fail('the other ship should be untouched'); picked++;
+      } else E.answer(na, 'auto');
+    }
+  }
+  if (!got) fail('a human attacker with damage to place was never asked to assign it'); else console.log('assign ok', got, picked, redTested); }
 console.log(bad ? 'FAILED' : 'ALL OK');
 process.exit(bad ? 1 : 0);
