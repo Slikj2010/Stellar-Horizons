@@ -317,4 +317,6 @@ Before a fight the player confirms it ("Fight?"). The search comes first: a sear
 ## 2.5D view
 The map has a **2.5D** button next to the zoom buttons. It shows the same game as a solar system: the Sun in the middle, each heliocentric system (Mercury to Alpha Centauri) on its own orbit ring, the Main Belt and Kuiper Belt as rings of rocks that their systems sit on, and spinning 3D planets. It changes nothing about the rules. Each system keeps the printed board's geometry (transfer boxes, flyby box, orbit and surface zones, explore boxes, world cards) exactly as it is relative to its world; the system is only moved and scaled (`layout25.js`), so every anchor point works as before.
 
+The printed transfer boxes and flyby boxes are replaced by 3D docking slots (glass slabs with a glowing rim, corner beacons and a floating number; amber for the flyby box). They sit exactly on the printed box shapes, and every legal destination glows while you drag a counter.
+
 Controls: left-drag pans, the wheel zooms, right-drag (or Shift-drag) rotates and tilts, two fingers pinch and twist, and the ⟲ ⟳ ⤒ ⤓ buttons rotate and tilt. Tap a system name to fly to it. Tap selects, and dragging a counter to a highlighted zone moves it, as on the flat map. "Whole map" shows the whole system. The choice is remembered.

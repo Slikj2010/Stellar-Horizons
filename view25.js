@@ -55,6 +55,9 @@
       else if(MODE==2){float d=length(vq*2.-1.);float a=smoothstep(1.,.8,d);gl_FragColor=vec4(vc.rgb,vc.a*a);}
       else if(MODE==3){float d=length(vq*2.-1.);float a=pow(max(0.,1.-d),2.);gl_FragColor=vec4(vc.rgb,vc.a*a);}
       else if(MODE==6){vec4 t=texture2D(T,vuv);float f=smoothstep(0.,.06,min(min(vq.x,1.-vq.x),min(vq.y,1.-vq.y)));gl_FragColor=vec4(t.rgb,t.a*f);}
+      else if(MODE==8){vec2 g=abs(fract(vuv)-.5);float line=smoothstep(.44,.5,max(g.x,g.y));
+        float scan=smoothstep(.2,1.,sin(TM*1.3+vuv.x*.45+vuv.y*.3))*.16;
+        vec3 c=vc.rgb+vec3(.02,.22,.32)*(line*.55+scan);gl_FragColor=vec4(c,vc.a);}
       else if(MODE==7){vec2 q=vq*2.-1.;float d=length(q);if(d>1.)discard;
         float n=vn(q*4.+TM*.05)*.5+vn(q*9.-TM*.08)*.3+vn(q*21.+TM*.03)*.2;
         vec3 c=mix(vec3(1.,.55,.14),vec3(1.,.93,.6),n);c=mix(c,vec3(1.,.97,.8),.35*(1.-d));c*=1.-.35*pow(d,2.5);
@@ -214,7 +217,65 @@
     end();
   }
   const WHITE = [1, 1, 1, 1];
-  let LAY = null, belts = null, sky = null, labelTex = new Map();
+  let LAY = null, belts = null, sky = null, labelTex = new Map(), ERASED = null;
+  // the printed transfer and flyby boxes are painted out of the sheets; the 3D models below take their place
+  const boxPolys = () => { const out = []; Object.entries(GEO.sys).forEach(([k, sy]) => { Object.entries(sy.boxPoly).forEach(([n, q]) => out.push({ k, n, id: 'box:' + k + ':' + n, pts: q, fly: false })); out.push({ k, n: 'fly', id: 'fly:' + k, pts: hull(sy.flybyPoly), fly: true }); }); return out; };
+  function eraseSheets() {
+    ERASED = {}; const polys = boxPolys();
+    Object.entries(GEO.maps).forEach(([c, [x, y, w, h]]) => {
+      const img = IMG.maps[c]; if (!img) return;
+      const k = img.width / w, cv2 = document.createElement('canvas'); cv2.width = img.width; cv2.height = img.height;
+      const x2 = cv2.getContext('2d'); x2.drawImage(img, 0, 0); x2.fillStyle = '#04070d'; x2.shadowColor = '#04070d'; x2.shadowBlur = 10 * k;
+      polys.forEach(P => {
+        let cx = 0, cy = 0; P.pts.forEach(q => { cx += q[0]; cy += q[1]; }); cx /= P.pts.length; cy /= P.pts.length;
+        x2.beginPath(); P.pts.forEach(([px, py], i) => { const X = (cx + (px - cx) * 1.16 - x) * k, Y = (cy + (py - cy) * 1.16 - y) * k; i ? x2.lineTo(X, Y) : x2.moveTo(X, Y); }); x2.closePath(); x2.fill();
+      });
+      ERASED[c] = cv2;
+    });
+  }
+  const glyphs = new Map();
+  function glyph(t, col) {
+    const key = t + col; let c = glyphs.get(key); if (c) return c;
+    const cv2 = document.createElement('canvas'); cv2.width = 160; cv2.height = 160; const x2 = cv2.getContext('2d');
+    x2.font = '700 ' + (t.length > 2 ? 40 : 104) + 'px "IBM Plex Sans Condensed","Arial Narrow",sans-serif'; x2.textAlign = 'center'; x2.textBaseline = 'middle';
+    x2.shadowColor = col; x2.shadowBlur = 18; x2.fillStyle = '#fff'; x2.fillText(t, 80, 86); x2.shadowBlur = 6; x2.fillText(t, 80, 86);
+    glyphs.set(key, cv2); return cv2;
+  }
+  // one holographic docking slot: glass slab with lit sides, a glowing rim, corner beacons and a floating number
+  function slab(out, pts, hgt, pal, T, hi, label, angle, cs) {
+    let cx = 0, cz = 0; pts.forEach(q => { cx += q[0]; cz += q[1]; }); cx /= pts.length; cz /= pts.length;
+    const P = pts.map(q => [cx + (q[0] - cx) * .94, cz + (q[1] - cz) * .94]), pul = hi ? .5 + .5 * Math.sin(T * 4) : 0;
+    const top = pal.top.map((v, i) => i < 3 ? Math.min(1, v + (hi ? .18 + .12 * pul : 0) * (i === 1 ? 1 : .6)) : v), rim = hi ? [.75, 1, .85, 1] : pal.rim;
+    // top face (holo grid)
+    const t = earclip(P); for (let i = 0; i < t.length; i += 3) for (let k = 0; k < 3; k++) { const q = P[t[i + k]]; pv(out.top, q[0], hgt, q[1], q[0] / 14, q[1] / 14, 0, 0, top); }
+    // sides, lit from the north-west
+    for (let i = 0; i < P.length; i++) {
+      const a = P[i], b = P[(i + 1) % P.length], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; let nx = dz / l, nz = -dx / l;
+      if (nx * ((a[0] + b[0]) / 2 - cx) + nz * ((a[1] + b[1]) / 2 - cz) < 0) { nx = -nx; nz = -nz; }
+      const sh = .55 + .45 * Math.max(0, nx * -.6 + nz * -.8), c1 = [pal.side[0] * sh, pal.side[1] * sh, pal.side[2] * sh, .9], c0 = [.01, .04, .08, .9];
+      [[a, 0, c0], [b, 0, c0], [b, 1, c1], [a, 0, c0], [b, 1, c1], [a, 1, c1]].forEach(([q, up, c]) => pv(out.side, q[0], up ? hgt : 0, q[1], 0, 0, 0, 0, c));
+    }
+    ribbon(out.rim, P, true, 1.9, hgt + .3, rim);
+    // corner beacons
+    P.forEach(q => { quad(out.beam, [[q[0] - rgt[0] * .9, hgt + 15, q[1] - rgt[2] * .9], [q[0] + rgt[0] * .9, hgt + 15, q[1] + rgt[2] * .9], [q[0] + rgt[0] * .9, hgt, q[1] + rgt[2] * .9], [q[0] - rgt[0] * .9, hgt, q[1] - rgt[2] * .9]], [0, 0, 1, 1], [rim[0], rim[1], rim[2], .55]); out.glow.push(q); });
+    if (label) { const sz = Math.min(cs * .78, 46), key = label + '|' + pal.gc; flatQuad(out.num[key] = out.num[key] || [], cx, cz, sz, sz, angle, hgt + .8, [0, 0, 1, 1], WHITE); }
+  }
+  const PAL = { box: { top: [.03, .11, .19, .84], rim: [.35, .85, 1, .95], side: [.25, .7, .9], glow: [.4, .9, 1], gc: '#59d5ff' }, fly: { top: [.13, .08, .03, .66], rim: [1, .72, .28, .95], side: [.95, .6, .22], glow: [1, .75, .35], gc: '#ffb347' } };
+  function drawBoxes(T) {
+    if (!ERASED) eraseSheets();
+    const out = { top: [], side: [], rim: [], beam: [], glow: [], num: {} }, hi = new Set(typeof targets !== 'undefined' && targets ? targets.map(m => m.dest) : []);
+    boxPolys().forEach(B => {
+      const pod = LAY.pods[B.k]; if (!pod) return;
+      const pts = B.pts.map(q => { const r = LAY.toL(q[0], q[1], pod); return [r[0], r[1]]; });
+      let cs = 1e9; { let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; pts.forEach(q => { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); z0 = Math.min(z0, q[1]); z1 = Math.max(z1, q[1]); }); cs = Math.min(x1 - x0, z1 - z0); }
+      let label = null, ang = 0;
+      label = B.fly ? 'FLYBY' : B.n; ang = -C.yaw;
+      slab(out, pts, B.fly ? 9 : 7, B.fly ? PAL.fly : PAL.box, T, hi.has(B.id), label, ang, cs);
+    });
+    flush(pQ, out.top, null, 8); flush(pQ, out.side, null, 1); flush(pQ, out.rim, null, 1); flush(pQ, out.beam, null, 1);
+    const list = []; Object.entries(out.num).forEach(([key, a]) => { const [t, col] = key.split('|'); list.push({ tex: texOf(glyph(t, col), false), mode: 0, verts: a }); }); batch(list);
+    const g = [], r = 7; out.glow.forEach(q => { const y = 7 + 14, Rr = [rgt[0] * r, rgt[1] * r, rgt[2] * r], U = [cup[0] * r, cup[1] * r, cup[2] * r]; quad(g, [[q[0] - Rr[0] + U[0], y - Rr[1] + U[1], q[1] - Rr[2] + U[2]], [q[0] + Rr[0] + U[0], y + Rr[1] + U[1], q[1] + Rr[2] + U[2]], [q[0] + Rr[0] - U[0], y + Rr[1] - U[1], q[1] + Rr[2] - U[2]], [q[0] - Rr[0] - U[0], y - Rr[1] - U[1], q[1] - Rr[2] - U[2]]], [0, 0, 1, 1], [.5, .9, 1, .8]); }); flush(pQ, g, null, 3);
+  }
   function ensure() {
     if (LAY || typeof GEO === 'undefined' || typeof SHL === 'undefined') return;
     const S0 = typeof FX !== 'undefined' && FX.sun, m = S0 && GEO.maps[S0.map];
@@ -269,7 +330,7 @@
     Object.values(LAY.pods).forEach(p => {
       const bw = p.bbox[2] - p.bbox[0], bh = p.bbox[3] - p.bbox[1];
       p.arts.forEach(art => {
-        const img = IMG.maps[art.sheet]; if (!img) return;
+        const img = (ERASED && ERASED[art.sheet]) || IMG.maps[art.sheet]; if (!img) return;
         const [x0, y0, x1, y1] = art.rect, A = mapP(x0, y0, p), B = mapP(x1, y1, p), sh = GEO.maps[art.sheet];
         const u0 = (x0 - sh[0]) / sh[2], u1 = (x1 - sh[0]) / sh[2], v0 = (y0 - sh[1]) / sh[3], v1 = (y1 - sh[1]) / sh[3];
         const q0 = [(x0 - p.bbox[0]) / bw, (y0 - p.bbox[1]) / bh], q1 = [(x1 - p.bbox[0]) / bw, (y1 - p.bbox[1]) / bh], a = [];
@@ -280,6 +341,7 @@
       });
     });
     batch(L1); batch(L2);
+    if (C.dist < 26000) drawBoxes(T);
     { const a = []; Object.values(LAY.pods).forEach(p => { const r = p.rect, i = 14; ribbon(a, [[r[0] + i, r[1] + i], [r[2] - i, r[1] + i], [r[2] - i, r[3] - i], [r[0] + i, r[3] - i]], true, Math.max(5, px * 1.2), .6, [.31, .76, .85, .22]); }); flush(pQ, a, null, 1); }
     // 4 the Sun
     {
