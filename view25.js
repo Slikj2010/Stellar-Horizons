@@ -310,7 +310,7 @@
     const w = D.W[k], key = [ws.v, ws.life, ws.sol, ws.terra, ws.npf, ws.blk].join('|'); let P = panels.get(k);
     if (P && P.key === key) return P;
     if (!P) { const cv2 = document.createElement('canvas'); cv2.width = 640; cv2.height = 352; P = { cv: cv2 }; panels.set(k, P); }
-    P.key = key; const x = P.cv.getContext('2d'), F = FIELD[w.f] || ['#9ad', ''], fc = F[0], dead = ws.v < 1, FONT = '"IBM Plex Sans Condensed","Arial Narrow",sans-serif';
+    P.key = key; const x = P.cv.getContext('2d'), F = w.tags.includes('alpha') ? ['#e8d27a', 'VARIABLE FIELD'] : FIELD[w.f] || ['#9ad', ''], fc = F[0], dead = ws.v < 1, FONT = '"IBM Plex Sans Condensed","Arial Narrow",sans-serif';
     x.clearRect(0, 0, 640, 352);
     rrect(x, 6, 6, 628, 340, 24); x.fillStyle = 'rgba(4,12,26,.86)'; x.fill(); x.lineWidth = 4; x.strokeStyle = fc; x.globalAlpha = .85; x.stroke(); x.globalAlpha = 1;
     x.fillStyle = fc; x.globalAlpha = .18; rrect(x, 6, 6, 628, 56, 24); x.fill(); x.globalAlpha = 1;
@@ -331,13 +331,14 @@
     x.restore();
     // stat boxes
     const stat = (a, label, val, col) => { rrect(x, a, 112, 128, 92, 12); x.fillStyle = 'rgba(255,255,255,.06)'; x.fill(); x.textAlign = 'left'; x.font = `600 19px ${FONT}`; x.fillStyle = '#8fa6bb'; x.fillText(label, a + 12, 132); x.font = `700 46px ${FONT}`; x.fillStyle = col || '#fff'; x.fillText(val, a + 12, 172); };
-    stat(196, 'LIFE CHANCE', ws.life ? 'FOUND' : (w.life ? w.life + '%' : '—'), ws.life ? '#6edc8c' : '#fff');
+    stat(196, 'LIFE CHANCE', ws.life ? 'FOUND' : (w.tags.includes('alpha') ? '3–10%' : w.life ? w.life + '%' : '—'), ws.life ? '#6edc8c' : '#fff');
     stat(334, 'BASE COST', w.base ? String(w.base) : '—');
     rrect(x, 472, 112, 152, 92, 12); x.fillStyle = 'rgba(255,255,255,.06)'; x.fill(); x.textAlign = 'left'; x.font = `600 19px ${FONT}`; x.fillStyle = '#8fa6bb'; x.fillText('PRODUCES', 484, 132);
     const pr = Object.entries(w.prod || {}); if (!pr.length) { x.font = `700 46px ${FONT}`; x.fillStyle = '#fff'; x.fillText('—', 484, 172); }
     pr.forEach(([r, n], i) => { const yy = 156 + i * 24; x.fillStyle = RESC[r] || '#fff'; x.beginPath(); x.arc(492, yy + 8, 7, 0, 6.2832); x.fill(); x.font = `700 26px ${FONT}`; x.fillStyle = '#fff'; x.fillText(`${r} ${n}`, 506, yy + 9); });
     // tags and state
     const chips = []; w.tags.forEach(t => { if (TAGTXT[t]) chips.push([TAGTXT[t], '#9fc3dd']); });
+    if (w.tags.includes('alpha')) { chips.push(['d10 per success:', '#e8d27a'], ['1-4 Physics 3%', '#5aaaff'], ['5-7 Engineering 5%', '#d5dbe6'], ['8-10 Biology 10%', '#6edc8c']); }
     if (ws.sol) chips.push(['Solar power', '#f2b13c']); if (D.TERRA && D.TERRA[k]) chips.push([`Terraform ${ws.terra}/${D.TERRA[k]}`, '#6edc8c']);
     if (ws.npf) chips.push([`${(typeof E !== 'undefined' && E.npfName) ? E.npfName(G, k) : 'NPF'} base`, '#c9a6ff']); if (ws.blk) chips.push(['BLOCKADED', '#ef6b5b']);
     let cx = 196, cy = 236; x.font = `600 25px ${FONT}`;

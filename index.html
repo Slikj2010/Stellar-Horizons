@@ -1863,7 +1863,7 @@ function exploreResult() {
   if (L.kind) return `<h2>${esc(L.title)}</h2><div class="row" style="gap:14px;align-items:center">${dieFace(L.r, L.good)}<div><p style="margin:0"><b>${esc(L.head)}</b></p><p class="dim" style="margin:0">${esc(L.sub)}</p></div></div>${L.extra.map(t => `<p class="dim">${esc(t)}</p>`).join('')}<div class="row"><button class="b pri" data-ui="ok">Continue</button></div>`;
   return `<h2>${esc(L.who)} explores ${esc(L.world)}</h2>
   <div class="row" style="gap:14px;align-items:center">${L.rem ? dieFace(L.r, L.hit) + (L.r2 != null ? `<span class="dim">best of ${L.r1} and ${L.r2}</span>` : '') : ''}<div><p style="margin:0"><b>${L.ok ? 'Success' : 'Failure'}</b> at value ${L.val}${L.rem ? `: needed ${L.rem} or less, rolled ${L.r}` : ''}.</p>
-  <p class="dim" style="margin:0">${L.got.length ? 'Earned ' + L.got.map(v => v + ' ' + E.FN[L.field]).join(', ') + '.' : 'No tech markers.'}</p></div></div>
+  ${L.alpha ? `<p style="margin:4px 0" class="row">${dieFace(L.alpha, true)} <span class="dim">Alpha Centauri field roll: ${esc(E.FN[L.field])}</span></p>` : ''}<p class="dim" style="margin:0">${L.got.length ? 'Earned ' + L.got.map(v => v + ' ' + E.FN[L.field]).join(', ') + '.' : 'No tech markers.'}</p></div></div>
   ${L.extra.map(t => `<p class="dim">${esc(t)}</p>`).join('')}
   ${lifeBlock(L.life)}
   <div class="row"><button class="b pri" data-ui="ok">Continue</button></div>`;

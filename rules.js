@@ -1667,12 +1667,14 @@ function explore(G, s, opt) {
   const w = o.w, ws = G.w[w], probe = o.kind === 'probe', cv = s.cls === 'CV' && !probe;
   const val = Math.max(0, o.value);
   let field = W[w].f, lifeChance = W[w].life;
-  if (w === 'alp') { const r = d10(); const a = D.ALPHA.find(x => r <= x[0]); field = a[1]; lifeChance = a[2]; G.alpha[cv ? 'cv' : 're'] = true; }
+  if (w === 'alp') G.alpha[cv ? 'cv' : 're'] = true;
   const auto = Math.floor(val / 10), rem = val % 10, r1 = d10();
   const two = (cv && s.lab) || (s.kind === 'Telescope' && G.f === 'eu');
   const r2 = two ? d10() : null, r = two ? Math.min(r1, r2) : r1;
   const hit = rem > 0 && r <= rem;
   let n = auto + (hit ? 1 : 0);
+  // Alpha Centauri: its field (and life chance) is decided by a d10 rolled after each successful exploration (1-4 Physics, 3%; 5-7 Engineering, 5%; 8-10 Biology, 10%)
+  let aRoll = null; if (w === 'alp' && n > 0) { aRoll = d10(); const a = D.ALPHA.find(x => aRoll <= x[0]); field = a[1]; lifeChance = a[2]; }
   const got = []; for (let i = 0; i < n; i++) got.push(drawMarker(G, field));
   const who = probe ? `Probe ${s.probe} (from ${s.name})` : s.name;
   const rollTxt = `rolled ${r}${two ? ` (best of ${r1} and ${r2})` : ''} on d10`;
@@ -1682,7 +1684,8 @@ function explore(G, s, opt) {
   else if (!rem) res = `${auto} automatic marker(s): ${markerTxt(got, field)}.`;
   else res = `${auto ? auto + ' automatic marker(s), then ' : ''}${rollTxt}, ${need}: ${hit ? 'success' : 'no extra marker'}. Earned ${markerTxt(got, field)}.`;
   let msg = `${who} explores ${W[w].n}${o.pen ? ` from transfer box ${o.pen}` : ''} at value ${val}: ${res}`;
-  G.lastRoll = { who, world: W[w].n, val, auto, rem, r, r1, r2, hit, got: got.slice(), field, ok: n > 0, extra: [] };
+  if (aRoll) msg += ` Alpha Centauri field roll ${aRoll} on d10: ${FN[field]} (${lifeChance}% life chance).`;
+  G.lastRoll = { who, world: W[w].n, val, auto, rem, r, r1, r2, hit, got: got.slice(), field, ok: n > 0, extra: [], alpha: aRoll };
   const total = got.reduce((a, b) => a + b, 0);
   // depletion (max one per exploration): robotic explorers and probes when any single marker earned is a '3' (the
   // rulebook errata counts '3 or more', so the 5-point marker also depletes); crewed vehicles when the earned markers add up to 3 or more

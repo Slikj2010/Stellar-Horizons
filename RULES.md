@@ -228,7 +228,7 @@ Haumea-Makemake: icy rocky dwarf planets, no atm, low | Phy 6 | +2 ORE | 9 | 7
 Sedna: icy minor planet, no atm, minimal | Phy 5 | +2 ORE | 9 | 8
 Eris-Dysnomia: icy dwarf planet & moon, trace, low | Phy 5 | +2 ORE | 9 | 9
 Deep Space Astronomy: telescopes only, Phy 5, half value
-Alpha Centauri: each exploration d10 1-4 Phy(3%) 5-7 Eng(5%) 8-10 Bio(10%); no telescopes; explore 9
+Alpha Centauri: after each successful exploration roll a d10 to set the field and life chance: 1-4 Phy(3%) 5-7 Eng(5%) 8-10 Bio(10%) (a failed exploration earns nothing, so no roll); no telescopes; explore 9
 
 ## World cards (name: ORE FUEL SUP | research field value | types | exploration bonus)
 Chasms 2 2 4 | Phy 3 | Rocky or Icy | +1 Crewed
