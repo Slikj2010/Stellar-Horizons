@@ -12,6 +12,7 @@ python3 -m http.server 8000
 
 ## Layout
 - `index.html` — title screen, pause menu, board renderer (canvas + WebGL planet spin), all UI.
+- `view25.js` — the optional 2.5D space view: a small dependency-free WebGL2 renderer (tilted camera, spinning planets, hovering counters). It draws from the flat painter's draw calls, so rules, tests and UI stay in one place. Toggle it with the 2.5D button on the map.
 - `rules.js` — the rules engine (no DOM; runs in Node too).
 - `data.js` — worlds, technologies, policies, factions, missions, world cards, events, combat tables.
 - `units.json` — every faction's named vehicles (costs, search, cargo, combat).

@@ -23,7 +23,7 @@ body { margin: 0; background: var(--void); color: var(--ink); font: 15px/1.45 va
 #main { position: relative; display: grid; grid-template-columns: 1fr minmax(340px, 400px); min-height: 0; }
 #stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: var(--void); touch-action: none; }
 #stage canvas { display: block; }
-#zoom { position: absolute; left: 16px; bottom: 16px; display: flex; gap: 6px; }
+#zoom { position: absolute; left: 16px; bottom: 16px; display: flex; gap: 6px; z-index: 5; flex-wrap: wrap; } #v25c { display: inline-flex; gap: 6px; } #v25c[hidden] { display: none; } #v25.on { border-color: var(--ion); color: var(--ion); }
 #hint { position: absolute; left: 16px; top: 12px; right: 16px; pointer-events: none; font-size: 13px; color: var(--dim); text-shadow: 0 1px 2px #000; }
 #rail { display: grid; grid-template-rows: auto 1fr auto; min-height: 0; background: var(--hull); border-left: 1px solid var(--line); }
 #tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
@@ -198,7 +198,7 @@ p.order { margin: -2px 0 10px; }
   <div id="bar"></div>
   <div id="main">
     <div id="stage"><div id="hint"></div>
-      <div id="zoom"><button class="b" id="zin" aria-label="Zoom in">+</button><button class="b" id="zout" aria-label="Zoom out">−</button><button class="b" id="zfit">Whole map</button><button class="b" id="zme">My ships</button></div>
+      <div id="zoom"><button class="b" id="zin" aria-label="Zoom in">+</button><button class="b" id="zout" aria-label="Zoom out">−</button><button class="b" id="zfit">Whole map</button><button class="b" id="zme">My ships</button><button class="b" id="v25" title="Switch between the flat map and the 2.5D space view">2.5D</button><span id="v25c" hidden><button class="b" id="v25l" aria-label="Rotate left">⟲</button><button class="b" id="v25r" aria-label="Rotate right">⟳</button><button class="b" id="v25u" aria-label="Tilt up">⤒</button><button class="b" id="v25d" aria-label="Tilt down">⤓</button></span></div>
     </div>
     <div id="ttree" hidden></div>
     <aside id="rail">
@@ -218,6 +218,7 @@ p.order { margin: -2px 0 10px; }
 <script src="data.js"></script>
 <script src="rules.js"></script>
 <script src="ai.js"></script>
+<script src="view25.js"></script>
 <script>
 'use strict';
 const D = window.SHD;
@@ -293,7 +294,7 @@ async function loadAtlas(f) {
   const [fr, img] = await Promise.all([fetch('atlas_' + f + '.json').then(r => r.json()), loadImg('atlas_' + f + '.webp')]);
   ATL[f] = { fr, img };
 }
-function resize() { const r = $('stage').getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1); cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d); cv.style.width = r.width + 'px'; cv.style.height = r.height + 'px'; cv.dpr = d; dirty = true; }
+function resize() { const r = $('stage').getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1); if (V25.ok) V25.resize(r.width, r.height, d); cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d); cv.style.width = r.width + 'px'; cv.style.height = r.height + 'px'; cv.dpr = d; dirty = true; }
 const SW = () => cv.width / cv.dpr, SH = () => cv.height / cv.dpr;
 const STILL = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 let lastPaint = 0;
@@ -423,7 +424,7 @@ function baseKey(b, f) {
   const station = E.basePos(b) === 'orbit';
   return (station !== !!STATION_ALT[f]) ? plain : alt;
 }
-function drawRot(img, f, x, y, size, a) { if (!f) return; const k = size / Math.max(f[2], f[3]), w = f[2] * k, h = f[3] * k; ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.drawImage(img, f[0], f[1], f[2], f[3], -w / 2, -h / 2, w, h); ctx.restore(); }
+function drawRot(img, f, x, y, size, a) { if (!f) return; if (V25.on) { V25.sprite(img, f, x, y, size, a); return; } const k = size / Math.max(f[2], f[3]), w = f[2] * k, h = f[3] * k; ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.drawImage(img, f[0], f[1], f[2], f[3], -w / 2, -h / 2, w, h); ctx.restore(); }
 // world card slot (geo.json wcard, found by tools/place_cards.py): lined up under the printed World Box in its tilt,
 // clear of all printed text. Life marker to the card's right, bases in a row under the card, trade marker right of each base.
 const WB = { LS: 56, BS: CS + 10, TS: 50, GAP: 14 };
@@ -457,6 +458,7 @@ function paintWorldBoxes() {
       drawRot(ATL[bf].img, ATL[bf].fr[baseKey(b, bf)], x, y, BS, F.a);
       if (b.npf) {
         hits.push({ t: 'npf', k, x, y, r: BS / 2 });
+        if (V25.on && sel && sel.t === 'npf' && sel.k === k) V25.box(x, y, BS + 6, F.a, '#f2a93b', 3);
         if (sel && sel.t === 'npf' && sel.k === k) { ctx.save(); ctx.translate(x, y); ctx.rotate(F.a); ctx.strokeStyle = '#f2a93b'; ctx.lineWidth = 3; ctx.strokeRect(-BS / 2 - 3, -BS / 2 - 3, BS + 6, BS + 6); ctx.restore(); }
         if (b.trade) {
           const [tx, ty] = at(lx + BS / 2 + 8 + TS / 2, rowY); drawRot(IMG.markers, MK[(b.trade.side === 'buy' ? 'buy_' : 'sell_') + b.trade.type], tx, ty, TS, F.a);
@@ -466,6 +468,8 @@ function paintWorldBoxes() {
         if (b.blk) { const [bx, by] = at(lx, rowY + BS / 2 + 12); txt('BLOCKADED', bx, by, 11, '#ef6b5b'); }
         return;
       }
+      if (V25.on && bf !== G.f) V25.box(x, y, BS + 4, F.a, D.FAC[bf].c, 3);
+      if (V25.on && sel && sel.t === 'base' && sel.id === b.id) V25.box(x, y, BS + 6, F.a, '#f2a93b', 3);
       if (bf !== G.f) { ctx.save(); ctx.translate(x, y); ctx.rotate(F.a); ctx.strokeStyle = D.FAC[bf].c; ctx.lineWidth = 3; ctx.strokeRect(-BS / 2 - 2, -BS / 2 - 2, BS + 4, BS + 4); ctx.restore(); hits.push({ t: 'obase', f: bf, id: b.id, x, y, r: BS / 2 }); }
       else hits.push({ t: 'base', id: b.id, x, y, r: BS / 2 });
       if (b.set) { const [sx, sy] = at(lx + BS / 2 - 8, rowY + BS / 2 + 10); txt(String(b.set), sx, sy, 15, '#f2a93b'); }
@@ -880,16 +884,16 @@ function savePanel() {
 
 // ---------------- camera ----------------
 const toWorld = (x, y) => ({ x: (x - cam.x) / cam.s, y: (y - cam.y) / cam.s });
-function zoomAt(x, y, f) { const s = Math.max(.08, Math.min(3, cam.s * f)); const k = s / cam.s; cam.x = x - (x - cam.x) * k; cam.y = y - (y - cam.y) * k; cam.s = s; dirty = true; }
+function zoomAt(x, y, f) { if (V25.on) { V25.zoom(f); return; } const s = Math.max(.08, Math.min(3, cam.s * f)); const k = s / cam.s; cam.x = x - (x - cam.x) * k; cam.y = y - (y - cam.y) * k; cam.s = s; dirty = true; }
 function boardBox() {
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; const add = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
   Object.values(GEO.maps).forEach(([x, y, w, h]) => { add(x, y); add(x + w, y + h); });
   Object.values(GEO.worlds).forEach(g => { if (g.wcard) { add(g.wcard[0] - 260, g.wcard[1] - 200); add(g.wcard[0] + 260, g.wcard[1] + 260); } });
   return [x0, y0, x1, y1];
 }
-function fit() { const [x0, y0, x1, y1] = boardBox(), W = x1 - x0, H = y1 - y0; cam.s = Math.min(SW() / W, SH() / H) * .98; cam.x = (SW() - W * cam.s) / 2 - x0 * cam.s; cam.y = (SH() - H * cam.s) / 2 - y0 * cam.s; dirty = true; }
-function home() { const e = GEO.worlds.ear.orbit; focus([e[0] + 120, e[1] + 120], Math.max(.32, Math.min(.6, SW() / 1500))); }
-function focus(p, s) { cam.s = s; cam.x = SW() / 2 - p[0] * s; cam.y = SH() / 2 - p[1] * s; dirty = true; }
+function fit() { if (V25.on) { V25.fit(); return; } const [x0, y0, x1, y1] = boardBox(), W = x1 - x0, H = y1 - y0; cam.s = Math.min(SW() / W, SH() / H) * .98; cam.x = (SW() - W * cam.s) / 2 - x0 * cam.s; cam.y = (SH() - H * cam.s) / 2 - y0 * cam.s; dirty = true; }
+function home() { if (SET.v25 && !V25.on && V25.ok !== false) { toggle25(true); return; } const e = GEO.worlds.ear.orbit; focus([e[0] + 120, e[1] + 120], Math.max(.32, Math.min(.6, SW() / 1500))); }
+function focus(p, s) { if (V25.on) { V25.focus(p, s); return; } cam.s = s; cam.x = SW() / 2 - p[0] * s; cam.y = SH() / 2 - p[1] * s; dirty = true; }
 
 // ---------------- input ----------------
 const pointers = new Map(); let gesture = null;
@@ -930,11 +934,12 @@ function setupInput() {
   $('zin').onclick = () => zoomAt(SW() / 2, SH() / 2, 1.3);
   $('zout').onclick = () => zoomAt(SW() / 2, SH() / 2, 1 / 1.3);
   $('zfit').onclick = fit;
+  $('v25').onclick = () => toggle25();
   $('zme').onclick = () => { if (!G) return; const s = (sel && sel.t === 'ship' && G.ships.find(x => x.id === sel.id)) || G.ships.find(x => x.loc !== 'earth'); focus(s ? posOf(s.loc) : GEO.worlds.ear.orbit, .9); };
 }
 function hover(e) { const h = hitTest(e.offsetX, e.offsetY); cv.style.cursor = h ? (h.t === 'ship' && G && G.phase === 'move' ? 'grab' : 'pointer') : 'default'; }
-function hitTest(x, y) {
-  const p = toWorld(x, y);
+function hitTest(x, y) { return hitAtWorld(toWorld(x, y)); }
+function hitAtWorld(p) {
   for (let i = hits.length - 1; i >= 0; i--) {
     const h = hits[i];
     if (h.r ? Math.abs(p.x - h.x) <= h.r && Math.abs(p.y - h.y) <= h.r : h.poly ? inPoly(p, h.poly) : Math.hypot(p.x - h.x, p.y - h.y) <= h.rad) return h;
@@ -954,10 +959,73 @@ function cancelDrag() { dragS = null; targets = null; dirty = true; }
 function drop(e) {
   const d = dragS; cancelDrag();
   if (!d) return;
-  const p = toWorld(e.offsetX, e.offsetY);
+  dropAt(d, toWorld(e.offsetX, e.offsetY));
+}
+function dropAt(d, p) {
   const hit = nearestTarget(d.moves, p);
   if (!hit) { toast('Drop the counter on a highlighted box.'); return; }
   chooseAndMove(d.s, hit.dest, d.moves.filter(m => m.dest === hit.dest), p);
+}
+
+// ---------------- 2.5D view (view25.js) ----------------
+let inp25 = false;
+async function toggle25(force) {
+  const want = force === undefined ? !V25.on : force;
+  if (want === V25.on) return;
+  if (want) {
+    if (V25.ok === null || V25.ok === undefined) {
+      if (!V25.init($('stage'), $('hint'))) { toast('The 2.5D view needs WebGL2, which this browser does not offer.'); return; }
+      try { V25.setBodies(await loadImg('bodies.png')); } catch (e) { /* planets stay hidden */ }
+      V25.resize($('stage').clientWidth, $('stage').clientHeight, Math.min(2, window.devicePixelRatio || 1));
+    }
+    if (V25.ok === false) { toast('The 2.5D view is not available here.'); return; }
+    if (!inp25) { inp25 = true; setupInput25(); }
+    V25.on = true; V25.show(true); cv.style.display = 'none';
+    V25.home(G ? posOf('earth') : [2500, 450]);
+  } else { V25.on = false; V25.show(false); cv.style.display = 'block'; }
+  $('v25').classList.toggle('on', V25.on); $('v25c').hidden = !V25.on;
+  try { SET.v25 = V25.on; saveSettings(); } catch (e) { /* ignore */ }
+  dirty = true;
+}
+function setupInput25() {
+  const c = V25.canvas(), P = new Map(); let g = null;
+  c.addEventListener('contextmenu', e => e.preventDefault());
+  c.addEventListener('wheel', e => { e.preventDefault(); V25.zoom(e.deltaY < 0 ? 1.15 : 1 / 1.15); }, { passive: false });
+  const pos = e => { const r = c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  c.addEventListener('pointerdown', e => {
+    c.setPointerCapture(e.pointerId); const q = pos(e); P.set(e.pointerId, q);
+    if (P.size === 2) { const [a, b] = [...P.values()]; g = { k: 'pinch', d: Math.hypot(a.x - b.x, a.y - b.y), an: Math.atan2(b.y - a.y, b.x - a.x) }; if (dragS) cancelDrag(); return; }
+    const r = V25.pick(q.x, q.y);
+    g = { k: 'press', x: q.x, y: q.y, lx: q.x, ly: q.y, hit: r.hit, p0: V25.ground(q.x, q.y, 0), moved: false, rot: e.button === 2 || e.button === 1 || e.shiftKey };
+  });
+  c.addEventListener('pointermove', e => {
+    const q = pos(e);
+    if (!P.has(e.pointerId)) { const r = V25.pick(q.x, q.y); c.style.cursor = r.hit && (r.hit.t === 'ship' || r.hit.t === 'oship' || r.hit.t === 'world' || r.hit.t === 'base' || r.hit.t === 'obase' || r.hit.t === 'npf') ? (r.hit.t === 'ship' && G && G.phase === 'move' ? 'grab' : 'pointer') : 'default'; return; }
+    P.set(e.pointerId, q);
+    if (!g) return;
+    if (g.k === 'pinch' && P.size === 2) { const [a, b] = [...P.values()], d = Math.hypot(a.x - b.x, a.y - b.y), an = Math.atan2(b.y - a.y, b.x - a.x); V25.zoom(d / g.d); V25.rotate(-(an - g.an), 0); g.d = d; g.an = an; return; }
+    if (g.k === 'press' && Math.hypot(q.x - g.x, q.y - g.y) > 6) {
+      g.moved = true; const h = g.hit;
+      if (g.rot) g.k = 'rot';
+      else if (h && h.t === 'ship' && G.phase === 'move') {
+        const s = G.ships.find(x => x.id === h.id), m = s ? E.moves(G, s) : [];
+        if (m.length) { g.k = 'drag'; dragS = { s, moves: m, x: 0, y: 0 }; targets = m; } else g.k = 'pan';
+      } else g.k = 'pan';
+    }
+    if (g.k === 'rot') { V25.rotate(-(q.x - g.lx) * .006, (q.y - g.ly) * .005); g.lx = q.x; g.ly = q.y; }
+    else if (g.k === 'pan') { V25.panBy(g.p0, q.x, q.y); }
+    else if (g.k === 'drag') { const p = V25.ground(q.x, q.y, 0); if (p) { dragS.x = p.x * cam.s + cam.x; dragS.y = p.y * cam.s + cam.y; dragS.p = p; dirty = true; } }
+  });
+  const up = e => {
+    if (!P.has(e.pointerId)) return; P.delete(e.pointerId);
+    const gg = g; if (P.size === 0) g = null; else if (gg && gg.k === 'pinch') g = { k: 'none' };
+    if (!gg) return;
+    if (gg.k === 'press' && !gg.moved && e.type === 'pointerup') tap(gg.hit);
+    if (gg.k === 'drag') { const d = dragS, p = d && d.p; cancelDrag(); if (d && p) dropAt(d, p); }
+  };
+  c.addEventListener('pointerup', up); c.addEventListener('pointercancel', e => { if (dragS) cancelDrag(); up(e); });
+  $('v25l').onclick = () => V25.rotate(-.3, 0); $('v25r').onclick = () => V25.rotate(.3, 0);
+  $('v25u').onclick = () => V25.rotate(0, .12); $('v25d').onclick = () => V25.rotate(0, -.12);
 }
 
 // ---------------- board positions ----------------
@@ -1070,7 +1138,7 @@ function nearestTarget(moves, p) {
 }
 
 // ---------------- painting ----------------
-function drawTex(img, f, x, y, size) { if (!f) return; const k = size / Math.max(f[2], f[3]); const w = f[2] * k, h = f[3] * k; ctx.drawImage(img, f[0], f[1], f[2], f[3], x - w / 2, y - h / 2, w, h); }
+function drawTex(img, f, x, y, size) { if (!f) return; if (V25.on) { V25.sprite(img, f, x, y, size, 0); return; } const k = size / Math.max(f[2], f[3]); const w = f[2] * k, h = f[3] * k; ctx.drawImage(img, f[0], f[1], f[2], f[3], x - w / 2, y - h / 2, w, h); }
 const uf = key => ATL[G.f].fr[key];
 // a world card from the markers sheet, drawn as a cropped background at the given width
 // a marker sheet sprite as an inline image (mission tokens etc.)
@@ -1090,9 +1158,10 @@ function cardImg(name, w) {
   return `<span class="cardimg" role="img" aria-label="${esc(name)}" style="width:${w}px;height:${h}px;background-image:url(markers.webp);background-size:${IMG.markers.width * k}px auto;background-position:-${f[0] * k}px -${f[1] * k}px"></span>`;
 }
 const otherFacs = () => G && G.world ? Object.values(G.world.facs).filter(g => g !== G) : [];
-function txt(t, x, y, size, color, align) { ctx.font = `600 ${size}px "IBM Plex Sans Condensed", "Arial Narrow", sans-serif`; ctx.textAlign = align || 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = Math.max(2, size / 5); ctx.strokeStyle = '#000'; ctx.strokeText(t, x, y); ctx.fillStyle = color || '#fff'; ctx.fillText(t, x, y); }
+function txt(t, x, y, size, color, align) { if (V25.on) { V25.text(t, x, y, size, color || '#fff', align); return; } ctx.font = `600 ${size}px "IBM Plex Sans Condensed", "Arial Narrow", sans-serif`; ctx.textAlign = align || 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = Math.max(2, size / 5); ctx.strokeStyle = '#000'; ctx.strokeText(t, x, y); ctx.fillStyle = color || '#fff'; ctx.fillText(t, x, y); }
 function pathShape(z) { ctx.beginPath(); const tr = poly => { poly.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); }; if (z.poly) { tr(z.poly); if (z.hole) tr(z.hole); } else ctx.arc(z.c[0], z.c[1], z.r, 0, Math.PI * 2); }
 function paint() {
+  if (V25.on) { paint25(); return; }
   const d = cv.dpr;
   paintStars();
   ctx.setTransform(d * cam.s, 0, 0, d * cam.s, d * cam.x, d * cam.y);
@@ -1103,12 +1172,32 @@ function paint() {
   paintExplore();
   ctx.setTransform(d * cam.s, 0, 0, d * cam.s, d * cam.x, d * cam.y);
   paintOrbitRings();
+  paintObjects();
+}
+let dummy25 = null, ov25 = null, ovAt = 0, sunAt = 0;
+function paint25() {
+  if (!dummy25) { dummy25 = document.createElement('canvas'); dummy25.width = dummy25.height = 4; }
+  const real = ctx, now = performance.now();
+  try {
+    ctx = dummy25.getContext('2d'); V25.begin(); paintObjects();
+    if (FX.sun && now - sunAt > 120) { sunAt = now; paintSun(); V25.setSun(FX.sunC); }
+    if (FX.exp && now - ovAt > 250) {
+      ovAt = now; const K = .3, mx = Math.max(...Object.values(GEO.maps).map(m => m[0] + m[2])), my = Math.max(...Object.values(GEO.maps).map(m => m[1] + m[3]));
+      if (!ov25) { ov25 = document.createElement('canvas'); ov25.width = Math.ceil(mx * K); ov25.height = Math.ceil(my * K); }
+      const ox = ov25.getContext('2d'); ox.setTransform(1, 0, 0, 1, 0, 0); ox.clearRect(0, 0, ov25.width, ov25.height); ox.setTransform(K, 0, 0, K, 0, 0); ctx = ox; paintExplore(); V25.setOverlay(ov25, K);
+    }
+  } finally { ctx = real; }
+  V25.finish(hits); V25.frame();
+}
+function paintObjects() {
   hits = [];
+  V25.mode = 'flat'; V25.lift = 0;
   // worlds
   Object.entries(GEO.worlds).forEach(([k, g]) => {
     const ws = G.w[k]; if (!ws) return;
     const wx = g.orbit || g.exp;
     if (g.poly) hits.push({ t: 'world', k, poly: g.poly }); else hits.push({ t: 'world', k, x: wx[0], y: wx[1], rad: 60 });
+    if (V25.on && sel && sel.t === 'world' && sel.k === k) { if (g.poly) V25.poly(g.poly, '#f2a93b', 5); else V25.ring(wx[0], wx[1], 60, '#f2a93b', 5); }
     if (sel && sel.t === 'world' && sel.k === k) { ctx.lineWidth = 5; ctx.strokeStyle = '#f2a93b'; pathShape(g.poly ? { poly: g.poly } : { c: wx, r: 60 }); ctx.stroke(); }
     // mission tokens at the world: yours (gold), the common one (blue), a dated one open to all (red)
     E.missionsAt(G, k).forEach((x, i) => {
@@ -1121,12 +1210,15 @@ function paint() {
     if (D.TERRA[k] && ws.terra) txt(`Terraformed ${ws.terra}/${D.TERRA[k]}`, wx[0], wx[1] - 64, 14, '#5fcf8a');
   });
   // flyby boxes
+  V25.mode = 'stand'; V25.lift = 22;
   Object.entries(G.fly).forEach(([s, f]) => {
     const p = GEO.sys[s] && GEO.sys[s].flyby; if (!p) return;
     f.pir.forEach((pr, i) => { drawTex(IMG.markers, MK[pr.strong ? 'pir_l' : 'pir_s'], p[0] - 26 + i * 22, p[1] - 34, 46); if (pr.dmg) txt('dmg ' + pr.dmg, p[0] - 26 + i * 22, p[1] - 4, 11, '#ef6b5b'); });
     for (let i = 0; i < f.ast; i++) drawTex(IMG.markers, MK.ast, p[0] + 26 + i * 16, p[1] + 34, 42);
   });
+  V25.mode = 'flat'; V25.lift = 0;
   paintWorldBoxes();
+  V25.mode = 'stand'; V25.lift = 34;
   // probes on Earth
   (G.probes.earth || []).forEach((n, i) => { const p = posOf('earth'); drawTex(ATL[G.f].img, uf('Probe|' + n), p[0] - 100 - i * 28, p[1] + 34, 30); });
   // ships
@@ -1147,6 +1239,7 @@ function paint() {
       const of = owner.get(s);
       if (of) {
         if (!ATL[of]) return;
+        if (V25.on) V25.ring(cx, cy, CS * .62, D.FAC[of].c, 3);
         ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot); ctx.strokeStyle = D.FAC[of].c; ctx.lineWidth = 3; ctx.beginPath(); ctx.roundRect(-CS / 2 - 3, -CS / 2 - 3, CS + 6, CS + 6, 5); ctx.stroke(); ctx.restore();
         drawRot(ATL[of].img, ATL[of].fr[s.res ? s.img + '|back' : s.img], cx, cy, CS, rot);
         hits.push({ t: 'oship', f: of, id: s.id, x: cx, y: cy, r: CS / 2 });
@@ -1154,6 +1247,7 @@ function paint() {
       }
       const ready = (G.phase === 'move' && E.moves(G, s).length) || (G.phase === 'explore' && E.exploreOptions(G, s).length);
       const isSel = sel && sel.t === 'ship' && sel.id === s.id;
+      if (V25.on && (ready || isSel)) V25.ring(cx, cy, CS * .62, isSel ? '#f2a93b' : '#4fc3d9', 3);
       if (ready || isSel) { ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot); ctx.strokeStyle = isSel ? '#f2a93b' : '#4fc3d9'; ctx.lineWidth = 3; ctx.beginPath(); ctx.roundRect(-CS / 2 - 4, -CS / 2 - 4, CS + 8, CS + 8, 6); ctx.stroke(); ctx.restore(); }
       drawRot(ATL[G.f].img, uf(s.res ? s.img + '|back' : s.img), cx, cy, CS, rot);
       if (s.dmg) txt('▼' + s.dmg, cx + 22, cy - 24, 13, '#ef6b5b');
@@ -1168,6 +1262,7 @@ function paint() {
     const dests = new Set(targets.map(m => m.dest));
     targets.forEach(m => { if (seen.has(m.dest)) return; seen.add(m.dest); const p = E.P(m.dest), z = zoneShape(m.dest, p.t === 'orbit' && dests.has('surf:' + p.w)); ctx.fillStyle = 'rgba(79,195,217,.16)'; ctx.strokeStyle = '#4fc3d9'; ctx.lineWidth = 4; pathShape(z); ctx.fill('evenodd'); ctx.stroke(); });
   }
+  V25.lift = 120;
   if (dragS) { const p = toWorld(dragS.x, dragS.y); ctx.globalAlpha = .9; drawTex(ATL[G.f].img, uf(dragS.s.res ? dragS.s.img + '|back' : dragS.s.img), p.x, p.y, CS * 1.15); ctx.globalAlpha = 1; }
 }
 function chooseAndMove(s, dest, opts, dropPt) {
