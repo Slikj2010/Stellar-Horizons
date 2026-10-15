@@ -220,7 +220,9 @@
   const WHITE = [1, 1, 1, 1];
   let LAY = null, belts = null, sky = null, labelTex = new Map();
   // the printed transfer and flyby boxes are painted out of the sheets; the 3D models below take their place
-  const boxPolys = () => { const out = []; Object.entries(GEO.sys).forEach(([k, sy]) => { Object.entries(sy.boxPoly).forEach(([n, q]) => out.push({ k, n, id: 'box:' + k + ':' + n, pts: q, fly: false })); out.push({ k, n: 'fly', id: 'fly:' + k, pts: hull(sy.flybyPoly), fly: true }); }); return out; };
+  // Earth and Mercury print an irregular flyby outline; they get the same slanted long box as Saturn, Venus and the rest
+  const FLYQ = { ear: [[2921, 428], [3043, 428], [2875, 754], [2807, 616]], mer: [[622, 1032], [744, 1032], [576, 1358], [508, 1220]] };
+  const boxPolys = () => { const out = []; Object.entries(GEO.sys).forEach(([k, sy]) => { Object.entries(sy.boxPoly).forEach(([n, q]) => out.push({ k, n, id: 'box:' + k + ':' + n, pts: q, fly: false })); out.push({ k, n: 'fly', id: 'fly:' + k, pts: FLYQ[k] || hull(sy.flybyPoly), fly: true }); }); return out; };
   const glyphs = new Map();
   function glyph(t, col) {
     const key = t + col; let c = glyphs.get(key); if (c) return c;
@@ -344,6 +346,43 @@
     if (dead) { x.fillStyle = 'rgba(20,0,0,.28)'; rrect(x, 6, 6, 628, 340, 24); x.fill(); }
     P.dirty = true; return P;
   }
+  // plates are placed once: outside every ring, planet sphere, docking box and card slot, nearest to their own world
+  let PLACE = null;
+  const PW = 320, PH = PW * 352 / 640;
+  function segD(p, a, b) { const dx = b[0] - a[0], dz = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dz * t); }
+  function polyD(p, poly) {
+    let ins = false, d = 1e9; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if (((a[1] > p[1]) !== (b[1] > p[1])) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) ins = !ins; d = Math.min(d, segD(p, a, b)); }
+    return ins ? -d : d;
+  }
+  function placePlates(S) {
+    const circ = [], polys = [], B = typeof FX !== 'undefined' && FX.bodies;
+    if (B) Object.values(B.b).forEach(b => { const m = GEO.maps[b.map], q = mapP(m[0] + b.cx * .4, m[1] + b.cy * .4); circ.push([q[0], q[1], b.r * .4 * S * 1.6]); });
+    Object.keys(GEO.worlds).forEach(k => {
+      const dw = D.W[k], pod = dw && LAY.pods[dw.sys]; if (!pod) return;
+      const R = ringOf(k), c = mapP(R.c[0], R.c[1], pod); circ.push([c[0], c[1], R.r * S * 1.05]);
+      const F = typeof wcardFrame === 'function' && wcardFrame(k); if (F) {
+        const w = F.CW + WB.LS + 10, h = F.CH + WB.GAP + WB.BS, cx = (WB.LS + 10) / 2, cy = (WB.GAP + WB.BS) / 2, ca = Math.cos(F.a), sa = Math.sin(F.a);
+        polys.push([[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => { const lu = cx + u * w / 2, lv = cy + v * h / 2, m = mapP(F.x + lu * ca - lv * sa, F.y + lu * sa + lv * ca, pod); return [m[0], m[1]]; }));
+      }
+    });
+    Object.values(BOXSH).forEach(sh => polys.push(sh));
+    const placed = [], out = {}, rp = PW * S * .5;
+    Object.keys(GEO.worlds).sort().forEach(k => {
+      const dw = D.W[k], pod = dw && LAY.pods[dw.sys]; if (!pod) return;
+      const R = ringOf(k), c = mapP(R.c[0], R.c[1], pod); let best = null;
+      for (let di = 0; di < 7; di++) for (let ai = 0; ai < 24; ai++) {
+        const an = ai / 24 * 6.2832, d = R.r * S + rp * .62 + 14 + di * 26, p = [c[0] + Math.cos(an) * d, c[1] + Math.sin(an) * d * 1.0];
+        let pen = 0;
+        circ.forEach(o => { pen += Math.max(0, rp * 1.0 + o[2] - Math.hypot(p[0] - o[0], p[1] - o[1])); });
+        polys.forEach(pg => { const dd = polyD(p, pg); pen += dd < 0 ? rp + 6 - dd : Math.max(0, rp * 1.02 - dd); });
+        placed.forEach(q => { pen += Math.max(0, rp * 1.9 - Math.hypot(p[0] - q[0], p[1] - q[1])); });
+        const sc = pen * 10 + d + (ai % 24 > 12 ? 0 : 0);
+        if (!best || sc < best.sc) best = { sc, p, c, R };
+      }
+      placed.push(best.p); out[k] = best;
+    });
+    return out;
+  }
   function drawWorlds(T, S, px) {
     if (!G) return;
     const zone = [], rimv = [], dots = [], fillv = [], lanes = [], pl = [];
@@ -356,9 +395,11 @@
       flatQuad(fillv, c[0], c[1], r * 1.8, r * 1.8, 0, .8, [0, 0, 1, 1], [fc[0], fc[1], fc[2], .09]);
       if (gw.poly) { const n = Math.max(24, Math.round(2 * Math.PI * R.r / 9)); for (let i = 0; i < n; i++) { const an = i / n * 6.2832, q = mapP(R.c[0] + Math.cos(an) * R.r, R.c[1] + Math.sin(an) * R.r, pod); flatQuad(dots, q[0], q[1], 5.5 * S * 1.5, 5.5 * S * 1.5, 0, 2, [0, 0, 1, 1], [.59, .52, .84, .9]); } }
       if (gw.spoly) { const pts = hull(gw.spoly).map(q => { const m = mapP(q[0], q[1], pod); return [m[0], m[1]]; }); fillPoly(zone, pts, .9, [.43, .86, .55, .08]); ribbon(rimv, pts, true, Math.max(1.6, px * 1.1), 1.2, [.43, .86, .55, .55]); }
-      // information plate inside the zone, under the planet
-      const Wp = Math.max(230, Math.min(R.r * 2.4, 400)), Hp = Wp * 352 / 640, q = mapP(R.c[0], R.c[1] + R.r * .62, pod), P = panelFor(k, ws);
+      // information plate, parked beside the world where nothing else is
+      if (!PLACE) PLACE = placePlates(S);
+      const pl0 = PLACE[k]; if (!pl0) return; const q = pl0.p, P = panelFor(k, ws), Wp = PW, Hp = PH;
       const t = texOf(P.cv, false); if (P.dirty) { reupload(P.cv); P.dirty = false; }
+      const dd = Math.hypot(q[0] - c[0], q[1] - c[1]); if (dd > r + Hp * S * .6 + 30) { const ux = (q[0] - c[0]) / dd, uz = (q[1] - c[1]) / dd; ribbon(rimv, [[c[0] + ux * r, c[1] + uz * r], [q[0] - ux * Wp * S * .3, q[1] - uz * Hp * S * .3]], false, Math.max(2, px * 1.6), 1.5, [.62, .78, .95, .85]); }
       const a = []; flatQuad(a, q[0], q[1], Wp * S, Hp * S, -C.yaw, 3.2, [0, 0, 1, 1], WHITE); pl.push({ tex: t, mode: 0, verts: a });
     });
     // travel lanes from each system's hub world to the other worlds of the system
@@ -429,7 +470,7 @@
       const a = []; Object.values(LAY.pods).forEach(p => { const r = p.rect, i = 6; quad(a, [[r[0] + i, 0, r[1] + i], [r[2] - i, 0, r[1] + i], [r[2] - i, 0, r[3] - i], [r[0] + i, 0, r[3] - i]], [(r[0] + i) / 160, (r[1] + i) / 160, (r[2] - i) / 160, (r[3] - i) / 160], [.02, .05, .09, .8]); });
       flush(pQ, a, null, 10);
     }
-    if (C.dist < 26000) { drawWorlds(T, S, px); drawBoxes(T); }
+    if (C.dist < 26000) { drawBoxes(T); drawWorlds(T, S, px); }
     { const a = []; Object.values(LAY.pods).forEach(p => { const r = p.rect, i = 14; ribbon(a, [[r[0] + i, r[1] + i], [r[2] - i, r[1] + i], [r[2] - i, r[3] - i], [r[0] + i, r[3] - i]], true, Math.max(5, px * 1.2), .6, [.31, .76, .85, .22]); }); flush(pQ, a, null, 1); }
     // 4 the Sun
     {
