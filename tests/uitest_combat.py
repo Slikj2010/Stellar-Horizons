@@ -21,10 +21,10 @@ try:
         pg.keyboard.press('Enter'); time.sleep(.3)
         chk(pg.evaluate("G.ask.length === 0 && $('modal').hidden"), 'Enter closes the search result')
         # pirate combat screen with tactics points
-        pg.evaluate("""() => { const s = G.ships.find(x => x.cls === 'CV') || G.ships[0]; window.__s = s; G.ask.push({ k: 'pbattle', st: { cont: null, sy: 'mar', ids: [s.id], strong: false, dm: 7, dp: 3, myTP: 9, pTP: 4, extra: 5 }, mine: [{ n: 'Pegasus', cb: 4 }], weapons: 0, pir: { strong: false, cb: 1, size: 2, dmg: 0 }, myTot: 11, pTot: 4, myBase: 3, pDmg: 0, extra: 5, myTP: 9, pTP: 4, can: 2, text: 'test pirate' }); render(); }""")
+        pg.evaluate("""() => { const s = G.ships.find(x => x.cls === 'CV') || G.ships[0]; window.__s = s; G.ask.push({ k: 'pbattle', st: { cont: null, sy: 'mar', ids: [s.id], strong: false, dm: 7, dp: 3, myTP: 9, pTP: 4, extra: 5 }, mine: [{ n: 'Pegasus', cb: 4 }], weapons: 0, pir: { strong: false, cb: 1, size: 2, dmg: 0 }, myTot: 11, pTot: 4, strike: { deal: 0, take: 1 }, direct: { deal: 3, take: 0 }, extra: 5, myTP: 9, pTP: 4, can: 2, text: 'test pirate' }); render(); }""")
         time.sleep(.3); pg.screenshot(path=os.path.join(out, 'c_pirate.png'))
         txt = pg.inner_text('#mbox')
-        chk('Total 11' in txt and 'deal 5' in txt and '3 damage' in txt, 'pirate screen shows the roll, table damage and tactics options')
+        chk('Total 11' in txt and 'Direct fire' in txt and 'Strike' in txt, 'pirate screen shows the roll, table damage and tactics options')
         pg.keyboard.press('Enter'); time.sleep(.3)
         chk(pg.evaluate("G.ask.length === 0"), 'Enter spends the default and resolves')
         # faction combat screen

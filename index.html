@@ -1824,16 +1824,19 @@ function pirateScreen(a) {
   const p = a.pir, ex = a.extra;
   let h = `<h2>Combat with the pirate</h2><p class="dim">${esc(a.text)}</p>
     <div class="row" style="align-items:flex-start;gap:18px">
-      <div style="flex:1;min-width:200px"><h3>You</h3>${unitRows(a.mine)}${a.weapons ? `<p class="dim">Weapons technology +${a.weapons}</p>` : ''}<div class="row" style="align-items:center;gap:10px">${dieFace(a.st.dm, true)}<b>Total ${a.myTot}</b></div><p class="dim">Table (direct fire): ${a.myBase} damage</p></div>
-      <div style="flex:1;min-width:200px"><h3>${p.strong ? 'Strong' : 'Weak'} pirate</h3>${unitRows([{ n: 'Pirate (size ' + p.size + ', ' + p.dmg + ' damage)', cb: p.cb }])}<div class="row" style="align-items:center;gap:10px">${dieFace(a.st.dp, true)}<b>Total ${a.pTot}</b></div><p class="dim">Table (direct fire): ${a.pDmg} damage to you</p></div>
+      <div style="flex:1;min-width:200px"><h3>You</h3>${unitRows(a.mine)}${a.weapons ? `<p class="dim">Weapons technology +${a.weapons}</p>` : ''}<div class="row" style="align-items:center;gap:10px">${dieFace(a.st.dm, true)}<b>Total ${a.myTot}</b></div></div>
+      <div style="flex:1;min-width:200px"><h3>${p.strong ? 'Strong' : 'Weak'} pirate</h3>${unitRows([{ n: 'Pirate (size ' + p.size + ', ' + p.dmg + ' damage)', cb: p.cb }])}<div class="row" style="align-items:center;gap:10px">${dieFace(a.st.dp, true)}<b>Total ${a.pTot}</b></div></div>
     </div>
-    <p><b>Tactics points:</b> you ${a.myTP}, the pirate ${a.pTP}. ${ex > 0 ? `You can spend ${ex}: 2 points buy +1 damage${ex >= 3 ? ', or 3 points call off the combat' : ''}.` : 'The pirate has the advantage or it is even: no points to spend.'}</p><div style="display:grid;gap:6px">`;
-  if (ex >= 2 || ex >= 3) h += `</div><div class="plan" data-r="${ex}" data-pir="1"><label class="row">Increase damage you deal <input type="number" min="0" max="${Math.floor(ex / 2)}" value="${a.can}" data-pp="inc" style="width:60px"> <small class="dim">2 points each</small></label>
+    <table><tr><th></th><th>You deal</th><th>You take</th></tr><tr><td>Strike</td><td>${a.strike.deal}</td><td>${a.strike.take}</td></tr><tr><td>Direct fire</td><td>${a.direct.deal}</td><td>${a.direct.take}</td></tr></table>
+    <p class="dim">Strike only damages a side with Space Missiles (the pirate has them). Direct fire costs 1 tactics point.</p>
+    <p><b>Tactics points:</b> you ${a.myTP}, the pirate ${a.pTP}. ${ex > 0 ? `You can spend ${ex}: 1 for direct fire, 2 to deal +1 damage or take 1 less${ex >= 3 ? ', 3 to call off the combat' : ''}.` : 'The pirate has the advantage or it is even: no points to spend, so the fight is a strike.'}</p>`;
+  if (ex > 0) h += `<div class="plan" data-r="${ex}" data-pir="1"><div class="row"><label><input type="radio" name="pm" value="strike"> Strike <small class="dim">(free)</small></label><label><input type="radio" name="pm" value="direct" checked> Direct fire <small class="dim">(1 point)</small></label></div>
+      <label class="row">Increase damage you deal <input type="number" min="0" max="${Math.floor(ex / 2)}" value="0" data-pp="inc" style="width:60px"> <small class="dim">2 points each</small></label>
       <label class="row">Decrease damage you take <input type="number" min="0" max="${Math.floor(ex / 2)}" value="0" data-pp="red" style="width:60px"> <small class="dim">2 points each</small></label>
       <p><b id="pcost">0</b> of ${ex} points spent. <span id="pprev"></span></p>
-      <div class="row"><button class="b pri" data-plango="1" data-yes="1">Fight with this plan</button>${ex >= 3 ? '<button class="b" data-ans="avoid" data-no="1">Call off the combat <small class="dim">(3 points)</small></button>' : ''}</div></div><div style="display:grid;gap:6px">`;
-  else h += '<button class="b pri" data-ans="auto" data-yes="1">Fight</button>';
-  return h + '</div>';
+      <div class="row"><button class="b pri" data-plango="1" data-yes="1">Fight with this plan</button>${ex >= 3 ? '<button class="b" data-ans="avoid" data-no="1">Call off the combat <small class="dim">(3 points)</small></button>' : ''}</div></div>`;
+  else h += '<div class="row"><button class="b pri" data-ans="auto" data-yes="1">Fight</button></div>';
+  return h;
 }
 function renderAsk() {
   const m = $('modal');
@@ -1893,11 +1896,11 @@ function renderAsk() {
   if (a.k === 'battle' || a.k === 'pbattle') {
     const mb = $('mbox'), pl = mb.querySelector('.plan'); if (pl) {
       const r = +pl.dataset.r, val = k => { const i = pl.querySelector(`[data-pp="${k}"]`); return i ? Math.max(0, Math.floor(+i.value || 0)) : 0; };
-      const tb = a.k === 'battle' ? { strike: a.strike, direct: a.direct } : null;
+      const tb = a.k === 'battle' ? { strike: a.strike, direct: a.direct } : { strike: { dealt: a.strike.deal, taken: a.strike.take }, direct: { dealt: a.direct.deal, taken: a.direct.take } };
       const upd = () => {
-        const dir = !pl.dataset.pir && (pl.querySelector('[name="pm"]:checked') || {}).value === 'direct', cost = (dir ? 1 : 0) + 2 * val('inc') + 2 * val('red') + val('picks');
+        const dir = (pl.querySelector('[name="pm"]:checked') || {}).value === 'direct', cost = (dir ? 1 : 0) + 2 * val('inc') + 2 * val('red') + val('picks');
         $('pcost').textContent = cost; $('pcost').style.color = cost > r ? 'var(--bad)' : '';
-        const base = tb ? tb[dir ? 'direct' : 'strike'] : { dealt: a.myBase, taken: a.pDmg };
+        const base = tb[dir ? 'direct' : 'strike'];
         $('pprev').textContent = `You deal ${base.dealt + val('inc')}, you take ${Math.max(0, base.taken - val('red'))}.`;
       };
       pl.querySelectorAll('input').forEach(i => i.oninput = i.onchange = upd); upd();

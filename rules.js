@@ -1015,10 +1015,10 @@ function answer(G, choice, data) {
   }
   if (a.k === 'search') { G.ask.shift(); return null; }
   if (a.k === 'pbattle') {
-    const st0 = a.st; let up = st0.extra >> 1, red = 0;
-    if (choice === 'plan' && data) { up = Math.max(0, Math.floor(+data.inc || 0)); red = Math.max(0, Math.floor(+data.red || 0)); if (2 * (up + red) > st0.extra) return `That costs ${2 * (up + red)} tactics points; you have ${st0.extra}.`; }
-    else if (String(choice).startsWith('u')) up = +String(choice).slice(1) || 0;
-    G.ask.shift(); const st = { ...st0, red };
+    const st0 = a.st; let up = 0, red = 0, mode = st0.extra >= 1 ? 'direct' : 'strike';
+    if (choice === 'plan' && data) { up = Math.max(0, Math.floor(+data.inc || 0)); red = Math.max(0, Math.floor(+data.red || 0)); mode = data.mode === 'direct' ? 'direct' : 'strike'; const cost = (mode === 'direct' ? 1 : 0) + 2 * (up + red); if (cost > st0.extra) return `That costs ${cost} tactics points; you have ${st0.extra}.`; }
+    else up = Math.floor((st0.extra - (mode === 'direct' ? 1 : 0)) / 2);
+    G.ask.shift(); const st = { ...st0, red, mode };
     const pr = resolvePirate(G, st, up, choice === 'avoid'); if (pr === 'pending') return null;
     const c = st.cont, s = c && G.ships.find(x => x.id === c.ship);
     if (s && G.ships.includes(s) && !s.res && !G.fly[st.sy].pir.length) return move(G, s, c.dest, c.opt);
@@ -1118,6 +1118,13 @@ function combatAct(G, o) {
   }
 }
 function recallCheck(G, s) { if (s.res) return; if (d100() <= recall(G)) { s.res = true; const b = drawMarker(G, 'Bio'); log(G, `${s.name} is recalled and goes into reserve (+${b} Biology).`); } }
+// damage tables for a pirate fight. The pirate is assumed to carry missiles, so a strike hurts both sides unless fighter drones cancel it.
+function pirTables(G, fleet, pir, st) {
+  const pd = pir.strong ? D.PIRATE.strong : D.PIRATE.weak;
+  const myTot = fleet.reduce((a, s) => a + Math.max(0, s.cb - s.dmg), 0) + weapons(G) + st.dm, pTot = Math.max(0, pd.cb - pir.dmg) + st.dp + (fleet.length - 1);
+  const drones = droneCount(G, fleet.map(uS)), bd = has(G, 'bd') ? drones : 0;
+  return { myTot, pTot, strike: { deal: has(G, 'msl') ? D.combatDamage(myTot, true) + bd : 0, take: Math.max(0, D.combatDamage(pTot, true) - drones) }, direct: { deal: D.combatDamage(myTot, false), take: D.combatDamage(pTot, false) } };
+}
 function pirateBattle(G, fleet, sy, playerSearched, cont) {
   const pir = G.fly[sy].pir.slice().sort((a, b) => (b.strong ? 1 : 0) - (a.strong ? 1 : 0))[0];
   if (!pir || !fleet.length) return;
@@ -1136,31 +1143,30 @@ function pirateBattle(G, fleet, sy, playerSearched, cont) {
   if (pTP - myTP >= 3 && armedFleet) { log(G, `The pirate uses its tactics advantage (${pTP} to ${myTP}) to avoid combat.`); return; }
   const extra = Math.max(0, myTP - pTP), st = { cont: cont || null, sy, ids: fleet.map(s => s.id), strong: !!pir.strong, dm: d10(), dp: d10(), myTP, pTP, extra };
   if (!G.world || isHuman(G)) { // the player sees the rolls and decides how to spend the tactics points
-    const mine = fleet.reduce((a, s) => a + Math.max(0, s.cb - s.dmg), 0) + weapons(G), pc = Math.max(0, pd.cb - pir.dmg) + (fleet.length - 1);
+    const T = pirTables(G, fleet, pir, st);
     G.ask.push({ k: 'pbattle', st, mine: fleet.map(s => ({ n: s.name, cb: Math.max(0, s.cb - s.dmg) })), weapons: weapons(G), pir: { strong: !!pir.strong, cb: Math.max(0, pd.cb - pir.dmg), size: pd.size, dmg: pir.dmg },
-      myTot: mine + st.dm, pTot: pc + st.dp, myBase: D.combatDamage(mine + st.dm, false), pDmg: D.combatDamage(pc + st.dp, false), extra, myTP, pTP, can: Math.floor(extra / 2),
+      myTot: T.myTot, pTot: T.pTot, strike: T.strike, direct: T.direct, extra, myTP, pTP, can: Math.floor(extra / 2),
       text: `Combat with the ${pir.strong ? 'strong' : 'weak'} pirate in the ${SYS[sy].n} flyby box.` });
     return 'pending';
   }
-  resolvePirate(G, st, Math.floor(extra / 2), false);
+  { const m = extra >= 1 ? 'direct' : 'strike'; resolvePirate(G, { ...st, mode: m }, Math.floor((extra - (m === 'direct' ? 1 : 0)) / 2), false); }
 }
 // finish a pirate fight with the dice already rolled. up: extra damage bought with tactics points (2 each); avoid: call the combat off (3 points)
 function resolvePirate(G, st, up, avoid) {
   const fleet = G.ships.filter(s => st.ids.includes(s.id)), sy = st.sy;
   const pir = G.fly[sy].pir.slice().sort((a, b) => (b.strong ? 1 : 0) - (a.strong ? 1 : 0))[0];
   if (!pir || !fleet.length) return;
-  const pd = pir.strong ? D.PIRATE.strong : D.PIRATE.weak, red = Math.max(0, st.red || 0), myDmgUp = Math.max(0, Math.min(up, Math.floor((st.extra - 2 * red) / 2)));
+  const pd = pir.strong ? D.PIRATE.strong : D.PIRATE.weak, red = Math.max(0, st.red || 0), direct = st.mode === 'direct', spare = st.extra - (direct ? 1 : 0) - 2 * red, myDmgUp = Math.max(0, Math.min(up, Math.floor(spare / 2)));
   if (avoid && st.extra >= 3) { log(G, `You spend 3 tactics points to call off the combat with the pirate.`); return; }
-  const myTotal = fleet.reduce((a, s) => a + Math.max(0, s.cb - s.dmg), 0) + weapons(G) + st.dm;
-  const pTotal = Math.max(0, pd.cb - pir.dmg) + st.dp + (fleet.length - 1);
-  let myDmg = D.combatDamage(myTotal, false) + myDmgUp;
-  let pDmg = Math.max(0, D.combatDamage(pTotal, false) - red);
+  const T = pirTables(G, fleet, pir, st), myTotal = T.myTot, pTotal = T.pTot, tab = direct ? T.direct : T.strike;
+  let myDmg = tab.deal + myDmgUp;
+  let pDmg = Math.max(0, tab.take - red);
   if (!st.asg && fleet.length > 1 && pDmg > 0 && (!G.world || isHuman(G))) { // direct fire: the receiving player chooses which ships take the damage
     G.ask.push({ k: 'assign', pirate: true, st, up, groups: [{ side: 'fleet', n: pDmg, units: fleet.map(s => ({ key: String(s.id), n: s.name, cb: Math.max(0, s.cb - s.dmg), hp: s.sz - s.dmg })) }], screen: [], text: 'The pirate hits your fleet: choose which ships take the damage.' });
     return 'pending';
   }
   const myBase = myDmg - myDmgUp;
-  log(G, `Combat with the pirate (direct fire): your combat total is ${myTotal} (d10 ${st.dm} + combat values${weapons(G) ? ' + weapons' : ''}), which is ${myBase} damage on the table${myDmgUp ? `, plus ${myDmgUp} from your tactics points (${st.myTP} to ${st.pTP})` : ''}, ${myDmg} in all${red ? `; you spend ${2 * red} tactics points to reduce the damage you take by ${red}` : ''}; the pirate's total is ${pTotal} (d10 ${st.dp}) for ${pDmg} damage.`, 'e');
+  log(G, `Combat with the pirate (${direct ? 'direct fire, 1 tactics point' : 'strike'}): your combat total is ${myTotal} (d10 ${st.dm} + combat values${weapons(G) ? ' + weapons' : ''}), which is ${myBase} damage on the table${myDmgUp ? `, plus ${myDmgUp} from your tactics points (${st.myTP} to ${st.pTP})` : ''}, ${myDmg} in all${red ? `; you spend ${2 * red} tactics points to reduce the damage you take by ${red}` : ''}; the pirate's total is ${pTotal} (d10 ${st.dp}) for ${pDmg} damage.`, 'e');
   pir.dmg += myDmg;
   if (pir.dmg >= pd.size) {
     G.fly[sy].pir = G.fly[sy].pir.filter(x => x !== pir);
