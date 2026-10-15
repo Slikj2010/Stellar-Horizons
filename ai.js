@@ -259,6 +259,7 @@ function makeAI(E, D) {
       else if (a.k === 'mission') { const id = a.opts.slice().sort((x, y) => D.MIS[x].vp - D.MIS[y].vp)[0]; r = E.answer(G, id); }
       else if (a.k === 'immigration') r = E.answer(G, G.bases[0] && G.bases[0].id);
       else if (a.k === 'intercept') { const s = G.ships.find(x => x.id === a.ship), g = G.world && G.world.facs[a.by]; r = E.answer(G, s && g && E.interceptAuto(G, s, { g, key: a.key }) === 'fight' ? 'fight' : 'stop'); }
+      else if (a.k === 'search') r = E.answer(G, 'ok');
       else if (a.k === 'battle') r = E.answer(G, 'auto');
       else if (a.k === 'pbattle') r = E.answer(G, 'auto');
       else if (a.k === 'basehit') r = E.answer(G, 'auto');

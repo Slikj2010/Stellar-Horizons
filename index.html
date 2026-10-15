@@ -1782,6 +1782,13 @@ function lifeBlock(f) {
 }
 // ---------------- combat screen ----------------
 const unitRows = us => us.map(u => `<div class="item" style="padding:4px 0"><div class="t"><b>${esc(u.n)}</b></div><span class="chip">combat ${u.cb}</span></div>`).join('') || '<p class="dim">No armed units.</p>';
+function searchScreen(a) {
+  return `<h2>Search</h2><p class="dim">${esc(a.where)}</p>
+    <div class="row" style="gap:22px;align-items:center">${a.rolls.map(x => `<div style="text-align:center"><div class="dim">${esc(x.n)}</div>${dieFace(x.r, x.r <= a.T)}</div>`).join('')}</div>
+    <p class="dim">${a.auto ? 'Contact is automatic here.' : `A search succeeds if either roll is ${a.T} or less (the rolls already include the modifiers).`}</p>
+    <p><b>${a.ok ? 'Contact!' : 'No contact.'}</b> ${esc(a.text)}</p>
+    <div class="row"><button class="b pri" data-ans="ok" data-yes="1">${a.ok ? 'Continue to the fight' : 'Back to the map'}</button></div>`;
+}
 function combatScreen(a) {
   const r = a.rem, sx = a.strike, dr = a.direct, dx = n => Array.from({ length: n }, (_, i) => i + 1), opt = (ans, label, v, picks, tp, extra, yes) =>
     `<button class="b" data-ans="${ans}"${yes ? ' data-yes="1"' : ''}>${label} <small class="dim">(${tp} TP) deal ${v.dealt + (extra || 0)}, take ${v.taken}${picks ? `, ${picks} target pick${picks > 1 ? 's' : ''}` : ''}</small></button>`;
@@ -1832,7 +1839,7 @@ function renderAsk() {
   }
   const a = G.ask[0];
   if (!a) { m.hidden = true; return; }
-  let h = a.k === 'battle' || a.k === 'pbattle' ? '' : `<h2>Decision</h2><p>${esc(a.text)}</p>`;
+  let h = a.k === 'battle' || a.k === 'pbattle' || a.k === 'search' ? '' : `<h2>Decision</h2><p>${esc(a.text)}</p>`;
   if (a.k === 'pirate') h += `<p class="dim">Pirate demand roll: ${a.roll}.</p><div class="row"><button class="b" data-ans="pay" data-yes="1">Pay $${a.roll}B and pass</button><button class="b" data-ans="remove">Pay $${a.roll * 2}B to drive it off</button><button class="b" data-ans="fight">Fight</button><button class="b" data-ans="surrender">Surrender</button><button class="b" data-ans="stay" data-no="1">Stay put</button></div>`;
   if (a.k === 'intercept') h += `<div class="row"><button class="b" data-ans="stop" data-no="1">Stop moving</button><button class="b" data-ans="fight">Fight</button><button class="b" data-ans="surrender">Surrender (cargo destroyed, crew vehicle reserved, 1 politics marker lost)</button></div>`;
   if (a.k === 'surrender') {
@@ -1840,6 +1847,7 @@ function renderAsk() {
     h += `<p class="dim">Accepting reserves ${i.cvs} crew vehicle${i.cvs === 1 ? '' : 's'} (CV size total ${i.cvSize}; they must be unreserved before they can move again), destroys their cargo and stockpiles, ${i.seize ? `lets you seize about ${i.seize} resource${i.seize > 1 ? 's' : ''}` : 'seizes nothing'}${i.pm ? ' and takes one of their politics markers' : ' (they have no politics marker to take)'}.</p><div class="row"><button class="b" data-ans="accept" data-yes="1">Accept the surrender</button>
       ${a.canDeny ? '<button class="b" data-ans="deny" data-no="1">Refuse and fight</button>' : ''}${a.split ? '<button class="b" data-ans="exclude">Fight their ships first, then take the base surrender</button>' : ''}</div>${!a.canDeny && !a.split ? '' : `<p class="dim">${a.split ? 'A base\'s surrender must be accepted, but the ships with it can be excluded and fought separately.' : 'At war a fleet\'s surrender may be refused; under embargo it must be accepted.'}</p>`}`;
   }
+  if (a.k === 'search') h += searchScreen(a);
   if (a.k === 'battle') h += combatScreen(a);
   if (a.k === 'pbattle') h += pirateScreen(a);
   if (a.k === 'basehit') {

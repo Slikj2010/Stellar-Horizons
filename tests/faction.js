@@ -24,7 +24,7 @@ for (let i = 0; i < 300; i++) {
   link(na, cn, 5); na.phase = 'combat'; na.turn.acted = {};
   const o = E.combatOptions(na).find(o => o.k === 'fleet'); const before = na.vm + cn.vm;
   na.ask = []; const r = E.combatAct(na, o); if (r) fail('act: ' + r);
-  if (na.ask.length) E.answer(na, 'auto');
+  while (na.ask.length) E.answer(na, 'auto');
   const lost = [...na.ships, ...cn.ships].length < 4; if (lost) kills++;
   if (na.vm + cn.vm > before) vm++;
   if (na.log.some(l => /Combat at/.test(l.t))) fought++;
@@ -58,7 +58,7 @@ r = surr(5, 0, 6); if (!r.accepted) fail('at war, cargo to seize should make the
 { const w2 = mkW(), a = w2.world.facs.na, c = w2.world.facs.cn; clear(a); clear(c); mk(a, 'A1', 4, 6, 'orbit:mar'); const df = mk(c, 'C1', 3, 0, 'orbit:mar');
   c.bases.push({ id: 'b' + c.nid++, name: 'CB', w: 'mar', stock: { ORE: 4, SUP: 0, FUEL: 0 }, fac: { lab: 0, mine: 1, sup: 0, def: 0 }, dmg: { lab: 0, mine: 0, sup: 0, def: 0 }, set: 0, setDmg: 0, trade: null, out: 'ORE', built: 2030, techField: 'Phy' });
   link(a, c, 5); a.phase = 'combat'; a.turn.acted = {}; a.ask = []; c.polm = 2;
-  for (let i = 0; i < 40 && !a.ask.length; i++) { a.turn.acted = {}; E.combatAct(a, { k: 'bombard', f: 'cn', key: 'w:mar' }); }
+  for (let i = 0; i < 40 && !a.ask.length; i++) { a.turn.acted = {}; E.combatAct(a, { k: 'bombard', f: 'cn', key: 'w:mar' }); while (a.ask[0] && a.ask[0].k === 'search') E.answer(a, 'ok'); }
   const q = a.ask[0]; if (!q || q.k !== 'surrender' || !q.split) fail('human attacker should be asked about a base surrender with ships: ' + JSON.stringify(q && q.k));
   else { const p0 = c.polm; E.answer(a, 'exclude'); if (a.ask[0] && a.ask[0].k === 'battle') E.answer(a, 'auto'); const att0 = a.ships[0]; if (att0 && !att0.res && c.polm !== p0 - 1) fail('excluded-ships path should still take the base surrender (politics marker)'); if (!a.log.some(l => /excludes/.test(l.t))) fail('exclusion not logged'); } }
 // 4. blockade of a base: halves output, stops growth, pays $2B

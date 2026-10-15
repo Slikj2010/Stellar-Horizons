@@ -991,6 +991,7 @@ function answer(G, choice, data) {
     blog(G, g, `${nm(G)} hits ${nm(g)}'s base ${b.name}: ${[...TGT, 'res'].filter(c => al[c]).map(c => `${al[c]} on ${c === 'set' ? 'settlements' : c === 'res' ? 'resources (' + r.destroyed + ' destroyed)' : c}`).join(', ')}.`, 'x');
     return null;
   }
+  if (a.k === 'search') { G.ask.shift(); return null; }
   if (a.k === 'pbattle') {
     G.ask.shift(); const st = a.st, n = String(choice).startsWith('u') ? +String(choice).slice(1) || 0 : st.extra >> 1;
     resolvePirate(G, st, n, choice === 'avoid');
@@ -1092,7 +1093,11 @@ function pirateBattle(G, fleet, sy, playerSearched, cont) {
   const pd = pir.strong ? D.PIRATE.strong : D.PIRATE.weak;
   const ncv = fleet.length, mine = d10(), theirs = d10();
   const bonus = ncv - 1;
-  if (!(mine - bonus <= 4 || theirs - bonus <= 4)) { log(G, `Search for the pirate fails (rolls ${mine} and ${theirs}).`); return; }
+  const found = mine - bonus <= 4 || theirs - bonus <= 4;
+  if (!G.world || isHuman(G)) G.ask.push({ k: 'search', ok: found, auto: false, T: 4, rolls: [{ n: 'You', r: mine - bonus }, { n: 'Pirate', r: theirs - bonus }], where: SYS[sy].n + ' flyby box',
+    text: found ? `You find the pirate in the ${SYS[sy].n} flyby box.` : `You search the ${SYS[sy].n} flyby box but do not find the pirate.` });
+  if (!found) { log(G, `Search for the pirate fails (rolls ${mine} and ${theirs}).`); return; }
+
   // tactics points: each side earns the other's roll, +1 per full 7 enemy CV size
   let myTP = theirs + Math.floor(pd.size / 7) + (has(G, 'cc') ? 2 : has(G, 'amsl') ? 1 : 0) + (polLv(G, 'mil') >= 3 ? 2 : 0);
   let pTP = mine + Math.floor(fleet.reduce((a, s) => a + s.sz, 0) / 7);
@@ -1204,7 +1209,11 @@ function startBattle(A, B, key, o) {
   const hasBase = fd.some(u => u.t === 'b');
   const T = 4 + Math.max(0, fa.filter(uCV).length - 1) + Math.max(0, fd.filter(uCV).length - 1);
   const rA = o.rA != null ? o.rA : d10() - droneMod(A, fa), rB = o.rB != null ? o.rB : d10() - droneMod(B, fd), where = keyName(key);
-  if (o.rA == null && !hasBase && !(rA <= T || rB <= T)) { blog(A, B, `${nm(A)} searches for ${nm(B)} at ${where}: no contact (search rolls ${rA} and ${rB}, ${T} or less finds).`); return { done: true, found: false }; }
+  const seeA = isHuman(A) && !o.noAsk, seeB = isHuman(B) && !o.noAsk, ok = o.rA != null || hasBase || rA <= T || rB <= T;
+  if (seeA || seeB) (seeA ? A : B).ask.push({ k: 'search', ok, auto: o.rA != null || hasBase, T, rolls: [{ n: nm(A), r: rA }, { n: nm(B), r: rB }], where,
+    text: ok ? `${nm(A)} ${o.icept ? 'intercepts' : 'finds'} ${nm(B)} at ${where}.` : `${nm(A)} searches for ${nm(B)} at ${where} but finds no one.` });
+  if (!ok) { blog(A, B, `${nm(A)} searches for ${nm(B)} at ${where}: no contact (search rolls ${rA} and ${rB}, ${T} or less finds).`); return { done: true, found: false }; }
+
   blog(A, B, `${nm(A)} ${o.icept ? 'intercepts' : 'finds'} ${nm(B)} at ${where}${hasBase ? ' (orbital bombardment)' : ''} (search rolls ${rA} and ${rB}).`, 'e');
   if (!fd.some(u => uCV(u) || u.t === 'b')) {
     fd.forEach(u => { if (B.ships.includes(u.o)) loseRE(B, u.o, `is destroyed by ${nm(A)}`); });

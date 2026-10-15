@@ -15,6 +15,11 @@ try:
         pg.route('**fonts.googleapis.com**', lambda r: r.abort())
         pg.goto('http://localhost:8777/index.html' if False else 'http://localhost:8776/index.html'); pg.wait_for_selector('#menu [data-mb="new"]', timeout=20000)
         pg.click('#menu [data-mb="new"]', force=True); pg.click('#pick [data-f="eu"]'); pg.select_option('#nbots', '1'); pg.click('#pickgo'); time.sleep(2)
+        pg.evaluate("G.ask.push({ k: 'search', ok: false, auto: false, T: 4, rolls: [{ n: 'You', r: 7 }, { n: 'Pirate', r: 9 }], where: 'Mars flyby box', text: 'You search but do not find the pirate.' }); render()"); time.sleep(.3)
+        pg.screenshot(path=os.path.join(out, 'c_search.png'))
+        chk('No contact' in pg.inner_text('#mbox') and 'Back to the map' in pg.inner_text('#mbox'), 'failed search shows the rolls and returns to the map')
+        pg.keyboard.press('Enter'); time.sleep(.3)
+        chk(pg.evaluate("G.ask.length === 0 && $('modal').hidden"), 'Enter closes the search result')
         # pirate combat screen with tactics points
         pg.evaluate("""() => { const s = G.ships.find(x => x.cls === 'CV') || G.ships[0]; window.__s = s; G.ask.push({ k: 'pbattle', st: { cont: null, sy: 'mar', ids: [s.id], strong: false, dm: 7, dp: 3, myTP: 9, pTP: 4, extra: 5 }, mine: [{ n: 'Pegasus', cb: 4 }], weapons: 0, pir: { strong: false, cb: 1, size: 2, dmg: 0 }, myTot: 11, pTot: 4, myBase: 3, pDmg: 0, extra: 5, myTP: 9, pTP: 4, can: 2, text: 'test pirate' }); render(); }""")
         time.sleep(.3); pg.screenshot(path=os.path.join(out, 'c_pirate.png'))
