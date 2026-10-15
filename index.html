@@ -1023,7 +1023,12 @@ function setupInput25() {
     const gg = g; if (P.size === 0) g = null; else if (gg && gg.k === 'pinch') g = { k: 'none' };
     if (!gg) return;
     if (gg.k === 'press' && !gg.moved && e.type === 'pointerup') tap(gg.hit);
-    if (gg.k === 'drag') { const d = dragS, p = d && d.p; cancelDrag(); if (d && p) dropAt(d, p); }
+    if (gg.k === 'drag') {
+      const d = dragS, p = d && d.p, q = pos(e); cancelDrag();
+      // a counter dropped on one of the 3D box shapes goes to that box; anything else is judged on the flat map's zones
+      const box = d && V25.destAt(q.x, q.y, [...new Set(d.moves.map(m => m.dest))]);
+      if (box) chooseAndMove(d.s, box, d.moves.filter(m => m.dest === box), p || { x: 0, y: 0 }); else if (d && p) dropAt(d, p);
+    }
   };
   c.addEventListener('pointerup', up); c.addEventListener('pointercancel', e => { if (dragS) cancelDrag(); up(e); });
   $('v25l').onclick = () => V25.rotate(-.3, 0); $('v25r').onclick = () => V25.rotate(.3, 0);
@@ -1182,13 +1187,7 @@ function paint25() {
   const real = ctx, now = performance.now();
   try {
     ctx = dummy25.getContext('2d'); V25.begin(); paintObjects();
-    if (FX.sun && now - sunAt > 120) { sunAt = now; paintSun(); V25.setSun(FX.sunC); }
-    if (FX.exp && now - ovAt > 250) {
-      ovAt = now; const K = .3, mx = Math.max(...Object.values(GEO.maps).map(m => m[0] + m[2])), my = Math.max(...Object.values(GEO.maps).map(m => m[1] + m[3]));
-      if (!ov25) { ov25 = document.createElement('canvas'); ov25.width = Math.ceil(mx * K); ov25.height = Math.ceil(my * K); }
-      const ox = ov25.getContext('2d'); ox.setTransform(1, 0, 0, 1, 0, 0); ox.clearRect(0, 0, ov25.width, ov25.height); ox.setTransform(K, 0, 0, K, 0, 0); ctx = ox; paintExplore(); V25.setOverlay(ov25, K);
-    }
-  } finally { ctx = real; }
+    } finally { ctx = real; }
   V25.finish(hits); V25.frame();
 }
 function paintObjects() {

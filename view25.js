@@ -63,6 +63,7 @@
         vec3 c=mix(vec3(1.,.55,.14),vec3(1.,.93,.6),n);c=mix(c,vec3(1.,.97,.8),.35*(1.-d));c*=1.-.35*pow(d,2.5);
         c+=vec3(.45,.18,.02)*smoothstep(.8,1.,d);
         gl_FragColor=vec4(c,smoothstep(1.,.97,d));}
+      else if(MODE==10){float g=max(step(.988,fract(vuv.x)),step(.988,fract(vuv.y)))*.7;float f=smoothstep(0.,.025,min(min(vq.x,1.-vq.x),min(vq.y,1.-vq.y)));gl_FragColor=vec4(mix(vc.rgb,vec3(.2,.5,.65),g*.5),vc.a*f);}
       else {float d=length(gl_PointCoord*2.-1.);float a=smoothstep(1.,.2,d);gl_FragColor=vec4(vc.rgb,vc.a*a);}
     }`;
   const FSP = `precision highp float;varying vec2 vq;uniform sampler2D T;uniform float row,rot,AW,AH,TW,TH,DS;uniform vec3 L;
@@ -217,22 +218,9 @@
     end();
   }
   const WHITE = [1, 1, 1, 1];
-  let LAY = null, belts = null, sky = null, labelTex = new Map(), ERASED = null;
+  let LAY = null, belts = null, sky = null, labelTex = new Map();
   // the printed transfer and flyby boxes are painted out of the sheets; the 3D models below take their place
   const boxPolys = () => { const out = []; Object.entries(GEO.sys).forEach(([k, sy]) => { Object.entries(sy.boxPoly).forEach(([n, q]) => out.push({ k, n, id: 'box:' + k + ':' + n, pts: q, fly: false })); out.push({ k, n: 'fly', id: 'fly:' + k, pts: hull(sy.flybyPoly), fly: true }); }); return out; };
-  function eraseSheets() {
-    ERASED = {}; const polys = boxPolys();
-    Object.entries(GEO.maps).forEach(([c, [x, y, w, h]]) => {
-      const img = IMG.maps[c]; if (!img) return;
-      const k = img.width / w, cv2 = document.createElement('canvas'); cv2.width = img.width; cv2.height = img.height;
-      const x2 = cv2.getContext('2d'); x2.drawImage(img, 0, 0); x2.fillStyle = '#04070d'; x2.shadowColor = '#04070d'; x2.shadowBlur = 10 * k;
-      polys.forEach(P => {
-        let cx = 0, cy = 0; P.pts.forEach(q => { cx += q[0]; cy += q[1]; }); cx /= P.pts.length; cy /= P.pts.length;
-        x2.beginPath(); P.pts.forEach(([px, py], i) => { const X = (cx + (px - cx) * 1.16 - x) * k, Y = (cy + (py - cy) * 1.16 - y) * k; i ? x2.lineTo(X, Y) : x2.moveTo(X, Y); }); x2.closePath(); x2.fill();
-      });
-      ERASED[c] = cv2;
-    });
-  }
   const glyphs = new Map();
   function glyph(t, col) {
     const key = t + col; let c = glyphs.get(key); if (c) return c;
@@ -261,20 +249,136 @@
     if (label) { const sz = Math.min(cs * .78, 46), key = label + '|' + pal.gc; flatQuad(out.num[key] = out.num[key] || [], cx, cz, sz, sz, angle, hgt + .8, [0, 0, 1, 1], WHITE); }
   }
   const PAL = { box: { top: [.03, .11, .19, .84], rim: [.35, .85, 1, .95], side: [.25, .7, .9], glow: [.4, .9, 1], gc: '#59d5ff' }, fly: { top: [.13, .08, .03, .66], rim: [1, .72, .28, .95], side: [.95, .6, .22], glow: [1, .75, .35], gc: '#ffb347' } };
+  // ---------- regular box shapes: squares for the numbered transfer boxes, a trapezoid for the flyby box ----------
+  let BOXSH = {};
+  const polyArea = p => Math.abs(p.reduce((a, q, i) => { const r = p[(i + 1) % p.length]; return a + q[0] * r[1] - r[0] * q[1]; }, 0) / 2);
+  const cen2 = p => [p.reduce((a, q) => a + q[0], 0) / p.length, p.reduce((a, q) => a + q[1], 0) / p.length];
+  function orientedRect(pts) {      // smallest rectangle round a polygon: centre, long-axis direction, length, width
+    let best = null;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length], th = Math.atan2(b[1] - a[1], b[0] - a[0]), c = Math.cos(-th), s = Math.sin(-th);
+      let u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9;
+      pts.forEach(p => { const u = p[0] * c - p[1] * s, v = p[0] * s + p[1] * c; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); });
+      const ar = (u1 - u0) * (v1 - v0); if (!best || ar < best.ar) best = { ar, th, u0, u1, v0, v1 };
+    }
+    const cu = (best.u0 + best.u1) / 2, cv = (best.v0 + best.v1) / 2, c = Math.cos(best.th), s = Math.sin(best.th);
+    let L = best.u1 - best.u0, Wd = best.v1 - best.v0, th = best.th; if (Wd > L) { const t = L; L = Wd; Wd = t; th += Math.PI / 2; }
+    const cc = [cu * c - cv * s, cu * s + cv * c]; return { c: cc, th, L, W: Wd };
+  }
   function drawBoxes(T) {
-    if (!ERASED) eraseSheets();
     const out = { top: [], side: [], rim: [], beam: [], glow: [], num: {} }, hi = new Set(typeof targets !== 'undefined' && targets ? targets.map(m => m.dest) : []);
+    const list = [];
     boxPolys().forEach(B => {
       const pod = LAY.pods[B.k]; if (!pod) return;
       const pts = B.pts.map(q => { const r = LAY.toL(q[0], q[1], pod); return [r[0], r[1]]; });
-      let cs = 1e9; { let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; pts.forEach(q => { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); z0 = Math.min(z0, q[1]); z1 = Math.max(z1, q[1]); }); cs = Math.min(x1 - x0, z1 - z0); }
-      let label = null, ang = 0;
-      label = B.fly ? 'FLYBY' : B.n; ang = -C.yaw;
-      slab(out, pts, B.fly ? 9 : 7, B.fly ? PAL.fly : PAL.box, T, hi.has(B.id), label, ang, cs);
+      list.push({ B, pod, pts, c: cen2(pts), s: Math.sqrt(polyArea(pts)) });
+    });
+    BOXSH = {};
+    list.forEach(it => {
+      const { B, pod, pts, c } = it, hub = pod.org, toHub = Math.atan2(hub[1] - c[1], hub[0] - c[0]);
+      let shape, cs;
+      if (!B.fly) {
+        let nd = 1e9; list.forEach(o => { if (o !== it && o.B.k === B.k && !o.B.fly) nd = Math.min(nd, Math.hypot(o.c[0] - c[0], o.c[1] - c[1])); });
+        const side = Math.min(it.s * .92, nd * .86), h = side / 2, ca = Math.cos(toHub), sa = Math.sin(toHub);
+        shape = [[-h, -h], [h, -h], [h, h], [-h, h]].map(([u, v]) => [c[0] + u * ca - v * sa, c[1] + u * sa + v * ca]); cs = side;
+      } else {
+        const r = orientedRect(pts), dx = Math.cos(r.th), dz = Math.sin(r.th), px = -dz, pz = dx, L = r.L * .94, Wd = r.W * .94;
+        // the narrow end of the trapezoid points at the hub
+        const toward = (hub[0] - r.c[0]) * dx + (hub[1] - r.c[1]) * dz >= 0 ? 1 : -1;
+        const nar = Wd * .56, far = Wd, e = toward * L / 2;
+        shape = [[r.c[0] + dx * e + px * nar / 2, r.c[1] + dz * e + pz * nar / 2], [r.c[0] + dx * e - px * nar / 2, r.c[1] + dz * e - pz * nar / 2], [r.c[0] - dx * e - px * far / 2, r.c[1] - dz * e - pz * far / 2], [r.c[0] - dx * e + px * far / 2, r.c[1] - dz * e + pz * far / 2]];
+        cs = Wd;
+      }
+      BOXSH[B.id] = shape;
+      slab(out, shape, B.fly ? 9 : 7, B.fly ? PAL.fly : PAL.box, T, hi.has(B.id), B.fly ? 'FLYBY' : B.n, -C.yaw, cs);
     });
     flush(pQ, out.top, null, 8); flush(pQ, out.side, null, 1); flush(pQ, out.rim, null, 1); flush(pQ, out.beam, null, 1);
-    const list = []; Object.entries(out.num).forEach(([key, a]) => { const [t, col] = key.split('|'); list.push({ tex: texOf(glyph(t, col), false), mode: 0, verts: a }); }); batch(list);
-    const g = [], r = 7; out.glow.forEach(q => { const y = 7 + 14, Rr = [rgt[0] * r, rgt[1] * r, rgt[2] * r], U = [cup[0] * r, cup[1] * r, cup[2] * r]; quad(g, [[q[0] - Rr[0] + U[0], y - Rr[1] + U[1], q[1] - Rr[2] + U[2]], [q[0] + Rr[0] + U[0], y + Rr[1] + U[1], q[1] + Rr[2] + U[2]], [q[0] + Rr[0] - U[0], y + Rr[1] - U[1], q[1] + Rr[2] - U[2]], [q[0] - Rr[0] - U[0], y - Rr[1] - U[1], q[1] - Rr[2] - U[2]]], [0, 0, 1, 1], [.5, .9, 1, .8]); }); flush(pQ, g, null, 3);
+    const lst = []; Object.entries(out.num).forEach(([key, a]) => { const [t, col] = key.split('|'); lst.push({ tex: texOf(glyph(t, col), false), mode: 0, verts: a }); }); batch(lst);
+    const g = [], r = 7; out.glow.forEach(q => { const y = 7 + 14, Rr = [rgt[0] * r, rgt[1] * r, rgt[2] * r], U = [cup[0] * r, cup[1] * r, cup[2] * r]; quad(g, [[q[0] - Rr[0] + U[0], y - Rr[1] + U[1], q[1] - Rr[2] + U[2]], [q[0] + Rr[0] + U[0], y + Rr[1] + U[1], q[1] + Rr[2] + U[2]], [q[0] + Rr[0] - U[0], y + Rr[1] - U[1], q[1] + Rr[2] - U[2]], [q[0] - Rr[0] - U[0], y - Rr[1] - U[1], q[1] - Rr[2] - U[2]]], [0, 0, 1, 1], [.4, .9, 1, .5]); }); if (g.length) flush(pQ, g, null, 3);
+  }
+  // which box (if any) a screen position is on, among the given destinations: uses the 3D shapes, not the printed polygons
+  V.destAt = function (sx, sy, dests) {
+    const g = ground(sx, sy, 0); if (!g) return null;
+    const inP = (p, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if (((a[1] > p.y) !== (b[1] > p.y)) && p.x < (b[0] - a[0]) * (p.y - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
+    for (const d of dests) { const sh = BOXSH[d]; if (sh && inP(g, sh)) return d; }
+    return null;
+  };
+  // ---------- digital world boxes: zones, lanes and information plates replace the printed world boxes ----------
+  const FIELD = { Phy: ['#5aaaff', 'PHYSICS'], Eng: ['#d5dbe6', 'ENGINEERING'], Bio: ['#6edc8c', 'BIOLOGY'] }, RESC = { ORE: '#d9955a', SUP: '#6fc0ee', FUEL: '#f2b13c' };
+  const TAGTXT = { severeAtm: 'Severe atmosphere', volcanic: 'Volcanic', rad: 'Radiation', minimal: 'Minimal gravity', reentry: 'Re-entry', venus: null };
+  const KIND = w => { const t = w.tags; return t.includes('sunobs') ? 'Solar observatory' : t.includes('alpha') ? 'Interstellar target' : t.includes('tele') ? 'Telescope site' : t.includes('gas') ? 'Gas giant' : t.includes('earth') ? 'Home orbit' : t.includes('rocky') && t.includes('icy') ? 'Rocky-icy world' : t.includes('icy') ? 'Icy world' : t.includes('rocky') ? 'Rocky world' : t.includes('station') ? 'Orbital site' : 'World'; };
+  const panels = new Map();
+  function rrect(x, a, b, w, h, r) { x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r); x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath(); }
+  function panelFor(k, ws) {
+    const w = D.W[k], key = [ws.v, ws.life, ws.sol, ws.terra, ws.npf, ws.blk].join('|'); let P = panels.get(k);
+    if (P && P.key === key) return P;
+    if (!P) { const cv2 = document.createElement('canvas'); cv2.width = 640; cv2.height = 352; P = { cv: cv2 }; panels.set(k, P); }
+    P.key = key; const x = P.cv.getContext('2d'), F = FIELD[w.f] || ['#9ad', ''], fc = F[0], dead = ws.v < 1, FONT = '"IBM Plex Sans Condensed","Arial Narrow",sans-serif';
+    x.clearRect(0, 0, 640, 352);
+    rrect(x, 6, 6, 628, 340, 24); x.fillStyle = 'rgba(4,12,26,.86)'; x.fill(); x.lineWidth = 4; x.strokeStyle = fc; x.globalAlpha = .85; x.stroke(); x.globalAlpha = 1;
+    x.fillStyle = fc; x.globalAlpha = .18; rrect(x, 6, 6, 628, 56, 24); x.fill(); x.globalAlpha = 1;
+    x.textBaseline = 'middle';
+    // name and kind
+    let fs = 56; x.font = `700 ${fs}px ${FONT}`; while (x.measureText(w.n).width > 420 && fs > 24) { fs -= 2; x.font = `700 ${fs}px ${FONT}`; }
+    x.textAlign = 'left'; x.fillStyle = '#eaf6ff'; x.fillText(w.n, 28, 36);
+    x.font = `500 28px ${FONT}`; x.fillStyle = '#9fb7cc'; x.fillText(KIND(w), 28, 86);
+    // field chip
+    x.font = `700 24px ${FONT}`; x.textAlign = 'right'; x.fillStyle = fc; x.fillText(F[1], 616, 36);
+    // explore tile
+    x.save(); x.translate(100, 200);
+    x.beginPath(); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.2832 + .5236; x.lineTo(Math.cos(a) * 82, Math.sin(a) * 82); } x.closePath();
+    x.fillStyle = dead ? 'rgba(60,20,20,.8)' : 'rgba(255,255,255,.07)'; x.fill(); x.lineWidth = 5; x.strokeStyle = dead ? '#ef6b5b' : fc; x.stroke();
+    x.textAlign = 'center'; x.font = `700 20px ${FONT}`; x.fillStyle = '#a9bfd2'; x.fillText('EXPLORE', 0, -52);
+    x.font = `700 104px ${FONT}`; x.shadowColor = dead ? '#ef6b5b' : fc; x.shadowBlur = 22; x.fillStyle = '#fff'; x.fillText(String(Math.max(0, ws.v)), 0, 4); x.shadowBlur = 0;
+    x.font = `600 19px ${FONT}`; x.fillStyle = dead ? '#ef6b5b' : '#a9bfd2'; x.fillText(dead ? 'DEPLETED' : ws.v !== w.v ? 'printed ' + w.v : 'research value', 0, 56);
+    x.restore();
+    // stat boxes
+    const stat = (a, label, val, col) => { rrect(x, a, 112, 128, 92, 12); x.fillStyle = 'rgba(255,255,255,.06)'; x.fill(); x.textAlign = 'left'; x.font = `600 19px ${FONT}`; x.fillStyle = '#8fa6bb'; x.fillText(label, a + 12, 132); x.font = `700 46px ${FONT}`; x.fillStyle = col || '#fff'; x.fillText(val, a + 12, 172); };
+    stat(196, 'LIFE CHANCE', ws.life ? 'FOUND' : (w.life ? w.life + '%' : '—'), ws.life ? '#6edc8c' : '#fff');
+    stat(334, 'BASE SLOTS', w.base ? String(w.base) : '—');
+    rrect(x, 472, 112, 152, 92, 12); x.fillStyle = 'rgba(255,255,255,.06)'; x.fill(); x.textAlign = 'left'; x.font = `600 19px ${FONT}`; x.fillStyle = '#8fa6bb'; x.fillText('PRODUCES', 484, 132);
+    const pr = Object.entries(w.prod || {}); if (!pr.length) { x.font = `700 46px ${FONT}`; x.fillStyle = '#fff'; x.fillText('—', 484, 172); }
+    pr.forEach(([r, n], i) => { const yy = 156 + i * 24; x.fillStyle = RESC[r] || '#fff'; x.beginPath(); x.arc(492, yy + 8, 7, 0, 6.2832); x.fill(); x.font = `700 26px ${FONT}`; x.fillStyle = '#fff'; x.fillText(`${r} ${n}`, 506, yy + 9); });
+    // tags and state
+    const chips = []; w.tags.forEach(t => { if (TAGTXT[t]) chips.push([TAGTXT[t], '#9fc3dd']); });
+    if (ws.sol) chips.push(['Solar power', '#f2b13c']); if (D.TERRA && D.TERRA[k]) chips.push([`Terraform ${ws.terra}/${D.TERRA[k]}`, '#6edc8c']);
+    if (ws.npf) chips.push([`${(typeof E !== 'undefined' && E.npfName) ? E.npfName(G, k) : 'NPF'} base`, '#c9a6ff']); if (ws.blk) chips.push(['BLOCKADED', '#ef6b5b']);
+    let cx = 196, cy = 236; x.font = `600 25px ${FONT}`;
+    chips.forEach(([t, col]) => { const wd = x.measureText(t).width + 26; if (cx + wd > 624) { cx = 196; cy += 46; } rrect(x, cx, cy, wd, 38, 19); x.fillStyle = 'rgba(255,255,255,.07)'; x.fill(); x.lineWidth = 2; x.strokeStyle = col; x.stroke(); x.fillStyle = col; x.textAlign = 'left'; x.fillText(t, cx + 13, cy + 20); cx += wd + 10; });
+    if (w.rng) { x.textAlign = 'right'; x.font = `500 19px ${FONT}`; x.fillStyle = '#6f879b'; x.fillText(`random world d100 ${w.rng[0]}–${w.rng[1]}`, 616, 326); }
+    if (dead) { x.fillStyle = 'rgba(20,0,0,.28)'; rrect(x, 6, 6, 628, 340, 24); x.fill(); }
+    P.dirty = true; return P;
+  }
+  function drawWorlds(T, S, px) {
+    if (!G) return;
+    const zone = [], rimv = [], dots = [], fillv = [], lanes = [], pl = [];
+    const hubOf = sk => { const h = D.SYS[sk] && D.SYS[sk].hub; return h && GEO.worlds[h] ? h : null; };
+    Object.keys(GEO.worlds).forEach(k => {
+      const ws = G.w[k], gw = GEO.worlds[k], dw = D.W[k]; if (!ws || !dw) return;
+      const pod = LAY.pods[dw.sys]; if (!pod) return;
+      const R = ringOf(k), c = mapP(R.c[0], R.c[1], pod), r = R.r * S, fc = parse((FIELD[dw.f] || ['#8aa'])[0]);
+      // zone disc, orbit track (dotted) and surface pad
+      flatQuad(fillv, c[0], c[1], r * 1.8, r * 1.8, 0, .8, [0, 0, 1, 1], [fc[0], fc[1], fc[2], .09]);
+      if (gw.poly) { const n = Math.max(24, Math.round(2 * Math.PI * R.r / 9)); for (let i = 0; i < n; i++) { const an = i / n * 6.2832, q = mapP(R.c[0] + Math.cos(an) * R.r, R.c[1] + Math.sin(an) * R.r, pod); flatQuad(dots, q[0], q[1], 5.5 * S * 1.5, 5.5 * S * 1.5, 0, 2, [0, 0, 1, 1], [.59, .52, .84, .9]); } }
+      if (gw.spoly) { const pts = hull(gw.spoly).map(q => { const m = mapP(q[0], q[1], pod); return [m[0], m[1]]; }); fillPoly(zone, pts, .9, [.43, .86, .55, .08]); ribbon(rimv, pts, true, Math.max(1.6, px * 1.1), 1.2, [.43, .86, .55, .55]); }
+      // information plate inside the zone, under the planet
+      const Wp = Math.max(230, Math.min(R.r * 2.4, 400)), Hp = Wp * 352 / 640, q = mapP(R.c[0], R.c[1] + R.r * .62, pod), P = panelFor(k, ws);
+      const t = texOf(P.cv, false); if (P.dirty) { reupload(P.cv); P.dirty = false; }
+      const a = []; flatQuad(a, q[0], q[1], Wp * S, Hp * S, -C.yaw, 3.2, [0, 0, 1, 1], WHITE); pl.push({ tex: t, mode: 0, verts: a });
+    });
+    // travel lanes from each system's hub world to the other worlds of the system
+    Object.keys(D.SYS).forEach(sk => {
+      const hk = hubOf(sk), pod = LAY.pods[sk]; if (!hk || !pod || !G.w[hk]) return;
+      const A = ringOf(hk), a0 = mapP(A.c[0], A.c[1], pod);
+      Object.keys(D.W).forEach(w => {
+        if (w === hk || D.W[w].sys !== sk || !GEO.worlds[w] || !G.w[w]) return;
+        const B = ringOf(w), b0 = mapP(B.c[0], B.c[1], pod), dx = b0[0] - a0[0], dz = b0[1] - a0[1], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, s0 = A.r * S + 8, s1 = L - B.r * S - 8;
+        if (s1 - s0 < 30) return;
+        for (let d = s0 + ((T * 26) % 16); d < s1; d += 16) { const u = (d - s0) / (s1 - s0), al = .25 + .5 * Math.sin(u * Math.PI); flatQuad(lanes, a0[0] + ux * d, a0[1] + uz * d, 5, 5, 0, 1.4, [0, 0, 1, 1], [.62, .55, .98, al]); }
+        const hx = a0[0] + ux * s1, hz = a0[1] + uz * s1; fillPoly(lanes, [[hx, hz], [hx - ux * 16 - uz * 7, hz - uz * 16 + ux * 7], [hx - ux * 16 + uz * 7, hz - uz * 16 - ux * 7]], 1.4, [.62, .55, .98, .8]);
+      });
+    });
+    flush(pQ, fillv, null, 2); flush(pQ, zone, null, 1); flush(pQ, rimv, null, 1); flush(pQ, dots, null, 2); flush(pQ, lanes, null, 1); batch(pl);
   }
   function ensure() {
     if (LAY || typeof GEO === 'undefined' || typeof SHL === 'undefined') return;
@@ -325,23 +429,12 @@
       for (let k = 0; k < 12; k++) { const an = k / 12 * 6.2832; ribbon(a, [[Math.cos(an) * 700, Math.sin(an) * 700], [Math.cos(an) * 19000, Math.sin(an) * 19000]], false, rw * .55, .5, [.31, .76, .85, .08]); }
       flush(pQ, a, null, 1);
     }
-    // 3 pod art: the printed sheets, cut to each system and faded at the edges
-    const L1 = [], L2 = [];
-    Object.values(LAY.pods).forEach(p => {
-      const bw = p.bbox[2] - p.bbox[0], bh = p.bbox[3] - p.bbox[1];
-      p.arts.forEach(art => {
-        const img = (ERASED && ERASED[art.sheet]) || IMG.maps[art.sheet]; if (!img) return;
-        const [x0, y0, x1, y1] = art.rect, A = mapP(x0, y0, p), B = mapP(x1, y1, p), sh = GEO.maps[art.sheet];
-        const u0 = (x0 - sh[0]) / sh[2], u1 = (x1 - sh[0]) / sh[2], v0 = (y0 - sh[1]) / sh[3], v1 = (y1 - sh[1]) / sh[3];
-        const q0 = [(x0 - p.bbox[0]) / bw, (y0 - p.bbox[1]) / bh], q1 = [(x1 - p.bbox[0]) / bw, (y1 - p.bbox[1]) / bh], a = [];
-        const Pt = [[A[0], 0, A[1]], [B[0], 0, A[1]], [B[0], 0, B[1]], [A[0], 0, B[1]]], UV = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], QQ = [[q0[0], q0[1]], [q1[0], q0[1]], [q1[0], q1[1]], [q0[0], q1[1]]];
-        [0, 1, 2, 0, 2, 3].forEach(i => pv(a, Pt[i][0], 0, Pt[i][2], UV[i][0], UV[i][1], QQ[i][0], QQ[i][1], WHITE));
-        L1.push({ tex: texOf(img, true), mode: 6, verts: a });
-        if (ovInfo) { const o = ovInfo, K = o.k, b = [], t = texOf(o.c, false); if (o.dirty) { reupload(o.c); o.dirty = false; } const ow = o.c.width, oh = o.c.height, UV2 = [[x0 * K / ow, y0 * K / oh], [x1 * K / ow, y0 * K / oh], [x1 * K / ow, y1 * K / oh], [x0 * K / ow, y1 * K / oh]]; [0, 1, 2, 0, 2, 3].forEach(i => pv(b, Pt[i][0], 1.2, Pt[i][2], UV2[i][0], UV2[i][1], 0, 0, WHITE)); L2.push({ tex: t, mode: 0, verts: b }); }
-      });
-    });
-    batch(L1); batch(L2);
-    if (C.dist < 26000) drawBoxes(T);
+    // 3 pod plates: a dark glass floor with a faint grid under each system; the printed sheets are no longer used
+    {
+      const a = []; Object.values(LAY.pods).forEach(p => { const r = p.rect, i = 6; quad(a, [[r[0] + i, 0, r[1] + i], [r[2] - i, 0, r[1] + i], [r[2] - i, 0, r[3] - i], [r[0] + i, 0, r[3] - i]], [(r[0] + i) / 160, (r[1] + i) / 160, (r[2] - i) / 160, (r[3] - i) / 160], [.02, .05, .09, .8]); });
+      flush(pQ, a, null, 10);
+    }
+    if (C.dist < 26000) { drawWorlds(T, S, px); drawBoxes(T); }
     { const a = []; Object.values(LAY.pods).forEach(p => { const r = p.rect, i = 14; ribbon(a, [[r[0] + i, r[1] + i], [r[2] - i, r[1] + i], [r[2] - i, r[3] - i], [r[0] + i, r[3] - i]], true, Math.max(5, px * 1.2), .6, [.31, .76, .85, .22]); }); flush(pQ, a, null, 1); }
     // 4 the Sun
     {
@@ -356,11 +449,6 @@
       const a = [], fill = [], dots = [], sc = pt => { const q = mapP(pt[0], pt[1]); return [q[0], q[1]]; };
       // a whole shape moves with one pod: pick the pod from the shape's middle
       const mapShape = pts => { let cx = 0, cy = 0; pts.forEach(p => { cx += p[0]; cy += p[1]; }); const pod = LAY.podAt(cx / pts.length, cy / pts.length); return pts.map(p => { const q = mapP(p[0], p[1], pod); return [q[0], q[1]]; }); };
-      if (G) Object.keys(GEO.worlds).forEach(w => {
-        if (!G.w[w] || !GEO.worlds[w].poly || !DOTR[w]) return;
-        const R = ringOf(w), n = Math.round(2 * Math.PI * R.r / 9), rp = LAY.podAt(R.c[0], R.c[1]);
-        for (let i = 0; i < n; i++) { const an = i / n * 2 * Math.PI, q = mapP(R.c[0] + Math.cos(an) * R.r, R.c[1] + Math.sin(an) * R.r, rp); flatQuad(dots, q[0], q[1], 5 * S * 1.5, 5 * S * 1.5, 0, 2, [0, 0, 1, 1], [.59, .52, .84, .9]); }
-      });
       gfx.forEach(g => {
         const c = parse(g.color);
         if (g.k === 'ring') { const q = mapP(g.x, g.y); ribbon(a, circlePts(q[0], q[1], g.r * S, 40), true, g.w * 1.4 * S, 3, c); }
@@ -370,7 +458,7 @@
         const seen = new Set(), dests = new Set(targets.map(m => m.dest));
         targets.forEach(m => {
           if (seen.has(m.dest)) return; seen.add(m.dest);
-          const p = E.P(m.dest), z = zoneShape(m.dest, p.t === 'orbit' && dests.has('surf:' + p.w)), raw = z.poly ? z.poly : circlePts(z.c[0], z.c[1], z.r, 36), pts = mapShape(raw);
+          const p = E.P(m.dest), z = zoneShape(m.dest, p.t === 'orbit' && dests.has('surf:' + p.w)), raw = z.poly ? z.poly : circlePts(z.c[0], z.c[1], z.r, 36), pts = BOXSH[m.dest] || mapShape(raw);
           fillPoly(fill, pts, 2.6, [.31, .76, .85, .2]); ribbon(a, pts, true, 7 * S, 3.2, [.31, .76, .85, .95]); if (z.hole) ribbon(a, mapShape(z.hole), true, 5 * S, 3.2, [.31, .76, .85, .8]);
         });
       }
