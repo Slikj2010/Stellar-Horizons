@@ -46,12 +46,20 @@
   // ---------- GL setup ----------
   const VS = `attribute vec3 p;attribute vec2 uv;attribute vec2 q;attribute vec4 c;uniform mat4 M;uniform float PT;
     varying vec2 vuv;varying vec2 vq;varying vec4 vc;void main(){vuv=uv;vq=q;vc=c;gl_Position=M*vec4(p,1.);gl_PointSize=PT;}`;
-  const FSQ = `precision highp float;varying vec2 vuv;varying vec2 vq;varying vec4 vc;uniform sampler2D T;uniform int MODE;
+  const FSQ = `precision highp float;varying vec2 vuv;varying vec2 vq;varying vec4 vc;uniform sampler2D T;uniform int MODE;uniform float TM;
+    float hh(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+    float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hh(i),hh(i+vec2(1.,0.)),f.x),mix(hh(i+vec2(0.,1.)),hh(i+vec2(1.,1.)),f.x),f.y);}
     void main(){
       if(MODE==0){vec4 t=texture2D(T,vuv);gl_FragColor=vec4(t.rgb*vc.rgb,t.a*vc.a);}
       else if(MODE==1){gl_FragColor=vc;}
       else if(MODE==2){float d=length(vq*2.-1.);float a=smoothstep(1.,.8,d);gl_FragColor=vec4(vc.rgb,vc.a*a);}
       else if(MODE==3){float d=length(vq*2.-1.);float a=pow(max(0.,1.-d),2.);gl_FragColor=vec4(vc.rgb,vc.a*a);}
+      else if(MODE==6){vec4 t=texture2D(T,vuv);float f=smoothstep(0.,.06,min(min(vq.x,1.-vq.x),min(vq.y,1.-vq.y)));gl_FragColor=vec4(t.rgb,t.a*f);}
+      else if(MODE==7){vec2 q=vq*2.-1.;float d=length(q);if(d>1.)discard;
+        float n=vn(q*4.+TM*.05)*.5+vn(q*9.-TM*.08)*.3+vn(q*21.+TM*.03)*.2;
+        vec3 c=mix(vec3(1.,.55,.14),vec3(1.,.93,.6),n);c=mix(c,vec3(1.,.97,.8),.35*(1.-d));c*=1.-.35*pow(d,2.5);
+        c+=vec3(.45,.18,.02)*smoothstep(.8,1.,d);
+        gl_FragColor=vec4(c,smoothstep(1.,.97,d));}
       else {float d=length(gl_PointCoord*2.-1.);float a=smoothstep(1.,.2,d);gl_FragColor=vec4(vc.rgb,vc.a*a);}
     }`;
   const FSP = `precision highp float;varying vec2 vq;uniform sampler2D T;uniform float row,rot,AW,AH,TW,TH,DS;uniform vec3 L;
@@ -68,7 +76,7 @@
     const mk = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
     const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs)); gl.bindAttribLocation(p, 0, 'p'); gl.bindAttribLocation(p, 1, 'uv'); gl.bindAttribLocation(p, 2, 'q'); gl.bindAttribLocation(p, 3, 'c'); gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
-    const u = {}; ['M', 'PT', 'T', 'MODE', 'row', 'rot', 'AW', 'AH', 'TW', 'TH', 'DS', 'L'].forEach(n => u[n] = gl.getUniformLocation(p, n)); p.u = u; return p;
+    const u = {}; ['M', 'PT', 'T', 'MODE', 'TM', 'row', 'rot', 'AW', 'AH', 'TW', 'TH', 'DS', 'L'].forEach(n => u[n] = gl.getUniformLocation(p, n)); p.u = u; return p;
   }
   const STRIDE = 11 * 4;
   function attribs() {
@@ -191,93 +199,142 @@
   const circlePts = (cx, cy, r, n) => Array.from({ length: n || 48 }, (_, i) => [cx + Math.cos(i / (n || 48) * 6.2832) * r, cy + Math.sin(i / (n || 48) * 6.2832) * r]);
 
   // ---------- drawing ----------
-  let seg = [];
-  function flush(prog_, verts, tex, mode, mipwrap) {
+  function flush(prog_, verts, tex, mode) {
     if (!verts.length) return;
     gl.useProgram(prog_); gl.uniformMatrix4fv(prog_.u.M, false, vp);
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.DYNAMIC_DRAW);
     if (tex) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(prog_.u.T, 0); }
-    gl.uniform1i(prog_.u.MODE, mode); gl.uniform1f(prog_.u.PT, 1);
+    gl.uniform1i(prog_.u.MODE, mode); gl.uniform1f(prog_.u.PT, 1); gl.uniform1f(prog_.u.TM, (typeof FX !== 'undefined' && FX.t) || 0);
     gl.drawArrays(gl.TRIANGLES, 0, verts.length / 11);
   }
-  // group consecutive draws that share a texture and mode
-  function batch(list) { // list of {tex, mode, verts[]}
+  function batch(list) { // consecutive draws that share a texture and mode become one call
     let cur = null;
     const end = () => { if (cur) flush(pQ, cur.verts, cur.tex, cur.mode); cur = null; };
     for (const it of list) { if (cur && cur.tex === it.tex && cur.mode === it.mode) { for (let i = 0; i < it.verts.length; i++) cur.verts.push(it.verts[i]); } else { end(); cur = { tex: it.tex, mode: it.mode, verts: it.verts.slice() }; } }
     end();
   }
   const WHITE = [1, 1, 1, 1];
+  let LAY = null, belts = null, sky = null, labelTex = new Map();
+  function ensure() {
+    if (LAY || typeof GEO === 'undefined' || typeof SHL === 'undefined') return;
+    const S0 = typeof FX !== 'undefined' && FX.sun, m = S0 && GEO.maps[S0.map];
+    LAY = SHL.build(GEO, D, m ? [m[0] + S0.cx * .4, m[1] + S0.cy * .4] : null);
+    // belts: particle rings (gaps cut out where a pod sits on the ring)
+    const r = mulb(4242); belts = [];
+    LAY.belts.forEach(b => {
+      const pod = LAY.pods[b.k], rc = pod && pod.rect, pts = [];
+      for (let i = 0; i < b.n; i++) {
+        const g = (r() + r() + r()) / 3, rad = b.r0 + (b.r1 - b.r0) * g, an = r() * 6.2832, x = Math.cos(an) * rad, z = Math.sin(an) * rad;
+        if (rc && x > rc[0] - 60 && x < rc[2] + 60 && z > rc[1] - 60 && z < rc[3] + 60) continue;
+        const sh = .55 + r() * .45, big = r() < .06;
+        pts.push(x, (r() - .5) * (b.r1 - b.r0) * .08, z, 0, 0, 0, 0, b.col[0] * sh, b.col[1] * sh, b.col[2] * sh, big ? .95 : .7 * sh + .2);
+      }
+      belts.push({ pts: new Float32Array(pts), big: 0 });
+    });
+    // sky: stars on a distant shell all around, constellation-style lines left out on purpose
+    const sp = []; for (let i = 0; i < 3200; i++) { const u = r() * 2 - 1, a = r() * 6.2832, s = Math.sqrt(1 - u * u), R = 52000 + r() * 8000, h = r(); sp.push(Math.cos(a) * s * R, u * R, Math.sin(a) * s * R, 0, 0, 0, 0, h < .12 ? .7 : 1, h < .12 ? .8 : (h > .88 ? .75 : 1), h < .12 ? 1 : (h > .88 ? .6 : 1), .3 + r() * .7); }
+    sky = new Float32Array(sp);
+  }
+  const mapP = (x, y, pod) => LAY.toL(x, y, pod);       // sheet coords -> scene coords (and the pod)
+  const pxw = d => 2 * d * Math.tan(FOV / 2) / H; // world units per css pixel at distance d
+  function labelOf(txt) {
+    let c = labelTex.get(txt); if (c) return c;
+    const cv2 = document.createElement('canvas'), x2 = cv2.getContext('2d'), fs = 40; x2.font = `600 ${fs}px "IBM Plex Sans Condensed","Arial Narrow",sans-serif`;
+    const w = Math.ceil(x2.measureText(txt).width) + 16; cv2.width = w; cv2.height = 56; x2.font = `600 ${fs}px "IBM Plex Sans Condensed","Arial Narrow",sans-serif`; x2.textAlign = 'center'; x2.textBaseline = 'middle';
+    x2.lineWidth = 7; x2.lineJoin = 'round'; x2.strokeStyle = 'rgba(2,6,14,.9)'; x2.strokeText(txt, w / 2, 29); x2.fillStyle = '#bfe9f5'; x2.fillText(txt, w / 2, 29);
+    c = { cv: cv2, w, h: 56 }; labelTex.set(txt, c); return c;
+  }
   function frame() {
     if (!ready || !V.on) return;
+    ensure(); if (!LAY) return;
+    const S = LAY.S, T = (typeof FX !== 'undefined' && FX.t) || 0;
     setupCam();
-    gl.viewport(0, 0, cvs.width, cvs.height); gl.clearColor(.012, .02, .04, 1); gl.clear(gl.COLOR_BUFFER_BIT);
-    // 1 stars
+    gl.viewport(0, 0, cvs.width, cvs.height); gl.clearColor(.008, .014, .03, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+    const dist2 = (x, y, z) => (x - eye[0]) ** 2 + (y - eye[1]) ** 2 + (z - eye[2]) ** 2;
+    const px = pxw(C.dist);
+    // 1 sky
     gl.useProgram(pQ); gl.uniformMatrix4fv(pQ.u.M, false, vp); gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(stars), gl.DYNAMIC_DRAW); gl.uniform1i(pQ.u.MODE, 4); gl.uniform1f(pQ.u.PT, 2.2 * dpr);
-    gl.drawArrays(gl.POINTS, 0, stars.length / 11);
-    // nebula wash, a huge tiled plane well below the board
-    if (typeof FX !== 'undefined' && FX.neb) {
-      const a = [], S = 60000, rep = S / 2600; flatQuad(a, 2600, 2300, S, S, 0, -2200, [0, 0, rep, rep], [1, 1, 1, .9]);
-      flush(pQ, a, texOf(FX.neb, false, true), 0);
-    }
-    // 2 map sheets, explore overlay, sun
-    const ground1 = [];
-    Object.entries(GEO.maps).forEach(([c, [x, y, w, h]]) => { if (!IMG.maps[c]) return; const a = []; flatQuad(a, x + w / 2, y + h / 2, w, h, 0, 0, [0, 0, 1, 1], WHITE); ground1.push({ tex: texOf(IMG.maps[c], true), mode: 0, verts: a }); });
-    batch(ground1);
-    // glowing edge around each sheet
-    { const a = []; Object.values(GEO.maps).forEach(([x, y, w, h]) => ribbon(a, [[x, y], [x + w, y], [x + w, y + h], [x, y + h]], true, 10, .5, [.31, .76, .85, .35])); flush(pQ, a, null, 1); }
-    if (sunInfo) { const S = FX.sun, m = GEO.maps[S.map], cx = m[0] + S.cx * .4, cy = m[1] + S.cy * .4, r = S.r * .4, edge = m[1] + m[3], X0 = cx - r * 1.25, Y0 = cy - r * 1.18, Wd = r * 2.5, Hd = edge + 170 - Y0; sunPos[0] = cx; sunPos[2] = cy; const a = []; flatQuad(a, X0 + Wd / 2, Y0 + Hd / 2, Wd, Hd, 0, 1, [0, 0, 1, 1], WHITE); reupload(sunInfo); flush(pQ, a, texOf(sunInfo, false), 0); }
-    if (ovInfo) { const t = texOf(ovInfo.c, false); if (ovInfo.dirty) { reupload(ovInfo.c); ovInfo.dirty = false; } const a = [], w = ovInfo.c.width / ovInfo.k, h = ovInfo.c.height / ovInfo.k; flatQuad(a, w / 2, h / 2, w, h, 0, 1.2, [0, 0, 1, 1], WHITE); flush(pQ, a, t, 0); }
-    // 3 ground decorations: orbit rings, selections, drag targets
+    gl.bufferData(gl.ARRAY_BUFFER, sky, gl.DYNAMIC_DRAW); gl.uniform1i(pQ.u.MODE, 4); gl.uniform1f(pQ.u.PT, 2.4 * dpr); gl.drawArrays(gl.POINTS, 0, sky.length / 11);
+    if (typeof FX !== 'undefined' && FX.neb) { const a = [], Sz = 200000, rep = Sz / 9000; flatQuad(a, 0, 0, Sz, Sz, 0, -9000, [0, 0, rep, rep], [1, 1, 1, .55]); flush(pQ, a, texOf(FX.neb, false, true), 0); }
+    // 2 belts, orbit rings, spokes
     {
-      const a = [], fill = [], dots = [];
+      belts.forEach((b, i) => { gl.useProgram(pQ); gl.uniformMatrix4fv(pQ.u.M, false, vp); gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, b.pts, gl.DYNAMIC_DRAW); gl.uniform1i(pQ.u.MODE, 4); gl.uniform1f(pQ.u.PT, Math.max(1.8, Math.min(7, 9000 / Math.max(900, C.dist))) * dpr); gl.drawArrays(gl.POINTS, 0, b.pts.length / 11); });
+      const a = [], rw = Math.max(9, px * 1.5);
+      LAY.rings.concat([{ r: LAY.pods.sca.ring }]).forEach(rg => ribbon(a, circlePts(0, 0, rg.r, 160), true, rw, 1, [.31, .76, .85, .3]));
+      for (let k = 0; k < 12; k++) { const an = k / 12 * 6.2832; ribbon(a, [[Math.cos(an) * 700, Math.sin(an) * 700], [Math.cos(an) * 19000, Math.sin(an) * 19000]], false, rw * .55, .5, [.31, .76, .85, .08]); }
+      flush(pQ, a, null, 1);
+    }
+    // 3 pod art: the printed sheets, cut to each system and faded at the edges
+    const L1 = [], L2 = [];
+    Object.values(LAY.pods).forEach(p => {
+      const bw = p.bbox[2] - p.bbox[0], bh = p.bbox[3] - p.bbox[1];
+      p.arts.forEach(art => {
+        const img = IMG.maps[art.sheet]; if (!img) return;
+        const [x0, y0, x1, y1] = art.rect, A = mapP(x0, y0, p), B = mapP(x1, y1, p), sh = GEO.maps[art.sheet];
+        const u0 = (x0 - sh[0]) / sh[2], u1 = (x1 - sh[0]) / sh[2], v0 = (y0 - sh[1]) / sh[3], v1 = (y1 - sh[1]) / sh[3];
+        const q0 = [(x0 - p.bbox[0]) / bw, (y0 - p.bbox[1]) / bh], q1 = [(x1 - p.bbox[0]) / bw, (y1 - p.bbox[1]) / bh], a = [];
+        const Pt = [[A[0], 0, A[1]], [B[0], 0, A[1]], [B[0], 0, B[1]], [A[0], 0, B[1]]], UV = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], QQ = [[q0[0], q0[1]], [q1[0], q0[1]], [q1[0], q1[1]], [q0[0], q1[1]]];
+        [0, 1, 2, 0, 2, 3].forEach(i => pv(a, Pt[i][0], 0, Pt[i][2], UV[i][0], UV[i][1], QQ[i][0], QQ[i][1], WHITE));
+        L1.push({ tex: texOf(img, true), mode: 6, verts: a });
+        if (ovInfo) { const o = ovInfo, K = o.k, b = [], t = texOf(o.c, false); if (o.dirty) { reupload(o.c); o.dirty = false; } const ow = o.c.width, oh = o.c.height, UV2 = [[x0 * K / ow, y0 * K / oh], [x1 * K / ow, y0 * K / oh], [x1 * K / ow, y1 * K / oh], [x0 * K / ow, y1 * K / oh]]; [0, 1, 2, 0, 2, 3].forEach(i => pv(b, Pt[i][0], 1.2, Pt[i][2], UV2[i][0], UV2[i][1], 0, 0, WHITE)); L2.push({ tex: t, mode: 0, verts: b }); }
+      });
+    });
+    batch(L1); batch(L2);
+    { const a = []; Object.values(LAY.pods).forEach(p => { const r = p.rect, i = 14; ribbon(a, [[r[0] + i, r[1] + i], [r[2] - i, r[1] + i], [r[2] - i, r[3] - i], [r[0] + i, r[3] - i]], true, Math.max(5, px * 1.2), .6, [.31, .76, .85, .22]); }); flush(pQ, a, null, 1); }
+    // 4 the Sun
+    {
+      const R = LAY.sunR, y = R * .35, a = [], g = [];
+      const bq = (arr, rr, mode, c) => { const Rr = [rgt[0] * rr, rgt[1] * rr, rgt[2] * rr], U = [cup[0] * rr, cup[1] * rr, cup[2] * rr]; quad(arr, [[-Rr[0] + U[0], y - Rr[1] + U[1], -Rr[2] + U[2]], [Rr[0] + U[0], y + Rr[1] + U[1], Rr[2] + U[2]], [Rr[0] - U[0], y + Rr[1] - U[1], Rr[2] - U[2]], [-Rr[0] - U[0], y - Rr[1] - U[1], -Rr[2] - U[2]]], [0, 0, 1, 1], c); };
+      bq(g, R * 3.4, 3, [1, .62, .2, .85]); flush(pQ, g, null, 3);
+      bq(a, R, 7, WHITE); flush(pQ, a, null, 7);
+      const c = proj(0, y, 0), e = proj(rgt[0] * R, y + rgt[1] * R, rgt[2] * R); picks = []; if (c && e) picks.push({ sx: c[0], sy: c[1], pr: Math.hypot(e[0] - c[0], e[1] - c[1]), hit: { t: 'world', k: 'sun' }, z: c[2], planet: true });
+    }
+    // 5 ground decorations: orbit dots, selections, drag targets
+    {
+      const a = [], fill = [], dots = [], sc = pt => { const q = mapP(pt[0], pt[1]); return [q[0], q[1]]; };
+      // a whole shape moves with one pod: pick the pod from the shape's middle
+      const mapShape = pts => { let cx = 0, cy = 0; pts.forEach(p => { cx += p[0]; cy += p[1]; }); const pod = LAY.podAt(cx / pts.length, cy / pts.length); return pts.map(p => { const q = mapP(p[0], p[1], pod); return [q[0], q[1]]; }); };
       if (G) Object.keys(GEO.worlds).forEach(w => {
         if (!G.w[w] || !GEO.worlds[w].poly || !DOTR[w]) return;
-        const R = ringOf(w), n = Math.round(2 * Math.PI * R.r / 9);
-        for (let i = 0; i < n; i++) { const an = i / n * 2 * Math.PI; flatQuad(dots, R.c[0] + Math.cos(an) * R.r, R.c[1] + Math.sin(an) * R.r, 5, 5, 0, 2, [0, 0, 1, 1], [.59, .52, .84, .9]); }
+        const R = ringOf(w), n = Math.round(2 * Math.PI * R.r / 9), rp = LAY.podAt(R.c[0], R.c[1]);
+        for (let i = 0; i < n; i++) { const an = i / n * 2 * Math.PI, q = mapP(R.c[0] + Math.cos(an) * R.r, R.c[1] + Math.sin(an) * R.r, rp); flatQuad(dots, q[0], q[1], 5 * S * 1.5, 5 * S * 1.5, 0, 2, [0, 0, 1, 1], [.59, .52, .84, .9]); }
       });
       gfx.forEach(g => {
         const c = parse(g.color);
-        if (g.k === 'ring') ribbon(a, circlePts(g.x, g.y, g.r, 40), true, g.w * 1.4, 3, c);
-        else if (g.k === 'poly') { if (g.fill) fillPoly(fill, g.pts, 2.5, parse(g.fill)); ribbon(a, g.pts, true, g.w * 1.4, 3, c); }
+        if (g.k === 'ring') { const q = mapP(g.x, g.y); ribbon(a, circlePts(q[0], q[1], g.r * S, 40), true, g.w * 1.4 * S, 3, c); }
+        else if (g.k === 'poly') { const pts = mapShape(g.pts); if (g.fill) fillPoly(fill, pts, 2.5, parse(g.fill)); ribbon(a, pts, true, g.w * 1.4 * S, 3, c); }
       });
       if (typeof targets !== 'undefined' && targets) {
         const seen = new Set(), dests = new Set(targets.map(m => m.dest));
         targets.forEach(m => {
           if (seen.has(m.dest)) return; seen.add(m.dest);
-          const p = E.P(m.dest), z = zoneShape(m.dest, p.t === 'orbit' && dests.has('surf:' + p.w)), pts = z.poly ? z.poly : circlePts(z.c[0], z.c[1], z.r, 36);
-          fillPoly(fill, pts, 2.6, [.31, .76, .85, .2]); ribbon(a, pts, true, 7, 3.2, [.31, .76, .85, .95]); if (z.hole) ribbon(a, z.hole, true, 5, 3.2, [.31, .76, .85, .8]);
+          const p = E.P(m.dest), z = zoneShape(m.dest, p.t === 'orbit' && dests.has('surf:' + p.w)), raw = z.poly ? z.poly : circlePts(z.c[0], z.c[1], z.r, 36), pts = mapShape(raw);
+          fillPoly(fill, pts, 2.6, [.31, .76, .85, .2]); ribbon(a, pts, true, 7 * S, 3.2, [.31, .76, .85, .95]); if (z.hole) ribbon(a, mapShape(z.hole), true, 5 * S, 3.2, [.31, .76, .85, .8]);
         });
       }
       flush(pQ, dots, null, 2); flush(pQ, fill, null, 1); flush(pQ, a, null, 1);
     }
-    // 4 flat sprites (world cards, base counters, trade markers)
+    // 6 flat sprites (world cards, base counters, trade markers)
     const flat = [], stand = [];
-    rec.forEach(r => { (r.mode === 'stand' ? stand : flat).push(r); });
+    rec.forEach(r => { const q = mapP(r.x, r.y); r.X = q[0]; r.Z = q[1]; (r.mode === 'stand' ? stand : flat).push(r); });
     {
       const list = [];
       flat.forEach(r => {
         const a = [], iw = r.img.width, ih = r.img.height, uv = [r.f[0] / iw, r.f[1] / ih, (r.f[0] + r.f[2]) / iw, (r.f[1] + r.f[3]) / ih];
-        flatQuad(a, r.x, r.y, r.w, r.h, r.a, r.text ? 6 : 4, uv, WHITE); list.push({ tex: texOf(r.img, false), mode: 0, verts: a });
+        flatQuad(a, r.X, r.Z, r.w * S, r.h * S, r.a, r.text ? 6 : 4, uv, WHITE); list.push({ tex: texOf(r.img, false), mode: 0, verts: a });
       });
       batch(list);
     }
-    // 5 standing items, far to near: planets, counters, labels
-    picks = [];
+    // 7 standing items, far to near: planets, counters, labels
     const items = [];
     const B = typeof FX !== 'undefined' && FX.bodies;
     if (B && planetTex && G) Object.entries(B.b).forEach(([k, b]) => {
-      const m = GEO.maps[b.map], x = m[0] + b.cx * .4, z = m[1] + b.cy * .4, r = b.r * .4, y = r * .55;
-      items.push({ t: 'planet', k, b, x, y, z, r, d: (x - eye[0]) ** 2 + (y - eye[1]) ** 2 + (z - eye[2]) ** 2 });
+      const m = GEO.maps[b.map], q = mapP(m[0] + b.cx * .4, m[1] + b.cy * .4), r = b.r * .4 * S, y = r * .55;
+      items.push({ t: 'planet', k, b, x: q[0], y, z: q[1], r, d: dist2(q[0], y, q[1]) });
     });
-    stand.forEach(r => {
-      const lift = (r.lift || 0), y = lift + r.h / 2;
-      items.push({ t: 'spr', r, x: r.x, y, z: r.y, d: (r.x - eye[0]) ** 2 + (y - eye[1]) ** 2 + (r.y - eye[2]) ** 2 });
-    });
+    stand.forEach(r => { const y = (r.lift || 0) * S + r.h * S / 2; items.push({ t: 'spr', r, d: dist2(r.X, y, r.Z) }); });
     items.sort((p, q) => q.d - p.d);
-    // soft shadows on the board under everything that hovers
-    { const a = []; items.forEach(it => { if (it.t === 'planet') flatQuad(a, it.x, it.z, it.r * 2.1, it.r * 1.2, 0, 1.6, [0, 0, 1, 1], [0, 0, 0, .38]); else if (!it.r.text) flatQuad(a, it.r.x, it.r.y, it.r.w * .9, it.r.w * .5, 0, 1.6, [0, 0, 1, 1], [0, 0, 0, .4]); }); flush(pQ, a, null, 2); }
+    { const a = []; items.forEach(it => { if (it.t === 'planet') flatQuad(a, it.x, it.z, it.r * 2.1, it.r * 1.2, 0, 1.6, [0, 0, 1, 1], [0, 0, 0, .38]); else if (!it.r.text) flatQuad(a, it.r.X, it.r.Z, it.r.w * S * .9, it.r.w * S * .5, 0, 1.6, [0, 0, 1, 1], [0, 0, 0, .4]); }); flush(pQ, a, null, 2); }
     let run = [];
     const flushRun = () => { batch(run); run = []; };
     items.forEach(it => {
@@ -289,26 +346,42 @@
         gl.useProgram(pP); gl.uniformMatrix4fv(pP.u.M, false, vp); gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(a), gl.DYNAMIC_DRAW);
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texOf(planetTex, false)); gl.uniform1i(pP.u.T, 0);
         const u = pP.u; gl.uniform1f(u.AW, planetTex.width); gl.uniform1f(u.AH, planetTex.height); gl.uniform1f(u.TW, B.tw); gl.uniform1f(u.TH, B.th); gl.uniform1f(u.DS, B.ds);
-        gl.uniform1f(u.row, it.b.row); gl.uniform1f(u.rot, ((FX.t || 0) * 6.2832 / it.b.spd) % 6.2832);
-        const Ld = norm(sub(sunPos, [it.x, 0, it.z])); gl.uniform3f(u.L, dot(Ld, rgt), dot(Ld, cup) * .6 + .25, .55);
+        gl.uniform1f(u.row, it.b.row); gl.uniform1f(u.rot, (T * 6.2832 / it.b.spd) % 6.2832);
+        const Ld = norm(sub([0, 0, 0], [it.x, 0, it.z])); gl.uniform3f(u.L, dot(Ld, rgt), dot(Ld, cup) * .6 + .25, .55);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
         gl.useProgram(pQ);
-        // pickable
         const c = proj(it.x, it.y, it.z), e = proj(it.x + rgt[0] * it.r, it.y + rgt[1] * it.r, it.z + rgt[2] * it.r);
         if (c && e) picks.push({ sx: c[0], sy: c[1], pr: Math.hypot(e[0] - c[0], e[1] - c[1]), hit: { t: 'world', k: it.k }, z: c[2], planet: true });
       } else {
         const r = it.r, iw = r.img.width, ih = r.img.height, uv = [r.f[0] / iw, r.f[1] / ih, (r.f[0] + r.f[2]) / iw, (r.f[1] + r.f[3]) / ih];
-        const hw = r.w / 2, l = r.lift || 0, bob = r.text ? 0 : Math.sin((FX.t || 0) * 1.3 + r.x * .013 + r.y * .017) * 3;
-        const bx = r.x, by = l + bob, bz = r.y, uh = [cup[0] * r.h, cup[1] * r.h, cup[2] * r.h];
+        const w = r.w * S, h = r.h * S, hw = w / 2, l = (r.lift || 0) * S, bob = r.text ? 0 : Math.sin(T * 1.3 + r.x * .013 + r.y * .017) * 3 * S;
+        const bx = r.X, by = l + bob, bz = r.Z, uh = [cup[0] * h, cup[1] * h, cup[2] * h];
         const P = [[bx - rgt[0] * hw + uh[0], by + uh[1], bz - rgt[2] * hw + uh[2]], [bx + rgt[0] * hw + uh[0], by + uh[1], bz + rgt[2] * hw + uh[2]], [bx + rgt[0] * hw, by, bz + rgt[2] * hw], [bx - rgt[0] * hw, by, bz - rgt[2] * hw]];
         const a = []; quad(a, P, uv, WHITE); run.push({ tex: texOf(r.img, false), mode: 0, verts: a });
         if (!r.text) {
-          const c = proj(r.x + cup[0] * r.h / 2, l + bob + cup[1] * r.h / 2, r.y + cup[2] * r.h / 2), e = proj(r.x + rgt[0] * r.w / 2 + cup[0] * r.h / 2, l + bob + cup[1] * r.h / 2, r.y + rgt[2] * r.w / 2 + cup[2] * r.h / 2);
+          const c = proj(bx + cup[0] * h / 2, by + cup[1] * h / 2, bz + cup[2] * h / 2), e = proj(bx + rgt[0] * hw + cup[0] * h / 2, by + cup[1] * h / 2, bz + rgt[2] * hw + cup[2] * h / 2);
           if (c && e) picks.push({ sx: c[0], sy: c[1], pr: Math.hypot(e[0] - c[0], e[1] - c[1]), x: r.x, y: r.y, z: c[2], rec: r });
         }
       }
     });
     flushRun();
+    // 8 labels for every system, constant size on screen, fading out when you are close
+    {
+      const a = [], d0 = [];
+      const lab = (name, x, z, key, big) => {
+        const dd = Math.sqrt(dist2(x, 0, z)), pod = key && LAY.pods[key], ext = pod ? Math.max(pod.rect[2] - pod.rect[0], pod.rect[3] - pod.rect[1]) : 600;
+        const al = Math.max(0, Math.min(1, (dd - ext * .9) / (ext * .9)));
+        if (al <= 0) return;
+        const c = labelOf(name), ph = pxw(dd), h = (big ? 22 : 17) * ph, w = h * c.w / c.h, y = 10 * ph + 6 * ph;
+        const Pq = [[x - rgt[0] * w / 2 + cup[0] * h, y + cup[1] * h, z - rgt[2] * w / 2 + cup[2] * h], [x + rgt[0] * w / 2 + cup[0] * h, y + cup[1] * h, z + rgt[2] * w / 2 + cup[2] * h], [x + rgt[0] * w / 2, y, z + rgt[2] * w / 2], [x - rgt[0] * w / 2, y, z - rgt[2] * w / 2]];
+        const v = []; quad(v, Pq, [0, 0, 1, 1], [1, 1, 1, al]); d0.push({ tex: texOf(c.cv, false), mode: 0, verts: v });
+        flatQuad(a, x, z, 9 * ph, 9 * ph, 0, 3, [0, 0, 1, 1], [.55, .9, 1, al]);
+        const s0 = proj(x, y + h / 2, z); if (s0 && al > .3) picks.push({ sx: s0[0], sy: s0[1], pr: Math.max(h / ph * .5, w / ph * .5), hit: key ? { t: 'pod', k: key } : null, z: 0, label: true });
+      };
+      Object.values(LAY.pods).forEach(p => { if (p.k === 'mer') return; const q = mapP(p.hub[0], p.hub[1], p); lab(p.name.toUpperCase(), q[0], q[1], p.k); });
+      lab('SUN', 0, 0, 'mer', true);
+      batch(d0); flush(pQ, a, null, 2);
+    }
   }
   V.frame = frame;
 
@@ -316,32 +389,38 @@
   V.finish = function (hitsList) {
     rec.forEach(r => { if (r.mode !== 'stand' || r.text) return; r.hit = null; for (let i = hitsList.length - 1; i >= 0; i--) { const h = hitsList[i]; if ((h.t === 'ship' || h.t === 'oship') && Math.abs(h.x - r.x) < 1.5 && Math.abs(h.y - r.y) < 1.5) { r.hit = h; break; } } });
   };
-  V.pick = function (sx, sy, wantDrag) {
+  // a point on the board under a screen position, in the board's own (flat map) coordinates
+  V.sheetAt = (sx, sy) => { const g = ground(sx, sy, 0); if (!g || !LAY) return null; const q = LAY.fromL(g.x, g.y); return q ? { x: q[0], y: q[1] } : null; };
+  V.pick = function (sx, sy) {
     let best = null;
     for (const p of picks) {
       if (Math.hypot(sx - p.sx, sy - p.sy) > Math.max(p.pr, 9)) continue;
-      const hit = p.planet ? p.hit : (p.rec && p.rec.hit);
+      const hit = p.planet || p.label ? p.hit : (p.rec && p.rec.hit);
       if (!hit) continue;
-      if (!best || p.z < best.z) best = { z: p.z, hit };
+      const tier = p.label ? 2 : p.planet ? 1 : 0;   // counters first, then worlds, then system labels
+      if (!best || tier < best.tier || (tier === best.tier && p.z < best.z)) best = { z: p.z, hit, tier };
     }
     if (best) return { hit: best.hit, p: null };
-    const g = ground(sx, sy, 0);
+    const g = V.sheetAt(sx, sy);
     return { hit: g && typeof hitAtWorld === 'function' ? hitAtWorld(g) : null, p: g };
   };
-  V.ground = ground;
+  V.ground = (sx, sy, h) => ground(sx, sy, h);
 
   // ---------- camera control ----------
-  const clampCam = () => { C.pitch = Math.max(.35, Math.min(1.3, C.pitch)); C.dist = Math.max(250, Math.min(9000, C.dist)); C.tx = Math.max(-400, Math.min(5800, C.tx)); C.tz = Math.max(-400, Math.min(5200, C.tz)); };
+  const clampCam = () => { C.pitch = Math.max(.3, Math.min(1.35, C.pitch)); C.dist = Math.max(120, Math.min(60000, C.dist)); C.tx = Math.max(-22000, Math.min(22000, C.tx)); C.tz = Math.max(-22000, Math.min(22000, C.tz)); };
+  const dirtyIt = () => { if (typeof dirty !== 'undefined') dirty = true; };
   V.zoom = f => { C.dist /= f; clampCam(); dirtyIt(); };
   V.rotate = (dy, dp) => { C.yaw += dy; C.pitch += dp; clampCam(); dirtyIt(); };
-  V.focus = (p, s) => { C.tx = p[0]; C.tz = p[1]; if (s) C.dist = Math.max(300, 1500 / Math.max(.3, s)); clampCam(); dirtyIt(); };
-  V.fit = () => { C.tx = 2650; C.tz = 2300; C.dist = 7600; C.yaw = 0; C.pitch = 1.05; clampCam(); dirtyIt(); };
-  V.home = p => { C.tx = p[0]; C.tz = p[1] + 150; C.dist = 2300; C.pitch = .98; C.yaw = 0; clampCam(); dirtyIt(); };
+  const sheetToScene = p => { ensure(); if (!LAY) return [0, 0]; const q = LAY.toL(p[0], p[1]); return [q[0], q[1]]; };
+  V.focus = (p, s) => { const q = sheetToScene(p); C.tx = q[0]; C.tz = q[1]; if (s) C.dist = Math.max(250, 900 / Math.max(.3, s)); clampCam(); dirtyIt(); };
+  V.focusPod = k => { ensure(); const p = LAY && LAY.pods[k]; if (!p) return; const r = p.rect; C.tx = (r[0] + r[2]) / 2; C.tz = (r[1] + r[3]) / 2; C.dist = Math.max(r[2] - r[0], r[3] - r[1]) * 1.35; C.pitch = Math.max(C.pitch, .9); clampCam(); dirtyIt(); };
+  V.fit = () => { C.tx = 0; C.tz = 400; C.dist = 40000; C.yaw = 0; C.pitch = 1.0; clampCam(); dirtyIt(); };
+  V.home = p => { const q = sheetToScene(p); C.tx = q[0]; C.tz = q[1] + 60; C.dist = 1500; C.pitch = .98; C.yaw = 0; clampCam(); dirtyIt(); };
   V.cam = C;
-  const dirtyIt = () => { if (typeof dirty !== 'undefined') dirty = true; };
   V.panBy = (p0, sx, sy) => { const p1 = ground(sx, sy, 0); if (!p1 || !p0) return; C.tx += p0.x - p1.x; C.tz += p0.y - p1.y; clampCam(); dirtyIt(); };
   V.picks = () => picks;
-  V.toScreen = (x, y, z) => proj(x, y, z);
+  V.toScreen = (x, y, z) => { ensure(); const q = LAY.toL(x, y); return proj(q[0], z || 0, q[1]); };
+  V.layout = () => LAY;
   V.canvas = () => cvs;
   V.show = on => { if (cvs) cvs.style.display = on ? 'block' : 'none'; };
 })();

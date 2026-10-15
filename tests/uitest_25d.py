@@ -20,7 +20,7 @@ try:
         chk(pg.evaluate("V25.on && V25.ok === true"), '2.5D view starts: ' + str(pg.evaluate("V25.err || ''")))
         pg.screenshot(path=out + '/a_home.png')
         pg.click('#zfit'); time.sleep(1); pg.screenshot(path=out + '/b_fit.png')
-        pg.evaluate("V25.cam.dist = 700; V25.cam.tx = GEO.worlds.ear.orbit[0]; V25.cam.tz = GEO.worlds.ear.orbit[1] - 60; dirty = true"); time.sleep(1)
+        pg.evaluate("V25.focus(GEO.worlds.ear.orbit, 1.4); V25.cam.pitch = .98; dirty = true"); time.sleep(1)
         pg.screenshot(path=out + '/c_earth.png')
         pk = pg.evaluate("V25.picks().filter(p => p.rec && p.rec.hit && p.rec.hit.t === 'ship').filter(p => p.sx > 0 && p.sx < 1000 && p.sy > 0 && p.sy < 850).map(p => [p.sx, p.sy, p.rec.hit.id])")
         chk(len(pk) >= 1, 'a hovering ship is pickable: ' + str(pk))
@@ -34,9 +34,9 @@ try:
         info = pg.evaluate("(() => { const s = G.ships.find(x => x.loc === 'earth' && E.moves(G, x).length); if (!s) return null; const m = E.moves(G, s)[0]; const pp = posOf(m.dest); return { id: s.id, dest: m.dest, x: pp[0], y: pp[1] }; })()")
         chk(info is not None, 'a movable ship exists: ' + str(info))
         if info:
-            pg.evaluate("V25.cam.dist = 3200; V25.cam.tx = 2500; V25.cam.tz = 900; dirty = true"); time.sleep(.8)
+            pg.evaluate("V25.fit(); V25.cam.dist = 13000; V25.cam.tx = -1000; V25.cam.tz = 0; dirty = true"); time.sleep(.8)
             sp = pg.evaluate("V25.picks().filter(p => p.rec && p.rec.hit && p.rec.hit.t === 'ship' && p.rec.hit.id === %d).map(p => [p.sx, p.sy])" % info['id'])
-            tp = pg.evaluate("(() => { const q = V25.toScreen(%f, 0, %f); return [q[0], q[1]]; })()" % (info['x'], info['y']))
+            tp = pg.evaluate("(() => { const q = V25.toScreen(%f, %f, 0); return [q[0], q[1]]; })()" % (info['x'], info['y']))
             box = pg.evaluate("(() => { const r = V25.canvas().getBoundingClientRect(); return [r.left, r.top]; })()")
             chk(bool(sp), 'new ship is pickable at ' + str(sp))
             if sp:

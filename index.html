@@ -218,6 +218,7 @@ p.order { margin: -2px 0 10px; }
 <script src="data.js"></script>
 <script src="rules.js"></script>
 <script src="ai.js"></script>
+<script src="layout25.js"></script>
 <script src="view25.js"></script>
 <script>
 'use strict';
@@ -948,6 +949,7 @@ function hitAtWorld(p) {
 }
 function tap(h) {
   if (!h) return;
+  if (h.t === 'pod') { if (V25.on) V25.focusPod(h.k); return; }
   if (h.t === 'ship') sel = { t: 'ship', id: h.id };
   else if (h.t === 'base') sel = { t: 'base', id: h.id };
   else if (h.t === 'world') sel = { t: 'world', k: h.k };
@@ -1014,7 +1016,7 @@ function setupInput25() {
     }
     if (g.k === 'rot') { V25.rotate(-(q.x - g.lx) * .006, (q.y - g.ly) * .005); g.lx = q.x; g.ly = q.y; }
     else if (g.k === 'pan') { V25.panBy(g.p0, q.x, q.y); }
-    else if (g.k === 'drag') { const p = V25.ground(q.x, q.y, 0); if (p) { dragS.x = p.x * cam.s + cam.x; dragS.y = p.y * cam.s + cam.y; dragS.p = p; dirty = true; } }
+    else if (g.k === 'drag') { const p = V25.sheetAt(q.x, q.y); if (p) { dragS.x = p.x * cam.s + cam.x; dragS.y = p.y * cam.s + cam.y; dragS.p = p; dirty = true; } }
   });
   const up = e => {
     if (!P.has(e.pointerId)) return; P.delete(e.pointerId);
