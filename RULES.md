@@ -308,3 +308,8 @@ Each decade a bot logs its "Mission focus" and what it still needs. The human pl
 - **After combat**: victory markers for each CV you destroy (CV-2/3: 1, CV-4/5: 2, CV-6: 3, CV-7+: 4); the owner learns the same number of Engineering markers (1 per lost base); every damage marker on a CV triggers a recall check.
 - **Blockade** (embargo or worse, fleet combat value at least the Defense Network's): the base's tech/resource output is halved after modifiers, its settlements decline instead of growing, it cannot trade or get a trade marker, and the blockader receives $2B per base in production. It lapses at the blockader's next combat phase unless the fleet is still there.
 - **Interception**: a bot-run hostile fleet that is not outgunned searches ships leaving its location (before the engine check; Earth excluded). REs/LVs alone are destroyed; a CV may stop, fight (as a successful search) or surrender, and if it survives the move proceeds.
+
+
+## Combat screen
+
+Before a fight the player confirms it ("Fight?"). The combat dice are rolled first and shown on a combat screen with each side's units, d10, totals and the damage the table gives for strike and direct fire. The player then spends tactics points: direct fire (1), +1 damage (2), a target pick (1) or calling off the combat (3). Pirate fights work the same way (direct fire; 2 points buy +1 damage, 3 call it off). A player who lost the tactics points still sees the roll, then the opponent decides how to fight. Bots decide automatically.

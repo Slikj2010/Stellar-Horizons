@@ -966,7 +966,7 @@ function answer(G, choice, data) {
     if (choice === 'pay') { G.cash -= a.roll; G.cache += a.roll; if (G.cash < 0) { G.debt += -G.cash; G.cash = 0; } log(G, `Paid the pirates $${a.roll}B; ${s.name} passes.`); return move(G, s, a.dest, a.opt); }
     if (choice === 'remove') { const c = a.roll * 2; G.cash -= c; G.cache += c; if (G.cash < 0) { G.debt += -G.cash; G.cash = 0; } G.fly[a.sys].pir.shift(); log(G, `Paid $${c}B to drive the pirate off; ${s.name} passes.`); return move(G, s, a.dest, a.opt); }
     if (choice === 'surrender') { s.cargo = { ORE: 0, SUP: 0, FUEL: 0 }; s.res = true; if (G.polm) G.polm--; log(G, `${s.name} surrenders to the pirates: cargo lost, crew vehicle reserved, 1 politics marker taken.`, 'x'); return null; }
-    if (choice === 'fight') { pirateBattle(G, [s], a.sys, false); if (G.ships.includes(s) && !G.fly[a.sys].pir.length) return move(G, s, a.dest, a.opt); return null; }
+    if (choice === 'fight') { if (pirateBattle(G, [s], a.sys, false, { ship: s.id, dest: a.dest, opt: a.opt }) === 'pending') return null; if (G.ships.includes(s) && !G.fly[a.sys].pir.length) return move(G, s, a.dest, a.opt); return null; }
     if (choice === 'stay') { log(G, `${s.name} stays put.`); return null; }
   }
   if (a.k === 'intercept') {
@@ -991,14 +991,23 @@ function answer(G, choice, data) {
     blog(G, g, `${nm(G)} hits ${nm(g)}'s base ${b.name}: ${[...TGT, 'res'].filter(c => al[c]).map(c => `${al[c]} on ${c === 'set' ? 'settlements' : c === 'res' ? 'resources (' + r.destroyed + ' destroyed)' : c}`).join(', ')}.`, 'x');
     return null;
   }
+  if (a.k === 'pbattle') {
+    G.ask.shift(); const st = a.st, n = String(choice).startsWith('u') ? +String(choice).slice(1) || 0 : st.extra >> 1;
+    resolvePirate(G, st, n, choice === 'avoid');
+    const c = st.cont, s = c && G.ships.find(x => x.id === c.ship);
+    if (s && G.ships.includes(s) && !s.res && !G.fly[st.sy].pir.length) return move(G, s, c.dest, c.opt);
+    return null;
+  }
   if (a.k === 'battle') {
-    G.ask.shift(); const B = facG(G, a.st.d), rem = a.rem; let plan = null;
-    if (choice === 'avoid' && rem >= 3) plan = { avoid: true };
-    else if (choice === 'strike') plan = { mode: 'strike', extra: 0, tgt: rem };
-    else if (choice === 'direct') plan = { mode: 'direct', extra: 0, tgt: rem - 1 };
-    else if (String(choice).startsWith('dx')) { const n = Math.min(+String(choice).slice(2) || 0, Math.floor((rem - 1) / 2)); plan = { mode: 'direct', extra: n, tgt: rem - 1 - 2 * n }; }
-    else if (String(choice).startsWith('sx')) { const n = Math.min(+String(choice).slice(2) || 0, Math.floor(rem / 2)); plan = { mode: 'strike', extra: n, tgt: rem - 2 * n }; }
-    resolveBattle(G, B, a.st, plan); return null;
+    G.ask.shift(); const A = facG(G, a.st.a), B = facG(G, a.st.d), rem = a.rem; let plan = null;
+    if (a.rem > 0 && !a.lose) {
+      if (choice === 'avoid' && rem >= 3) plan = { avoid: true };
+      else if (choice === 'strike') plan = { mode: 'strike', extra: 0, tgt: rem };
+      else if (choice === 'direct') plan = { mode: 'direct', extra: 0, tgt: rem - 1 };
+      else if (String(choice).startsWith('dx')) { const n = Math.min(+String(choice).slice(2) || 0, Math.floor((rem - 1) / 2)); plan = { mode: 'direct', extra: n, tgt: rem - 1 - 2 * n }; }
+      else if (String(choice).startsWith('sx')) { const n = Math.min(+String(choice).slice(2) || 0, Math.floor(rem / 2)); plan = { mode: 'strike', extra: n, tgt: rem - 2 * n }; }
+    }
+    resolveBattle(A, B, a.st, plan); return null;
   }
   if (a.k === 'publicity') { const w = G.w[choice]; if (!w || w.v < 1) return 'Pick a world that is not fully depleted.'; w.v += 2; G.ask.shift(); log(G, `Publicity Campaign: ${W[choice].n} rises to ${w.v}.`, 'g'); return null; }
   if (a.k === 'immigration') { const b = G.bases.find(x => x.id === choice); if (!b) return 'Pick one of your bases.'; b.set += 2; G.ask.shift(); log(G, `Immigration: ${b.name} gains 2 settlements.`, 'g'); return null; }
@@ -1077,7 +1086,7 @@ function combatAct(G, o) {
   }
 }
 function recallCheck(G, s) { if (s.res) return; if (d100() <= recall(G)) { s.res = true; const b = drawMarker(G, 'Bio'); log(G, `${s.name} is recalled and goes into reserve (+${b} Biology).`); } }
-function pirateBattle(G, fleet, sy, playerSearched) {
+function pirateBattle(G, fleet, sy, playerSearched, cont) {
   const pir = G.fly[sy].pir.slice().sort((a, b) => (b.strong ? 1 : 0) - (a.strong ? 1 : 0))[0];
   if (!pir || !fleet.length) return;
   const pd = pir.strong ? D.PIRATE.strong : D.PIRATE.weak;
@@ -1089,15 +1098,29 @@ function pirateBattle(G, fleet, sy, playerSearched) {
   let pTP = mine + Math.floor(fleet.reduce((a, s) => a + s.sz, 0) / 7);
   const armedFleet = fleet.some(armed);
   if (pTP - myTP >= 3 && armedFleet) { log(G, `The pirate uses its tactics advantage (${pTP} to ${myTP}) to avoid combat.`); return; }
-  // direct fire
-  const extra = Math.max(0, myTP - pTP);
-  const myDmgUp = Math.floor(extra / 2);
-  const myTotal = fleet.reduce((a, s) => a + Math.max(0, s.cb - s.dmg), 0) + weapons(G) + d10();
-  const pTotal = Math.max(0, pd.cb - pir.dmg) + d10() + (fleet.length - 1);
+  const extra = Math.max(0, myTP - pTP), st = { cont: cont || null, sy, ids: fleet.map(s => s.id), strong: !!pir.strong, dm: d10(), dp: d10(), myTP, pTP, extra };
+  if (!G.world || isHuman(G)) { // the player sees the rolls and decides how to spend the tactics points
+    const mine = fleet.reduce((a, s) => a + Math.max(0, s.cb - s.dmg), 0) + weapons(G), pc = Math.max(0, pd.cb - pir.dmg) + (fleet.length - 1);
+    G.ask.push({ k: 'pbattle', st, mine: fleet.map(s => ({ n: s.name, cb: Math.max(0, s.cb - s.dmg) })), weapons: weapons(G), pir: { strong: !!pir.strong, cb: Math.max(0, pd.cb - pir.dmg), size: pd.size, dmg: pir.dmg },
+      myTot: mine + st.dm, pTot: pc + st.dp, myBase: D.combatDamage(mine + st.dm, false), pDmg: D.combatDamage(pc + st.dp, false), extra, myTP, pTP, can: Math.floor(extra / 2),
+      text: `Combat with the ${pir.strong ? 'strong' : 'weak'} pirate in the ${SYS[sy].n} flyby box.` });
+    return 'pending';
+  }
+  resolvePirate(G, st, Math.floor(extra / 2), false);
+}
+// finish a pirate fight with the dice already rolled. up: extra damage bought with tactics points (2 each); avoid: call the combat off (3 points)
+function resolvePirate(G, st, up, avoid) {
+  const fleet = G.ships.filter(s => st.ids.includes(s.id)), sy = st.sy;
+  const pir = G.fly[sy].pir.slice().sort((a, b) => (b.strong ? 1 : 0) - (a.strong ? 1 : 0))[0];
+  if (!pir || !fleet.length) return;
+  const pd = pir.strong ? D.PIRATE.strong : D.PIRATE.weak, myDmgUp = Math.max(0, Math.min(up, Math.floor(st.extra / 2)));
+  if (avoid && st.extra >= 3) { log(G, `You spend 3 tactics points to call off the combat with the pirate.`); return; }
+  const myTotal = fleet.reduce((a, s) => a + Math.max(0, s.cb - s.dmg), 0) + weapons(G) + st.dm;
+  const pTotal = Math.max(0, pd.cb - pir.dmg) + st.dp + (fleet.length - 1);
   let myDmg = D.combatDamage(myTotal, false) + myDmgUp;
   let pDmg = D.combatDamage(pTotal, false);
   const myBase = myDmg - myDmgUp;
-  log(G, `Combat with the pirate (direct fire): your combat total is ${myTotal} (d10 + combat values${weapons(G) ? ' + weapons' : ''}), which is ${myBase} damage on the table${myDmgUp ? `, plus ${myDmgUp} from your tactics points (${myTP} to ${pTP})` : ''}, ${myDmg} in all; the pirate's total is ${pTotal} for ${pDmg} damage.`, 'e');
+  log(G, `Combat with the pirate (direct fire): your combat total is ${myTotal} (d10 ${st.dm} + combat values${weapons(G) ? ' + weapons' : ''}), which is ${myBase} damage on the table${myDmgUp ? `, plus ${myDmgUp} from your tactics points (${st.myTP} to ${st.pTP})` : ''}, ${myDmg} in all; the pirate's total is ${pTotal} (d10 ${st.dp}) for ${pDmg} damage.`, 'e');
   pir.dmg += myDmg;
   if (pir.dmg >= pd.size) {
     G.fly[sy].pir = G.fly[sy].pir.filter(x => x !== pir);
@@ -1254,10 +1277,16 @@ function afterOffer(A, B, ctx, choice) {
 function tacticsStep(A, B, ctx, after) {
   const fa = unitsOf(A, ctx.ia, []), fd = unitsOf(B, ctx.id, ctx.ib), where = keyName(ctx.key);
   if (!fa.length || !fd.length) return { done: true };
-  const st = { a: A.f, d: B.f, key: ctx.key, ia: ctx.ia, id: ctx.id, ib: ctx.ib, after, tpA: fleetTP(A, ctx.rB, fd), tpB: fleetTP(B, ctx.rA, fa) };
-  if (isHuman(A) && st.tpA > st.tpB && !ctx.noAsk) {
-    const rem = st.tpA - st.tpB;
-    A.ask.push({ k: 'battle', st, rem, text: `Combat with ${nm(B)} at ${where}: you have ${st.tpA} tactics points to their ${st.tpB}, so you can spend ${rem}.` });
+  const st = { a: A.f, d: B.f, key: ctx.key, ia: ctx.ia, id: ctx.id, ib: ctx.ib, after, tpA: fleetTP(A, ctx.rB, fd), tpB: fleetTP(B, ctx.rA, fa), dA: d10(), dB: d10() };
+  const hA = isHuman(A) && !ctx.noAsk, hB = isHuman(B) && !ctx.noAsk;
+  if (hA || hB) {
+    const me = hA ? A : B, side = hA ? 'a' : 'd', mine = hA ? fa : fd, theirs = hA ? fd : fa, tp = hA ? st.tpA : st.tpB, opp = hA ? st.tpB : st.tpA;
+    const calc = { strike: battleCalc(A, B, fa, fd, st.dA, st.dB, true), direct: battleCalc(A, B, fa, fd, st.dA, st.dB, false) };
+    const view = c => hA ? { dealt: c.toB, taken: c.toA, tot: c.totA, otot: c.totB } : { dealt: c.toA, taken: c.toB, tot: c.totB, otot: c.totA };
+    const rem = Math.max(0, tp - opp), name = u => u.t === 's' ? u.o.name : 'base ' + u.o.name;
+    me.ask.push({ k: 'battle', st, side, rem, lose: tp < opp, tie: tp === opp, tp, opp, d: hA ? st.dA : st.dB, od: hA ? st.dB : st.dA, strike: view(calc.strike), direct: view(calc.direct),
+      mine: mine.map(u => ({ n: name(u), cb: uCb(u) })), theirs: theirs.map(u => ({ n: name(u), cb: uCb(u) })), foe: nm(hA ? B : A), where,
+      text: `Combat with ${nm(hA ? B : A)} at ${where}.` });
     return { pending: true };
   }
   return resolveBattle(A, B, st, null);
@@ -1331,6 +1360,19 @@ function resolveBattle(A, B, st, plan) {
   }
   return r;
 }
+// combat totals and damage: each side's combat values + d10 + 1 per extra enemy unit, looked up on the strike / direct-fire table. A is the attacker.
+function battleCalc(A, B, fa, fb, dA, dB, strike) {
+  const total = (g, f, e, d) => power(g, f) + d + Math.max(0, e.length - 1);
+  // strike: fighter drones cancel enemy damage one for one; Bomber Drones are flown by the side that attacks
+  const dmg = (g, tot, attacking, other, otherUs, mine) => {
+    if (strike && !has(g, 'msl')) return 0;
+    let d = D.combatDamage(tot, strike);
+    if (strike) { if (has(g, 'bd') && attacking) d += droneCount(g, mine); d -= droneCount(other, otherUs); }
+    return Math.max(0, d);
+  };
+  const totA = total(A, fa, fb, dA), totB = total(B, fb, fa, dB);
+  return { totA, totB, toB: dmg(A, totA, true, B, fb, fa), toA: dmg(B, totB, false, A, fa, fb) };
+}
 function resolveBattle0(A, B, st, plan) {
   const fa = unitsOf(A, st.ia, []), fb = unitsOf(B, st.id, st.ib);
   if (!fa.length || !fb.length) return { done: true };
@@ -1340,16 +1382,9 @@ function resolveBattle0(A, B, st, plan) {
   if (plan.avoid) { blog(A, B, `${nm(Wn)} spends 3 tactics points to call off the combat at ${keyName(st.key)}.`); return { done: true, avoided: true }; }
   const strike = plan.mode !== 'direct';
   if (!strike) [fa, fb].forEach(f => { if (f.some(u => u.t === 's' && uCb(u) > 0)) f.forEach(u => { if (uCb(u) === 0) u.screen = true; }); });
-  const total = (g, f, e) => power(g, strike ? f : f.filter(u => !u.screen)) + d10() + Math.max(0, e.length - 1);
-  const totA = total(A, fa, fb), totB = total(B, fb, fa);
-  // strike: fighter drones cancel enemy damage one for one; Bomber Drones are flown by the side that attacks
-  const dmg = (g, tot, attacking, other, otherUs, mine) => {
-    if (strike && !has(g, 'msl')) return 0;
-    let d = D.combatDamage(tot, strike);
-    if (strike) { if (has(g, 'bd') && attacking) d += droneCount(g, mine); d -= droneCount(other, otherUs); }
-    return Math.max(0, d);
-  };
-  let toB = dmg(A, totA, true, B, fb, fa), toA = dmg(B, totB, false, A, fa, fb);
+  const dA = st.dA != null ? st.dA : d10(), dB = st.dB != null ? st.dB : d10();
+  const { totA, totB, toB: tB, toA: tA } = battleCalc(A, B, fa, fb, dA, dB, strike);
+  let toB = tB, toA = tA;
   if (!tie) { if (aWins) toB += plan.extra; else toA += plan.extra; }
   const mk = () => ({ hits: new Map(), lostCV: [], lostRE: [], lostB: [], facLost: 0, pend: [] });
   const outA = mk(), outB = mk();

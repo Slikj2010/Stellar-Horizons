@@ -1780,6 +1780,43 @@ function lifeBlock(f) {
   return `<div class="row" style="gap:14px;align-items:center;margin-top:6px">${dieFace(f.r, f.found, 'd100')}<div><p style="margin:0"><b>Search for ${esc(f.seek)}: ${f.found ? 'found!' : 'nothing found'}</b></p>
     <p class="dim" style="margin:0">Rolled ${f.r} on d100, needed ${f.need} or less${esc(f.bonus || '')}.${f.reward ? ' ' + esc(f.reward) + '.' : ''}</p></div></div>`;
 }
+// ---------------- combat screen ----------------
+const unitRows = us => us.map(u => `<div class="item" style="padding:4px 0"><div class="t"><b>${esc(u.n)}</b></div><span class="chip">combat ${u.cb}</span></div>`).join('') || '<p class="dim">No armed units.</p>';
+function combatScreen(a) {
+  const r = a.rem, sx = a.strike, dr = a.direct, dx = n => Array.from({ length: n }, (_, i) => i + 1), opt = (ans, label, v, picks, tp, extra, yes) =>
+    `<button class="b" data-ans="${ans}"${yes ? ' data-yes="1"' : ''}>${label} <small class="dim">(${tp} TP) deal ${v.dealt + (extra || 0)}, take ${v.taken}${picks ? `, ${picks} target pick${picks > 1 ? 's' : ''}` : ''}</small></button>`;
+  let h = `<h2>Combat with ${esc(a.foe)}</h2><p class="dim">${esc(a.where)}</p>
+    <div class="row" style="align-items:flex-start;gap:18px">
+      <div style="flex:1;min-width:200px"><h3>You</h3>${unitRows(a.mine)}<div class="row" style="align-items:center;gap:10px">${dieFace(a.d, true)}<span class="dim">d10 plus combat values and 1 per extra enemy unit, then the table</span></div></div>
+      <div style="flex:1;min-width:200px"><h3>${esc(a.foe)}</h3>${unitRows(a.theirs)}<div class="row" style="align-items:center;gap:10px">${dieFace(a.od, true)}</div></div>
+    </div>
+    <table><tr><th></th><th>Your total</th><th>Their total</th><th>You deal</th><th>You take</th></tr>
+      <tr><td>Strike</td><td>${sx.tot}</td><td>${sx.otot}</td><td>${sx.dealt}</td><td>${sx.taken}</td></tr>
+      <tr><td>Direct fire</td><td>${dr.tot}</td><td>${dr.otot}</td><td>${dr.dealt}</td><td>${dr.taken}</td></tr></table>
+    <p class="dim">Strike only damages a side with Space Missiles. Direct fire costs 1 tactics point.</p>
+    <p><b>Tactics points:</b> you ${a.tp}, them ${a.opp}. ${r > 0 && !a.lose ? `You can spend ${r}: 1 for direct fire, 2 for +1 damage, 1 to pick a target (3 to call off the combat).` : a.lose ? 'They won the tactics points and will decide how to fight.' : 'Tied: the combat is a strike.'}</p>`;
+  if (r > 0 && !a.lose) {
+    h += `<div class="col" style="display:grid;gap:6px">${opt('auto', 'Let the game choose', sx, 0, '?', 0, true)}
+      ${opt('strike', 'Strike', sx, r, 0)}
+      ${r >= 1 ? opt('direct', 'Direct fire', dr, r - 1, 1) : ''}
+      ${dx(Math.floor((r - 1) / 2)).map(n => opt('dx' + n, `Direct fire +${n} damage`, dr, r - 1 - 2 * n, 1 + 2 * n, n)).join('')}
+      ${dx(Math.floor(r / 2)).map(n => opt('sx' + n, `Strike +${n} damage`, sx, r - 2 * n, 2 * n, n)).join('')}
+      ${r >= 3 ? '<button class="b" data-ans="avoid">Call off the combat <small class="dim">(3 TP)</small></button>' : ''}</div>`;
+  } else h += `<div class="row"><button class="b pri" data-ans="auto" data-yes="1">Fight</button></div>`;
+  return h;
+}
+function pirateScreen(a) {
+  const p = a.pir, ex = a.extra;
+  let h = `<h2>Combat with the pirate</h2><p class="dim">${esc(a.text)}</p>
+    <div class="row" style="align-items:flex-start;gap:18px">
+      <div style="flex:1;min-width:200px"><h3>You</h3>${unitRows(a.mine)}${a.weapons ? `<p class="dim">Weapons technology +${a.weapons}</p>` : ''}<div class="row" style="align-items:center;gap:10px">${dieFace(a.st.dm, true)}<b>Total ${a.myTot}</b></div><p class="dim">Table (direct fire): ${a.myBase} damage</p></div>
+      <div style="flex:1;min-width:200px"><h3>${p.strong ? 'Strong' : 'Weak'} pirate</h3>${unitRows([{ n: 'Pirate (size ' + p.size + ', ' + p.dmg + ' damage)', cb: p.cb }])}<div class="row" style="align-items:center;gap:10px">${dieFace(a.st.dp, true)}<b>Total ${a.pTot}</b></div><p class="dim">Table (direct fire): ${a.pDmg} damage to you</p></div>
+    </div>
+    <p><b>Tactics points:</b> you ${a.myTP}, the pirate ${a.pTP}. ${ex > 0 ? `You can spend ${ex}: 2 points buy +1 damage${ex >= 3 ? ', or 3 points call off the combat' : ''}.` : 'The pirate has the advantage or it is even: no points to spend.'}</p><div style="display:grid;gap:6px">`;
+  for (let n = a.can; n >= 0; n--) h += `<button class="b ${n === a.can ? 'pri' : ''}" data-ans="u${n}"${n === a.can ? ' data-yes="1"' : ''}>${n ? `Spend ${2 * n} tactics points: +${n} damage` : (a.can ? 'Spend nothing' : 'Fight')} <small class="dim">deal ${a.myBase + n}, take ${a.pDmg}</small></button>`;
+  if (ex >= 3) h += '<button class="b" data-ans="avoid" data-no="1">Call off the combat <small class="dim">(3 TP)</small></button>';
+  return h + '</div>';
+}
 function renderAsk() {
   const m = $('modal');
   if (ui) {
@@ -1795,7 +1832,7 @@ function renderAsk() {
   }
   const a = G.ask[0];
   if (!a) { m.hidden = true; return; }
-  let h = `<h2>Decision</h2><p>${esc(a.text)}</p>`;
+  let h = a.k === 'battle' || a.k === 'pbattle' ? '' : `<h2>Decision</h2><p>${esc(a.text)}</p>`;
   if (a.k === 'pirate') h += `<p class="dim">Pirate demand roll: ${a.roll}.</p><div class="row"><button class="b" data-ans="pay" data-yes="1">Pay $${a.roll}B and pass</button><button class="b" data-ans="remove">Pay $${a.roll * 2}B to drive it off</button><button class="b" data-ans="fight">Fight</button><button class="b" data-ans="surrender">Surrender</button><button class="b" data-ans="stay" data-no="1">Stay put</button></div>`;
   if (a.k === 'intercept') h += `<div class="row"><button class="b" data-ans="stop" data-no="1">Stop moving</button><button class="b" data-ans="fight">Fight</button><button class="b" data-ans="surrender">Surrender (cargo destroyed, crew vehicle reserved, 1 politics marker lost)</button></div>`;
   if (a.k === 'surrender') {
@@ -1803,16 +1840,8 @@ function renderAsk() {
     h += `<p class="dim">Accepting reserves ${i.cvs} crew vehicle${i.cvs === 1 ? '' : 's'} (CV size total ${i.cvSize}; they must be unreserved before they can move again), destroys their cargo and stockpiles, ${i.seize ? `lets you seize about ${i.seize} resource${i.seize > 1 ? 's' : ''}` : 'seizes nothing'}${i.pm ? ' and takes one of their politics markers' : ' (they have no politics marker to take)'}.</p><div class="row"><button class="b" data-ans="accept" data-yes="1">Accept the surrender</button>
       ${a.canDeny ? '<button class="b" data-ans="deny" data-no="1">Refuse and fight</button>' : ''}${a.split ? '<button class="b" data-ans="exclude">Fight their ships first, then take the base surrender</button>' : ''}</div>${!a.canDeny && !a.split ? '' : `<p class="dim">${a.split ? 'A base\'s surrender must be accepted, but the ships with it can be excluded and fought separately.' : 'At war a fleet\'s surrender may be refused; under embargo it must be accepted.'}</p>`}`;
   }
-  if (a.k === 'battle') {
-    const r = a.rem, dx = n => Array.from({ length: n }, (_, i) => i + 1);
-    h += `<p class="dim">Unspent points go to picking targets (1 each). With no one spending, the combat is a strike, which only a side with Space Missiles can win damage from. Direct fire costs 1.</p><div class="row">
-      <button class="b" data-ans="auto" data-yes="1">Let the game choose</button>
-      <button class="b" data-ans="strike">Strike (free)</button>
-      <button class="b" data-ans="direct">Direct fire (1)</button>
-      ${dx(Math.floor((r - 1) / 2)).map(n => `<button class="b" data-ans="dx${n}">Direct fire +${n} damage (${1 + 2 * n})</button>`).join('')}
-      ${dx(Math.floor(r / 2)).map(n => `<button class="b" data-ans="sx${n}">Strike +${n} damage (${2 * n})</button>`).join('')}
-      ${r >= 3 ? '<button class="b" data-ans="avoid">Call off the combat (3)</button>' : ''}</div>`;
-  }
+  if (a.k === 'battle') h += combatScreen(a);
+  if (a.k === 'pbattle') h += pirateScreen(a);
   if (a.k === 'basehit') {
     const nmz = { def: 'Defense Network', lab: 'Research Lab', mine: 'Mining', sup: 'Supply', set: 'Settlements (3 per settlement)', res: 'Resources (2 destroyed per hit)' };
     h += `<p class="dim">${a.n} hit${a.n > 1 ? 's' : ''} to assign. Each facility takes hits equal to its size, then it is downgraded or removed. Settlements are one stacked facility: every 3 damage removes one, and a damaged one stops counting. Resources are a valid target only while a facility or settlement stands.</p>
@@ -1926,7 +1955,7 @@ function wire() {
   on('[data-tradeb]', b => { const bs = G.bases.find(x => x.id === b.dataset.tradeb); tradeAsk({ base: bs.id }, bs.trade, E.tradeLimitOwn(bs), `Trade at ${bs.name}?`); });
   on('[data-npfsel]', b => { sel = { t: 'npf', k: b.dataset.npfsel }; tab = 'sel'; render(); });
   on('[data-npft]', b => { const k = b.dataset.npft, x = G.w[k]; tradeAsk({ w: k }, x.npfTrade, (D.FAC[G.f].rel[G.rel[x.npf]] || [0, 0])[1], `Trade at ${E.npfName(G, k)} (${D.FAC[x.npf].n}, ${D.W[k].n})?`); });
-  on('[data-cb]', b => act(() => E.combatAct(G, E.combatOptions(G)[+b.dataset.cb])));
+  on('[data-cb]', b => { const o = E.combatOptions(G)[+b.dataset.cb]; ask('Fight?', `<p><b>${esc(o.label)}</b></p><p class="dim">You will see the dice and decide how to spend your tactics points before damage is dealt.</p>`, () => E.combatAct(G, o), 'Fight'); });
   on('[data-pub]', b => act(() => E.answer(G, b.dataset.pub)));
   { const sl = $('cf-sl'), lvSel = $('cf-lv');
     if (sl && lvSel) {
