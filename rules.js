@@ -1096,7 +1096,8 @@ function pirateBattle(G, fleet, sy, playerSearched) {
   const pTotal = Math.max(0, pd.cb - pir.dmg) + d10() + (fleet.length - 1);
   let myDmg = D.combatDamage(myTotal, false) + myDmgUp;
   let pDmg = D.combatDamage(pTotal, false);
-  log(G, `Combat with the pirate (direct fire): you roll a total of ${myTotal} for ${myDmg} damage; the pirate rolls ${pTotal} for ${pDmg} damage.`, 'e');
+  const myBase = myDmg - myDmgUp;
+  log(G, `Combat with the pirate (direct fire): your combat total is ${myTotal} (d10 + combat values${weapons(G) ? ' + weapons' : ''}), which is ${myBase} damage on the table${myDmgUp ? `, plus ${myDmgUp} from your tactics points (${myTP} to ${pTP})` : ''}, ${myDmg} in all; the pirate's total is ${pTotal} for ${pDmg} damage.`, 'e');
   pir.dmg += myDmg;
   if (pir.dmg >= pd.size) {
     G.fly[sy].pir = G.fly[sy].pir.filter(x => x !== pir);
