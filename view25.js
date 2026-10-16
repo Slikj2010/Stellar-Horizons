@@ -312,8 +312,10 @@
   const KIND = w => { const t = w.tags; return t.includes('sunobs') ? 'Solar observatory' : t.includes('alpha') ? 'Interstellar target' : t.includes('tele') ? 'Telescope site' : t.includes('gas') ? 'Gas giant' : t.includes('earth') ? 'Home orbit' : t.includes('rocky') && t.includes('icy') ? 'Rocky-icy world' : t.includes('icy') ? 'Icy world' : t.includes('rocky') ? 'Rocky world' : t.includes('station') ? 'Orbital site' : 'World'; };
   const panels = new Map();
   function rrect(x, a, b, w, h, r) { x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r); x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath(); }
+  // number of bases (any faction, plus a non-player faction's) on a world: the tray shows one slot for each, appearing as bases are built
+  const baseCount = (k, ws) => (G ? G.bases.filter(b => b.w === k).length : 0) + (typeof otherFacs === 'function' ? otherFacs().reduce((a, g) => a + g.bases.filter(b => b.w === k).length, 0) : 0) + (ws.npf ? 1 : 0);
   function panelFor(k, ws) {
-    const w = D.W[k], key = [ws.v, ws.life, ws.sol, ws.terra, ws.npf, ws.blk, ws.card].join('|'); let P = panels.get(k);
+    const w = D.W[k], nb = baseCount(k, ws), key = [ws.v, ws.life, ws.sol, ws.terra, ws.npf, ws.blk, ws.card, nb].join('|'); let P = panels.get(k);
     if (P && P.key === key) return P;
     if (!P) { const cv2 = document.createElement('canvas'); const sz = asmSize(k); cv2.width = Math.round(sz[0] * K25); cv2.height = Math.round(sz[1] * K25); P = { cv: cv2 }; panels.set(k, P); }
     P.key = key; const x = P.cv.getContext('2d'), F = w.tags.includes('alpha') ? ['#e8d27a', 'VARIABLE FIELD'] : FIELD[w.f] || ['#9ad', ''], fc = F[0], dead = ws.v < 1, FONT = '"IBM Plex Sans Condensed","Arial Narrow",sans-serif';
@@ -351,10 +353,10 @@
     chips.forEach(([t, col]) => { const wd = x.measureText(t).width + 26; if (cx + wd > 624) { cx = 196; cy += 46; } rrect(x, cx, cy, wd, 38, 19); x.fillStyle = 'rgba(255,255,255,.07)'; x.fill(); x.lineWidth = 2; x.strokeStyle = col; x.stroke(); x.fillStyle = col; x.textAlign = 'left'; x.fillText(t, cx + 13, cy + 20); cx += wd + 10; });
     if (w.rng) { x.textAlign = 'right'; x.font = `500 19px ${FONT}`; x.fillStyle = '#6f879b'; x.fillText(`random world d100 ${w.rng[0]}–${w.rng[1]}`, 616, 326); }
     if (dead) { x.fillStyle = 'rgba(20,0,0,.28)'; rrect(x, 6, 6, 628, 340, 24); x.fill(); }
-    x.setTransform(1, 0, 0, 1, 0, 0); drawTray(x, k, ws, w, FONT); P.dirty = true; return P;
+    x.setTransform(1, 0, 0, 1, 0, 0); drawTray(x, k, ws, w, FONT, nb); P.dirty = true; return P;
   }
   // ---------- world boxes: one digital assembly per world (info plate, card slot, life slot, base tray), placed once, clear of everything ----------
-  const K25 = 1.8, PWS = 260, PHS = 143, TRW = 380, TRH = 201;          // canvas pixels per scene unit; plate and full-assembly size in scene units
+  const K25 = 1.8, PWS = 260, PHS = 143, TRW = 380, TRH = 251;          // canvas pixels per scene unit; plate and full-assembly size in scene units
   const asmKind = k => { const w = D.W[k], t = w.tags, earth = t.includes('earth'), gas = t.includes('gas'); return { base: !!w.base || gas || earth, card: !earth && (!!w.base || gas) }; };
   const asmSize = k => asmKind(k).base ? [TRW, TRH] : [PWS, PHS];
   const SLOT = { card: [325, 36.5, 110, 73], life: [288, 108], base: i => [8 + 86 * (i % 4) + 22, 176 + 50 * Math.floor(i / 4)] };
@@ -421,14 +423,22 @@
     });
     return out;
   }
-  function drawTray(x, k, ws, w, FONT) {
+  function drawTray(x, k, ws, w, FONT, nb) {
     const kd = asmKind(k); if (!kd.base) return;
     x.save(); x.scale(K25, K25); x.textBaseline = 'middle';
     const fcol = (FIELD[w.f] || ['#8aa'])[0];
-    // base tray
-    rrect(x, 0, 151, 356, 50, 9); x.fillStyle = 'rgba(4,12,26,.82)'; x.fill(); x.lineWidth = 1.4; x.strokeStyle = 'rgba(150,190,230,.35)'; x.stroke();
-    x.font = `700 7px ${FONT}`; x.fillStyle = '#7f98ad'; x.textAlign = 'right'; x.fillText('BASES', 351, 158);
-    for (let i = 0; i < 4; i++) { const [cx, cz] = SLOT.base(i); x.save(); x.setLineDash([3, 3]); x.lineWidth = 1.2; x.strokeStyle = 'rgba(160,200,240,.45)'; rrect(x, cx - 22, cz - 22, 44, 44, 5); x.stroke(); x.restore(); x.font = `600 11px ${FONT}`; x.fillStyle = 'rgba(160,200,240,.25)'; x.textAlign = 'center'; x.fillText(String(i + 1), cx, cz); }
+    // base tray: a slot (and a trade-marker pad) appears for each base as it is built, up to seven factions and a non-player faction
+    if (nb > 0) {
+      const rows = Math.ceil(nb / 4);
+      rrect(x, 0, 151, 356, 6 + rows * 50 - 6, 9); x.fillStyle = 'rgba(4,12,26,.82)'; x.fill(); x.lineWidth = 1.4; x.strokeStyle = 'rgba(150,190,230,.35)'; x.stroke();
+      x.font = `700 7px ${FONT}`; x.fillStyle = '#7f98ad'; x.textAlign = 'right'; x.fillText('BASES', 351, 158);
+      for (let i = 0; i < nb && i < 8; i++) {
+        const [cx, cz] = SLOT.base(i);
+        x.lineWidth = 1.3; x.strokeStyle = 'rgba(160,200,240,.55)'; rrect(x, cx - 22, cz - 22, 44, 44, 5); x.stroke();
+        x.save(); x.setLineDash([2.5, 2.5]); x.lineWidth = 1; x.strokeStyle = 'rgba(160,200,240,.35)'; rrect(x, cx + 26, cz - 15, 30, 30, 4); x.stroke(); x.restore();
+        x.font = `600 7px ${FONT}`; x.fillStyle = 'rgba(160,200,240,.35)'; x.textAlign = 'center'; x.fillText('TRADE', cx + 41, cz);
+      }
+    }
     // life slot
     const noLife = w.tags.includes('earth'), [lx, lz] = SLOT.life, lc = ws.life ? '#6edc8c' : ws.sol ? '#f2b13c' : 'rgba(160,200,240,.4)';
     if (!noLife) {
