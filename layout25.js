@@ -11,7 +11,7 @@
   const PREF = { ven: -150, ear: 25, mar: -55, bel: 120, jup: -140, sat: 35, ura: 205, nep: 95, kui: -25, sca: 150, alp: -75 }; // preferred angle in degrees (0 = east, +90 = south)
   // Satellite worlds that sit out in the belts at their own place instead of inside their system's pod: ring radius follows the
   // semi-major axis (Main Belt band 4300-5500 = 2.1-3.3 AU, Kuiper band 11600-13200 = 30-50 AU, the scattered disc beyond), angle is spread round the belt.
-  const SAT = { ves: { ring: 4560, ang: 290 }, cer: { ring: 4970, ang: 205 }, hyg: { ring: 5150, ang: 25 }, plu: { ring: 12360, ang: 215 }, hau: { ring: 12760, ang: 295 }, eri: { ring: 13950, ang: 100 }, sed: { ring: 14500, ang: 30 }, dsa: { ring: 14250, ang: 175 } };
+  const SAT = { ves: { ring: 4560, ang: 290 }, cer: { ring: 4970, ang: 205 }, hyg: { ring: 5150, ang: 25 }, plu: { ring: 12360, ang: 215 }, hau: { ring: 12760, ang: 295 }, eri: { ring: 13950, ang: 100 }, sed: { ring: 14500, ang: 30 }, dsa: { ring: 15245, ang: -30.8 } };
   const BELTS = [{ k: 'bel', r0: 4300, r1: 5500, n: 30000, col: [.72, .62, .5] }, { k: 'kui', r0: 11600, r1: 13200, n: 26000, col: [.62, .76, .92] }];
 
   function build(GEO, D, sunC) {

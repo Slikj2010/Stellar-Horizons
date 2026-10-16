@@ -468,7 +468,7 @@
   function drawBeltLinks(T, S, px) {
     if (!G) return; const lanes = [];
     // belt links: the Main Belt, the Kuiper Belt and the Scattered Disk are joined to their satellite worlds by arcs along the belt
-    const SATH = { cer: 'bel', hyg: 'bel', ves: 'bel', plu: 'kui', hau: 'kui', eri: 'sca', sed: 'sca', dsa: 'sca' }, HUEL = { bel: [.95, .78, .5], kui: [.62, .78, .98], sca: [.75, .65, 1] };
+    const SATH = { cer: 'bel', hyg: 'bel', ves: 'bel', plu: 'kui', hau: 'kui', eri: 'sca', sed: 'sca' }, HUEL = { bel: [.95, .78, .5], kui: [.62, .78, .98], sca: [.75, .65, 1] };
     Object.keys(SATH).forEach(k => {
       const hk = SATH[k], hp = LAY.pods[hk], sp = LAY.pods[k]; if (!hp || !sp || !GEO.worlds[k]) return;
       let A, ra; if (GEO.worlds[hk]) { const R = ringOf(hk); A = mapP(R.c[0], R.c[1], hp); ra = R.r * S + 12; } else { A = mapP(hp.hub[0], hp.hub[1], hp); ra = 80; }
@@ -635,6 +635,45 @@
     }
     parts.sort((p, q) => q.d - p.d).forEach(({ p, o }) => drawRock(o, u * p.s, p, T));
   }
+
+  // deep-field art: galaxy sprites (elliptical, spiral, edge-on, lensed arc, diffraction-spike star), all drawn procedurally
+  let GALX = null, DEEPBG = null;
+  function galaxyAtlas() {
+    if (GALX) return GALX; const c = document.createElement('canvas'); c.width = c.height = 512; const x = c.getContext('2d'), r = mulb(77);
+    const glow = (cx, cy, R, col, a) => { const g = x.createRadialGradient(cx, cy, 0, cx, cy, R); g.addColorStop(0, `rgba(${col},${a})`); g.addColorStop(.25, `rgba(${col},${a * .45})`); g.addColorStop(1, `rgba(${col},0)`); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, R, 0, 6.2832); x.fill(); };
+    for (let n = 0; n < 16; n++) {      // 4x4 cells of 128 px
+      const cx = (n % 4) * 128 + 64, cy = ((n / 4) | 0) * 128 + 64, ty = n % 5; x.save(); x.translate(cx, cy);
+      if (ty === 0) { x.rotate(r() * 3); x.scale(1, .55 + r() * .3); glow(0, 0, 60, '255,232,185', .95); glow(0, 0, 18, '255,250,235', 1); }                 // elliptical
+      else if (ty === 1) { x.rotate(r() * 3); x.scale(1, .5 + r() * .4); for (let a = 0; a < 2; a++) for (let i = 0; i < 160; i++) { const t = i / 160, an = a * 3.1416 + t * 5.2, rr = 6 + t * 50, px = Math.cos(an) * rr + (r() - .5) * 6, py = Math.sin(an) * rr + (r() - .5) * 6; x.fillStyle = `rgba(${150 + t * 90 | 0},${185 + t * 40 | 0},255,${.5 * (1 - t) + .08})`; x.beginPath(); x.arc(px, py, 1.6 + r() * 1.6, 0, 6.2832); x.fill(); } glow(0, 0, 22, '255,236,190', .95); }  // spiral
+      else if (ty === 2) { x.rotate(r() * 3); x.scale(1, .13); glow(0, 0, 62, '255,214,150', .9); glow(0, 0, 20, '255,246,220', 1); }                         // edge-on
+      else if (ty === 3) { x.rotate(r() * 3); x.scale(1, .65); glow(0, 0, 40, '120,170,255', .9); glow(0, 0, 11, '235,244,255', 1); }                       // small blue
+      else { x.rotate(r() * 3); x.lineCap = 'round'; for (let i = 0; i < 3; i++) { x.strokeStyle = `rgba(255,${110 + i * 20},${60 + i * 20},${.85 - i * .2})`; x.lineWidth = 5 - i * 1.4; x.beginPath(); x.arc(-34, 0, 44 + i * 2, -.75, .75); x.stroke(); } }   // lensed arc
+      x.restore();
+    }
+    return GALX = c;
+  }
+  function deepBg() {      // wide backdrop: a dim galaxy-cluster field with a haze band through the middle
+    if (DEEPBG) return DEEPBG; const W = 2048, H = 1024, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'), r = mulb(31337);
+    x.fillStyle = '#01030a'; x.fillRect(0, 0, W, H);
+    const glow = (cx, cy, R, col, a, sy) => { x.save(); x.translate(cx, cy); x.scale(1, sy || 1); const g = x.createRadialGradient(0, 0, 0, 0, 0, R); g.addColorStop(0, `rgba(${col},${a})`); g.addColorStop(.3, `rgba(${col},${a * .35})`); g.addColorStop(1, `rgba(${col},0)`); x.fillStyle = g; x.beginPath(); x.arc(0, 0, R, 0, 6.2832); x.fill(); x.restore(); };
+    for (let i = 0; i < 9; i++) glow(r() * W, H * (.3 + r() * .35), 140 + r() * 220, '210,170,110', .1 + r() * .08, .45);      // diffuse cluster light
+    for (let i = 0; i < 520; i++) { const px = r() * W, py = r() * H, R = 2 + Math.pow(r(), 3) * 14, k = r(); x.save(); x.translate(px, py); x.rotate(r() * 3.14); const sy = .25 + r() * .75; x.scale(1, sy);
+      const col = k < .55 ? '255,226,170' : k < .8 ? '140,180,255' : '255,130,80'; const g = x.createRadialGradient(0, 0, 0, 0, 0, R); g.addColorStop(0, `rgba(${col},.95)`); g.addColorStop(.35, `rgba(${col},.35)`); g.addColorStop(1, `rgba(${col},0)`); x.fillStyle = g; x.beginPath(); x.arc(0, 0, R, 0, 6.2832); x.fill(); x.restore(); }
+    for (let i = 0; i < 40; i++) { const px = r() * W, py = r() * H, L = 18 + r() * 40, an = r() * 3.14; x.strokeStyle = `rgba(255,${120 + r() * 80 | 0},${90 + r() * 60 | 0},.55)`; x.lineWidth = 1.4; x.beginPath(); x.moveTo(px, py); x.lineTo(px + Math.cos(an) * L, py + Math.sin(an) * L); x.stroke(); }
+    for (let i = 0; i < 2; i++) { const px = r() * W, py = r() * H; glow(px, py, 22, '255,255,255', 1); x.strokeStyle = 'rgba(190,215,255,.7)'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(px - 46, py); x.lineTo(px + 46, py); x.moveTo(px, py - 46); x.lineTo(px, py + 46); x.stroke(); }
+    return DEEPBG = c;
+  }
+  function drawDeep(it, T) {      // the space telescope in front of a small three-dimensional cluster of galaxies
+    const u = it.u, at = galaxyAtlas(), r = mulb(901), g = [], items = [];
+    for (let i = 0; i < 22; i++) {
+      const R = u * (2.2 + r() * 2.6), an = r() * 6.2832 + T * .02 * (.5 + r()), ph = (r() - .5) * u * 3, cell = (r() * 16) | 0, s = u * (.9 + r() * 1.5) * (cell % 5 === 4 ? 1.2 : 1);
+      items.push({ p: [it.x + Math.cos(an) * R, it.y + ph + u * .3, it.z + Math.sin(an) * R * .7], cell, s, d: 0 });
+    }
+    items.forEach(o => { o.d = dist2(o.p[0], o.p[1], o.p[2]); }); items.sort((a, b) => b.d - a.d);
+    items.forEach(o => { const cx = (o.cell % 4) / 4, cy = ((o.cell / 4) | 0) / 4; quad(g, billboard(o.p, o.s, o.s), [cx, cy, cx + .25, cy + .25], [1, 1, 1, .9]); });
+    flush(pQ, g, texOf(at, false), 0);
+    const sz = u * 3.4, cv = spriteFor('dsa'), a = []; quad(a, billboard([it.x, it.y + Math.sin(T * 1.2 + it.x) * u * .08, it.z], sz, sz), [0, 0, 1, 1], WHITE); flush(pQ, a, texOf(cv, false), 0);
+  }
   function drawStars(it, T) {
     const u = it.u, S3 = [{ o: -1.3, z: .2, r: 1.15, c: [1, .94, .68] }, { o: 1.35, z: -.3, r: .85, c: [1, .62, .3] }, { o: 3.4, z: 1.1, r: .34, c: [1, .3, .2] }], g = [], a = [];
     S3.forEach(st => { const pos = [it.x + st.o * u * Math.cos(T * .05) , it.y, it.z + st.o * u * Math.sin(T * .05) * .6 + st.z * u]; quad(g, billboard(pos, st.r * u * 3, st.r * u * 3), [0, 0, 1, 1], [st.c[0], st.c[1], st.c[2], .55]); quad(a, billboard(pos, st.r * u, st.r * u), [0, 0, 1, 1], [st.c[0], st.c[1], st.c[2], 1]); });
@@ -681,6 +720,7 @@
     // 1 sky
     gl.useProgram(pQ); gl.uniformMatrix4fv(pQ.u.M, false, vp); gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, sky, gl.DYNAMIC_DRAW); gl.uniform1i(pQ.u.MODE, 4); gl.uniform1f(pQ.u.PT, 2.4 * dpr); gl.drawArrays(gl.POINTS, 0, sky.length / 11);
+    { const a = [], Sz = 64000; flatQuad(a, 0, 0, Sz, Sz * .5, 0, -9500, [0, 0, 1, 1], [1, 1, 1, .5]); flush(pQ, a, texOf(deepBg(), false), 0); }
     if (typeof FX !== 'undefined' && FX.neb) { const a = [], Sz = 200000, rep = Sz / 9000; flatQuad(a, 0, 0, Sz, Sz, 0, -9000, [0, 0, rep, rep], [1, 1, 1, .55]); flush(pQ, a, texOf(FX.neb, false, true), 0); }
     // 2 belts, orbit rings, spokes
     {
@@ -746,7 +786,7 @@
     });
     if (G) Object.keys(GEO.worlds).forEach(k => {
       if (B && B.b[k]) return;
-      const kind = MODELS[k] ? 'rocks' : (k === 'dsa' || k === 'sun') ? 'sprite' : k === 'alp' ? 'stars' : null, dw = D.W[k], pod = kind && dw && podOfW(k); if (!pod) return;
+      const kind = MODELS[k] ? 'rocks' : k === 'dsa' ? 'deep' : k === 'sun' ? 'sprite' : k === 'alp' ? 'stars' : null, dw = D.W[k], pod = kind && dw && podOfW(k); if (!pod) return;
       const Rg = ringOf(k), c = mapP(Rg.c[0], Rg.c[1], pod), u = Rg.r * S * .26, y = u * .75;
       items.push({ t: 'model', k, kind, spec: MODELS[k], x: c[0], z: c[1], u, y, d: dist2(c[0], y, c[1]) });
     });
@@ -774,8 +814,8 @@
       } else if (it.t === 'model') {
         flushRun();
         if (it.kind === 'sprite') { const sz = it.u * (it.k === 'dsa' ? 3.8 : 3.2), cv = spriteFor(it.k), a = []; quad(a, billboard([it.x, it.y + Math.sin(T * 1.2 + it.x) * it.u * .08, it.z], sz, sz), [0, 0, 1, 1], WHITE); flush(pQ, a, texOf(cv, false), 0); }
-        else if (it.kind === 'stars') drawStars(it, T); else drawModel(it, T);
-        const ext = it.u * (it.kind === 'sprite' ? 2.6 : it.k === 'alp' ? 3 : 2.4), c = proj(it.x, it.y, it.z), e = proj(it.x + rgt[0] * ext, it.y + rgt[1] * ext, it.z + rgt[2] * ext);
+        else if (it.kind === 'deep') drawDeep(it, T); else if (it.kind === 'stars') drawStars(it, T); else drawModel(it, T);
+        const ext = it.u * (it.kind === 'deep' ? 3.4 : it.kind === 'sprite' ? 2.6 : it.k === 'alp' ? 3 : 2.4), c = proj(it.x, it.y, it.z), e = proj(it.x + rgt[0] * ext, it.y + rgt[1] * ext, it.z + rgt[2] * ext);
         if (c && e && GEO.worlds[it.k]) picks.push({ sx: c[0], sy: c[1], pr: Math.hypot(e[0] - c[0], e[1] - c[1]), hit: { t: 'world', k: it.k }, z: c[2], planet: true });
       } else {
         const r = it.r, iw = r.img.width, ih = r.img.height, uv = [r.f[0] / iw, r.f[1] / ih, (r.f[0] + r.f[2]) / iw, (r.f[1] + r.f[3]) / ih];
