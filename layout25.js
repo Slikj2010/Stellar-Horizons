@@ -70,7 +70,8 @@
       p.arts = []; sheets.forEach(s => { const r = [Math.max(s.r[0], p.bbox[0]), Math.max(s.r[1], p.bbox[1]), Math.min(s.r[2], p.bbox[2]), Math.min(s.r[3], p.bbox[3])]; if (r[2] - r[0] > 60 && r[3] - r[1] > 60) p.arts.push({ sheet: s.c, rect: r }); });
       p.rect = rect(p);
     });
-    return { S, pods, podAt, toL, fromL, rect, belts: BELTS, rings: Object.values(pods).filter(p => p.ring && !p.sat && p.k !== 'bel' && p.k !== 'kui' && p.k !== 'sca' && p.k !== 'alp').map(p => ({ k: p.k, r: p.ring })), sunR: sunC ? 428 * S : 250 };
+    const addAnchor = (x, y, k) => { AN.push([x, y, k]); cache.clear(); };
+    return { S, pods, podAt, toL, fromL, addAnchor, rect, belts: BELTS, rings: Object.values(pods).filter(p => p.ring && !p.sat && p.k !== 'bel' && p.k !== 'kui' && p.k !== 'sca' && p.k !== 'alp').map(p => ({ k: p.k, r: p.ring })), sunR: sunC ? 428 * S : 250 };
   }
   const api = { build, S, RING };
   if (typeof module !== 'undefined') module.exports = api; else root.SHL = api;

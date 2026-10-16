@@ -448,13 +448,13 @@ function paintWorldBoxes() {
     // a non-player faction's base looks like any faction base (its own counter art); select it for the details
     if (ws.npf) { if (!ATL[ws.npf]) loadAtlas(ws.npf).then(() => dirty = true, () => null); bases.push([{ id: 'npf:' + k, name: E.npfName(G, k), w: k, set: 0, npf: true, trade: ws.npfTrade, blk: ws.blk }, ws.npf]); }
     if (!ws.card && !ws.sol && !ws.life && !bases.length) return;
-    const F = wcardFrame(k); if (!F) return;
+    const F = V25.on ? V25.worldFrame(k) : wcardFrame(k); if (!F) return;
     const { CW, CH, at } = F;
-    if (ws.card) { const c = D.CARDS.find(x => x.n === ws.card), [x, y] = at(0, 0); drawRot(IMG.markers, MK['card_' + c.img], x, y, CW, F.a); }
-    if (ws.sol || ws.life) { const [x, y] = at(CW / 2 + 10 + LS / 2, 0); drawRot(IMG.life, [ws.life ? 96 : 0, 0, 96, 96], x, y, LS, F.a); }
-    const rowY = F.noCard ? 0 : CH / 2 + GAP + BS / 2, unit = BS + 8 + TS + 14;
+    if (ws.card && !F.abs) { const c = D.CARDS.find(x => x.n === ws.card), [x, y] = at(0, 0); drawRot(IMG.markers, MK['card_' + c.img], x, y, CW, F.a); }
+    if ((ws.sol || ws.life) && !F.abs) { const [x, y] = at(CW / 2 + 10 + LS / 2, 0); drawRot(IMG.life, [ws.life ? 96 : 0, 0, 96, 96], x, y, LS, F.a); }
+    const rowY0 = F.noCard ? 0 : CH / 2 + GAP + BS / 2, unit = BS + 8 + TS + 14;
     bases.forEach(([b, bf], i) => {
-      const lx = -CW / 2 + BS / 2 + i * unit, [x, y] = at(lx, rowY);
+      const sl = F.abs ? F.slots[Math.min(i, F.slots.length - 1)] : null, lx = sl ? sl[0] : -CW / 2 + BS / 2 + i * unit, rowY = sl ? sl[1] : rowY0, [x, y] = at(lx, rowY);
       if (!ATL[bf]) return;
       drawRot(ATL[bf].img, ATL[bf].fr[baseKey(b, bf)], x, y, BS, F.a);
       if (b.npf) {

@@ -267,8 +267,9 @@
     let L = best.u1 - best.u0, Wd = best.v1 - best.v0, th = best.th; if (Wd > L) { const t = L; L = Wd; Wd = t; th += Math.PI / 2; }
     const cc = [cu * c - cv * s, cu * s + cv * c]; return { c: cc, th, L, W: Wd };
   }
-  function drawBoxes(T) {
-    const out = { top: [], side: [], rim: [], beam: [], glow: [], num: {} }, hi = new Set(typeof targets !== 'undefined' && targets ? targets.map(m => m.dest) : []);
+  let BOXL = null;
+  function computeBoxes() {
+    if (BOXL) return BOXL;
     const list = [];
     boxPolys().forEach(B => {
       const pod = LAY.pods[B.k]; if (!pod) return;
@@ -283,17 +284,22 @@
         let nd = 1e9; list.forEach(o => { if (o !== it && o.B.k === B.k && !o.B.fly) nd = Math.min(nd, Math.hypot(o.c[0] - c[0], o.c[1] - c[1])); });
         const side = Math.min(it.s * .92, nd * .86), h = side / 2, ca = Math.cos(toHub), sa = Math.sin(toHub);
         shape = [[-h, -h], [h, -h], [h, h], [-h, h]].map(([u, v]) => [c[0] + u * ca - v * sa, c[1] + u * sa + v * ca]); cs = side;
-      } else {
-        shape = pts; cs = it.s;   // the flyby box keeps its printed outline
-      }
-      BOXSH[B.id] = shape;
-      slab(out, shape, B.fly ? 9 : 7, B.fly ? PAL.fly : PAL.box, T, hi.has(B.id), B.fly ? 'FLYBY' : B.n, -C.yaw, cs);
+      } else { shape = pts; cs = it.s; }   // the flyby box keeps its printed outline
+      BOXSH[B.id] = shape; it.shape = shape; it.cs = cs;
     });
+    return BOXL = list;
+  }
+  function drawBoxes(T) {
+    const out = { top: [], side: [], rim: [], beam: [], glow: [], num: {} }, hi = new Set(typeof targets !== 'undefined' && targets ? targets.map(m => m.dest) : []);
+    computeBoxes().forEach(({ B, shape, cs }) => slab(out, shape, B.fly ? 9 : 7, B.fly ? PAL.fly : PAL.box, T, hi.has(B.id), B.fly ? 'FLYBY' : B.n, -C.yaw, cs));
     flush(pQ, out.top, null, 8); flush(pQ, out.side, null, 1); flush(pQ, out.rim, null, 1); flush(pQ, out.beam, null, 1);
     const lst = []; Object.entries(out.num).forEach(([key, a]) => { const [t, col] = key.split('|'); lst.push({ tex: texOf(glyph(t, col), false), mode: 0, verts: a }); }); batch(lst);
     const g = [], r = 7; out.glow.forEach(q => { const y = 7 + 14, Rr = [rgt[0] * r, rgt[1] * r, rgt[2] * r], U = [cup[0] * r, cup[1] * r, cup[2] * r]; quad(g, [[q[0] - Rr[0] + U[0], y - Rr[1] + U[1], q[1] - Rr[2] + U[2]], [q[0] + Rr[0] + U[0], y + Rr[1] + U[1], q[1] + Rr[2] + U[2]], [q[0] + Rr[0] - U[0], y + Rr[1] - U[1], q[1] + Rr[2] - U[2]], [q[0] - Rr[0] - U[0], y - Rr[1] - U[1], q[1] - Rr[2] - U[2]]], [0, 0, 1, 1], [.4, .9, 1, .5]); }); if (g.length) flush(pQ, g, null, 3);
   }
   // which box (if any) a screen position is on, among the given destinations: uses the 3D shapes, not the printed polygons
+  // frame for the paint code: where a world's base slots are, in board (sheet) coordinates
+  V.worldFrame = k => { ensure(); const A = ASM && ASM[k]; if (!A || !asmKind(k).base) return null; const cc = A.toSheet(A.x0 + SLOT.card[0], A.z0 + SLOT.card[1]), CW = SLOT.card[2] / LAY.S; return { a: 0, abs: true, noCard: true, CW, CH: CW * 127 / 192, at: (u, v) => [u, v], slots: A.slots, card: cc }; };
+  V.asm = () => ASM;
   V.destAt = function (sx, sy, dests) {
     const g = ground(sx, sy, 0); if (!g) return null;
     const inP = (p, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if (((a[1] > p.y) !== (b[1] > p.y)) && p.x < (b[0] - a[0]) * (p.y - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
@@ -307,11 +313,11 @@
   const panels = new Map();
   function rrect(x, a, b, w, h, r) { x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r); x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath(); }
   function panelFor(k, ws) {
-    const w = D.W[k], key = [ws.v, ws.life, ws.sol, ws.terra, ws.npf, ws.blk].join('|'); let P = panels.get(k);
+    const w = D.W[k], key = [ws.v, ws.life, ws.sol, ws.terra, ws.npf, ws.blk, ws.card].join('|'); let P = panels.get(k);
     if (P && P.key === key) return P;
-    if (!P) { const cv2 = document.createElement('canvas'); cv2.width = 640; cv2.height = 352; P = { cv: cv2 }; panels.set(k, P); }
+    if (!P) { const cv2 = document.createElement('canvas'); const sz = asmSize(k); cv2.width = Math.round(sz[0] * K25); cv2.height = Math.round(sz[1] * K25); P = { cv: cv2 }; panels.set(k, P); }
     P.key = key; const x = P.cv.getContext('2d'), F = w.tags.includes('alpha') ? ['#e8d27a', 'VARIABLE FIELD'] : FIELD[w.f] || ['#9ad', ''], fc = F[0], dead = ws.v < 1, FONT = '"IBM Plex Sans Condensed","Arial Narrow",sans-serif';
-    x.clearRect(0, 0, 640, 352);
+    x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, P.cv.width, P.cv.height); x.setTransform(PWS * K25 / 640, 0, 0, PWS * K25 / 640, 0, 0);
     rrect(x, 6, 6, 628, 340, 24); x.fillStyle = 'rgba(4,12,26,.86)'; x.fill(); x.lineWidth = 4; x.strokeStyle = fc; x.globalAlpha = .85; x.stroke(); x.globalAlpha = 1;
     x.fillStyle = fc; x.globalAlpha = .18; rrect(x, 6, 6, 628, 56, 24); x.fill(); x.globalAlpha = 1;
     x.textBaseline = 'middle';
@@ -345,44 +351,109 @@
     chips.forEach(([t, col]) => { const wd = x.measureText(t).width + 26; if (cx + wd > 624) { cx = 196; cy += 46; } rrect(x, cx, cy, wd, 38, 19); x.fillStyle = 'rgba(255,255,255,.07)'; x.fill(); x.lineWidth = 2; x.strokeStyle = col; x.stroke(); x.fillStyle = col; x.textAlign = 'left'; x.fillText(t, cx + 13, cy + 20); cx += wd + 10; });
     if (w.rng) { x.textAlign = 'right'; x.font = `500 19px ${FONT}`; x.fillStyle = '#6f879b'; x.fillText(`random world d100 ${w.rng[0]}–${w.rng[1]}`, 616, 326); }
     if (dead) { x.fillStyle = 'rgba(20,0,0,.28)'; rrect(x, 6, 6, 628, 340, 24); x.fill(); }
-    P.dirty = true; return P;
+    x.setTransform(1, 0, 0, 1, 0, 0); drawTray(x, k, ws, w, FONT); P.dirty = true; return P;
   }
-  // plates are placed once: outside every ring, planet sphere, docking box and card slot, nearest to their own world
-  let PLACE = null;
-  const PW = 320, PH = PW * 352 / 640;
+  // ---------- world boxes: one digital assembly per world (info plate, card slot, life slot, base tray), placed once, clear of everything ----------
+  const K25 = 1.8, PWS = 260, PHS = 143, TRW = 380, TRH = 201;          // canvas pixels per scene unit; plate and full-assembly size in scene units
+  const asmKind = k => { const w = D.W[k], t = w.tags, earth = t.includes('earth'), gas = t.includes('gas'); return { base: !!w.base || gas || earth, card: !earth && (!!w.base || gas) }; };
+  const asmSize = k => asmKind(k).base ? [TRW, TRH] : [PWS, PHS];
+  const SLOT = { card: [325, 36.5, 110, 73], life: [288, 108], base: i => [8 + 86 * (i % 4) + 22, 176 + 50 * Math.floor(i / 4)] };
+  let ASM = null;
+  const BONUS = { all: 'all', probe: 'probes', crew: 'crewed', rover: 'rovers', orbiter: 'orbiters', flyby: 'flybys', spec: 'specialists' };
   function segD(p, a, b) { const dx = b[0] - a[0], dz = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dz * t); }
   function polyD(p, poly) {
     let ins = false, d = 1e9; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if (((a[1] > p[1]) !== (b[1] > p[1])) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) ins = !ins; d = Math.min(d, segD(p, a, b)); }
     return ins ? -d : d;
   }
-  function placePlates(S) {
-    const circ = [], polys = [], B = typeof FX !== 'undefined' && FX.bodies;
-    if (B) Object.values(B.b).forEach(b => { const m = GEO.maps[b.map], q = mapP(m[0] + b.cx * .4, m[1] + b.cy * .4); circ.push([q[0], q[1], b.r * .4 * S * 1.6]); });
-    Object.keys(GEO.worlds).forEach(k => {
-      const dw = D.W[k], pod = dw && podOfW(k); if (!pod) return;
-      const R = ringOf(k), c = mapP(R.c[0], R.c[1], pod); circ.push([c[0], c[1], R.r * S * 1.05]);
-      const F = typeof wcardFrame === 'function' && wcardFrame(k); if (F) {
-        const w = F.CW + WB.LS + 10, h = F.CH + WB.GAP + WB.BS, cx = (WB.LS + 10) / 2, cy = (WB.GAP + WB.BS) / 2, ca = Math.cos(F.a), sa = Math.sin(F.a);
-        polys.push([[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => { const lu = cx + u * w / 2, lv = cy + v * h / 2, m = mapP(F.x + lu * ca - lv * sa, F.y + lu * sa + lv * ca, pod); return [m[0], m[1]]; }));
+  const segX = (a, b, c, d) => { const o = (p, q, r) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]); return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0; };
+  function polyRect(poly, r, m) {        // does a polygon touch the rectangle grown by m?
+    const R = [r[0] - m, r[1] - m, r[2] + m, r[3] + m], cs = [[R[0], R[1]], [R[2], R[1]], [R[2], R[3]], [R[0], R[3]]];
+    if (poly.some(p => p[0] > R[0] && p[0] < R[2] && p[1] > R[1] && p[1] < R[3])) return true;
+    if (cs.some(c => polyD(c, poly) < 0)) return true;
+    for (let i = 0; i < poly.length; i++) for (let j = 0; j < 4; j++) if (segX(poly[i], poly[(i + 1) % poly.length], cs[j], cs[(j + 1) % 4])) return true;
+    return false;
+  }
+  const rectR = (a, b, m) => a[0] - m < b[2] && a[2] + m > b[0] && a[1] - m < b[3] && a[3] + m > b[1];
+  const circR = (r, c, rad) => { const dx = Math.max(r[0] - c[0], 0, c[0] - r[2]), dz = Math.max(r[1] - c[1], 0, c[1] - r[3]); return Math.hypot(dx, dz) < rad; };
+  function placeAsm(S) {
+    const circ = [], polys = [], B = typeof FX !== 'undefined' && FX.bodies, ks = Object.keys(GEO.worlds).filter(k => D.W[k] && podOfW(k)), ring = {};
+    if (B) Object.values(B.b).forEach(b => { const m = GEO.maps[b.map], q = mapP(m[0] + b.cx * .4, m[1] + b.cy * .4); circ.push([q[0], q[1], b.r * .4 * S * 1.5, null]); });
+    ks.forEach(k => { const R = ringOf(k), c = mapP(R.c[0], R.c[1], podOfW(k)); ring[k] = { c, r: R.r * S + 18 }; circ.push([c[0], c[1], ring[k].r, k]); });
+    computeBoxes().forEach(it => polys.push(it.shape));
+    const placed = [], out = {}, order = ks.slice().sort((a, b) => (asmSize(b)[0] * asmSize(b)[1]) - (asmSize(a)[0] * asmSize(a)[1]) || (a < b ? -1 : 1));
+    order.forEach(k => {
+      const [w, h] = asmSize(k), { c, r } = ring[k], cands = [], g = 12;
+      const add = (x0, z0, pref) => cands.push({ x0, z0, pref });
+      const anchor = k === 'jup' && ring.tro ? ring.tro : null;      // Jupiter's box sits clear under the Trojans & Greeks
+      if (anchor) { for (let ex = 0; ex <= 120; ex += 20) for (let off = -w * .5; off <= w * .5; off += 20) add(anchor.c[0] - w / 2 + off, anchor.c[1] + anchor.r + g + ex, ex * .2 + Math.abs(off) * .05); }
+      else for (let ex = 0; ex <= 140; ex += 14) {
+        for (let off = -.5; off <= .5; off += .125) {
+          add(c[0] + r + g + ex, c[1] - h / 2 + off * h, ex * 1.2 + Math.abs(off) * 20);                  // right
+          add(c[0] - w / 2 + off * w, c[1] + r + g + ex, 16 + ex * 1.2 + Math.abs(off) * 20);             // below
+          add(c[0] - r - g - ex - w, c[1] - h / 2 + off * h, 34 + ex * 1.2 + Math.abs(off) * 20);         // left
+          add(c[0] - w / 2 + off * w, c[1] - r - g - ex - h, 52 + ex * 1.2 + Math.abs(off) * 20);         // above
+        }
       }
+      let best = null;
+      cands.forEach(cd => {
+        const R = [cd.x0, cd.z0, cd.x0 + w, cd.z0 + h]; let pen = 0;
+        circ.forEach(o => { if (circR(R, o, o[2] + 4)) pen += 1000; });
+        polys.forEach(pg => { if (polyRect(pg, R, 6)) pen += 1000; });
+        placed.forEach(q => { if (rectR(R, q.rect, 8)) pen += 1000; });
+        // the tether to the ring must not cross other boxes, rings or boxes
+        const nx = Math.max(R[0], Math.min(c[0], R[2])), nz = Math.max(R[1], Math.min(c[1], R[3])), L = Math.hypot(nx - c[0], nz - c[1]);
+        for (let t = .2; t < .95 && L > 1; t += .15) {
+          const p = [c[0] + (nx - c[0]) * t, c[1] + (nz - c[1]) * t];
+          if (circ.some(o => o[3] !== k && Math.hypot(p[0] - o[0], p[1] - o[1]) < o[2]) || polys.some(pg => polyD(p, pg) < 0) || placed.some(q => p[0] > q.rect[0] && p[0] < q.rect[2] && p[1] > q.rect[1] && p[1] < q.rect[3])) pen += 400;
+        }
+        const sc = pen + cd.pref + L * .3; if (!best || sc < best.sc) best = { sc, cd };
+      });
+      const cd = best.cd, rect = [cd.x0, cd.z0, cd.x0 + w, cd.z0 + h];
+      placed.push({ rect }); out[k] = { k, x0: cd.x0, z0: cd.z0, w, h, rect, c, r, sc: best.sc };
     });
-    Object.values(BOXSH).forEach(sh => polys.push(sh));
-    const placed = [], out = {}, rp = PW * S * .5;
-    Object.keys(GEO.worlds).sort().forEach(k => {
-      const dw = D.W[k], pod = dw && podOfW(k); if (!pod) return;
-      const R = ringOf(k), c = mapP(R.c[0], R.c[1], pod); let best = null;
-      for (let di = 0; di < 7; di++) for (let ai = 0; ai < 24; ai++) {
-        const an = ai / 24 * 6.2832, d = R.r * S + rp * .62 + 14 + di * 26, p = [c[0] + Math.cos(an) * d, c[1] + Math.sin(an) * d * 1.0];
-        let pen = 0;
-        circ.forEach(o => { pen += Math.max(0, rp * 1.0 + o[2] - Math.hypot(p[0] - o[0], p[1] - o[1])); });
-        polys.forEach(pg => { const dd = polyD(p, pg); pen += dd < 0 ? rp + 6 - dd : Math.max(0, rp * 1.02 - dd); });
-        placed.forEach(q => { pen += Math.max(0, rp * 1.9 - Math.hypot(p[0] - q[0], p[1] - q[1])); });
-        const sc = pen * 10 + d + (ai % 24 > 12 ? 0 : 0);
-        if (!best || sc < best.sc) best = { sc, p, c, R };
-      }
-      placed.push(best.p); out[k] = best;
+    // the sheet positions of the base slots become anchors of their pod, so counters and bases map to the right pod
+    Object.values(out).forEach(A => {
+      const pod = podOfW(A.k), toSheet = (X, Z) => [(X - pod.org[0]) / S + pod.hub[0], (Z - pod.org[1]) / S + pod.hub[1]];
+      A.toSheet = toSheet; A.slots = [];
+      for (let i = 0; i < 8; i++) { const sl = SLOT.base(i), q = toSheet(A.x0 + sl[0], A.z0 + sl[1]); A.slots.push(q); if (i < 4 && LAY.addAnchor) LAY.addAnchor(q[0], q[1], pod.k); }
+      // pods grow to hold their world boxes
+      const r = pod.rect; r[0] = Math.min(r[0], A.rect[0] - 16); r[1] = Math.min(r[1], A.rect[1] - 16); r[2] = Math.max(r[2], A.rect[2] + 16); r[3] = Math.max(r[3], A.rect[3] + 16);
     });
     return out;
+  }
+  function drawTray(x, k, ws, w, FONT) {
+    const kd = asmKind(k); if (!kd.base) return;
+    x.save(); x.scale(K25, K25); x.textBaseline = 'middle';
+    const fcol = (FIELD[w.f] || ['#8aa'])[0];
+    // base tray
+    rrect(x, 0, 151, 356, 50, 9); x.fillStyle = 'rgba(4,12,26,.82)'; x.fill(); x.lineWidth = 1.4; x.strokeStyle = 'rgba(150,190,230,.35)'; x.stroke();
+    x.font = `700 7px ${FONT}`; x.fillStyle = '#7f98ad'; x.textAlign = 'right'; x.fillText('BASES', 351, 158);
+    for (let i = 0; i < 4; i++) { const [cx, cz] = SLOT.base(i); x.save(); x.setLineDash([3, 3]); x.lineWidth = 1.2; x.strokeStyle = 'rgba(160,200,240,.45)'; rrect(x, cx - 22, cz - 22, 44, 44, 5); x.stroke(); x.restore(); x.font = `600 11px ${FONT}`; x.fillStyle = 'rgba(160,200,240,.25)'; x.textAlign = 'center'; x.fillText(String(i + 1), cx, cz); }
+    // life slot
+    const noLife = w.tags.includes('earth'), [lx, lz] = SLOT.life, lc = ws.life ? '#6edc8c' : ws.sol ? '#f2b13c' : 'rgba(160,200,240,.4)';
+    if (!noLife) {
+    x.beginPath(); x.arc(lx, lz, 15, 0, 6.2832); x.fillStyle = 'rgba(4,12,26,.82)'; x.fill(); x.lineWidth = 2; x.strokeStyle = lc; x.stroke();
+    x.font = `700 12px ${FONT}`; x.textAlign = 'center'; x.fillStyle = lc; x.fillText(ws.life ? '✓' : ws.sol ? '~' : '?', lx, lz + .5);
+    x.textAlign = 'left'; x.font = `600 7px ${FONT}`; x.fillStyle = '#8fa6bb'; x.fillText('LIFE', lx + 21, lz - 6); x.font = `700 9px ${FONT}`; x.fillStyle = ws.life ? '#6edc8c' : ws.sol ? '#f2b13c' : '#9fb7cc'; x.fillText(ws.life ? 'FOUND' : ws.sol ? 'SIGNS' : 'NOT FOUND', lx + 21, lz + 5);
+    }
+    // card slot
+    if (kd.card) {
+      const [cx, cz, cw, ch] = SLOT.card, X = cx - cw / 2, Y = cz - ch / 2, c = ws.card && D.CARDS.find(q => q.n === ws.card);
+      if (!c) { x.save(); x.setLineDash([4, 3]); x.lineWidth = 1.3; x.strokeStyle = 'rgba(160,200,240,.45)'; rrect(x, X, Y, cw, ch, 8); x.stroke(); x.restore(); x.textAlign = 'center'; x.font = `700 9px ${FONT}`; x.fillStyle = '#9fb7cc'; x.fillText('WORLD CARD', cx, cz - 6); x.font = `500 7px ${FONT}`; x.fillStyle = '#6f879b'; x.fillText('placed on depletion', cx, cz + 6); }
+      else {
+        const col = (FIELD[c.rf] || ['#9ad'])[0];
+        rrect(x, X, Y, cw, ch, 8); x.fillStyle = 'rgba(4,12,26,.92)'; x.fill(); x.lineWidth = 1.8; x.strokeStyle = col; x.stroke();
+        x.fillStyle = col; x.globalAlpha = .2; rrect(x, X, Y, cw, 16, 8); x.fill(); x.globalAlpha = 1;
+        let fs = 11; x.font = `700 ${fs}px ${FONT}`; while (x.measureText(c.n).width > 100 && fs > 6) { fs -= .5; x.font = `700 ${fs}px ${FONT}`; }
+        x.textAlign = 'left'; x.fillStyle = '#eaf6ff'; x.fillText(c.n, X + 6, Y + 8.5);
+        x.save(); x.translate(X + 22, Y + 40); x.beginPath(); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.2832 + .5236; x.lineTo(Math.cos(a) * 16, Math.sin(a) * 16); } x.closePath(); x.fillStyle = 'rgba(255,255,255,.07)'; x.fill(); x.lineWidth = 1.8; x.strokeStyle = col; x.stroke();
+        x.textAlign = 'center'; x.font = `700 21px ${FONT}`; x.fillStyle = '#fff'; x.shadowColor = col; x.shadowBlur = 6; x.fillText(String(c.rv), 0, 1); x.shadowBlur = 0; x.font = `600 6px ${FONT}`; x.fillStyle = '#a9bfd2'; x.fillText((FIELD[c.rf] || ['', ''])[1].slice(0, 3), 0, 12); x.restore();
+        let yy = Y + 26; x.textAlign = 'left'; Object.entries(c.prod).forEach(([r, n]) => { if (!n) return; x.fillStyle = RESC[r] || '#fff'; x.beginPath(); x.arc(X + 46, yy, 3.2, 0, 6.2832); x.fill(); x.font = `700 10px ${FONT}`; x.fillStyle = '#fff'; x.fillText(`${r} ${n}`, X + 53, yy + .5); yy += 12; });
+        const bt = Object.entries(c.bonus).map(([a, v]) => `+${v} ${BONUS[a] || a}`).concat(c.lifeB ? [`+${c.lifeB}% life`] : []).join(' · ');
+        x.font = `600 6.5px ${FONT}`; x.fillStyle = '#9fc3dd'; x.textAlign = 'left'; x.fillText('EXPLORE ' + bt, X + 6, Y + ch - 5, cw - 10);
+      }
+    }
+    x.restore();
   }
   function drawWorlds(T, S, px) {
     if (!G) return;
@@ -396,12 +467,12 @@
       flatQuad(fillv, c[0], c[1], r * 1.8, r * 1.8, 0, .8, [0, 0, 1, 1], [fc[0], fc[1], fc[2], .09]);
       if (gw.poly) { const n = Math.max(24, Math.round(2 * Math.PI * R.r / 9)); for (let i = 0; i < n; i++) { const an = i / n * 6.2832, q = mapP(R.c[0] + Math.cos(an) * R.r, R.c[1] + Math.sin(an) * R.r, pod); flatQuad(dots, q[0], q[1], 5.5 * S * 1.5, 5.5 * S * 1.5, 0, 2, [0, 0, 1, 1], [.59, .52, .84, .9]); } }
       if (gw.spoly) { const pts = hull(gw.spoly).map(q => { const m = mapP(q[0], q[1], pod); return [m[0], m[1]]; }); fillPoly(zone, pts, .9, [.43, .86, .55, .08]); ribbon(rimv, pts, true, Math.max(1.6, px * 1.1), 1.2, [.43, .86, .55, .55]); }
-      // information plate, parked beside the world where nothing else is
-      if (!PLACE) PLACE = placePlates(S);
-      const pl0 = PLACE[k]; if (!pl0) return; const q = pl0.p, P = panelFor(k, ws), Wp = PW, Hp = PH;
-      const t = texOf(P.cv, false); if (P.dirty) { reupload(P.cv); P.dirty = false; }
-      const dd = Math.hypot(q[0] - c[0], q[1] - c[1]); if (dd > r + Hp * S * .6 + 30) { const ux = (q[0] - c[0]) / dd, uz = (q[1] - c[1]) / dd; ribbon(rimv, [[c[0] + ux * r, c[1] + uz * r], [q[0] - ux * Wp * S * .3, q[1] - uz * Hp * S * .3]], false, Math.max(2, px * 1.6), 1.5, [.62, .78, .95, .85]); }
-      const a = []; flatQuad(a, q[0], q[1], Wp * S, Hp * S, -C.yaw, 3.2, [0, 0, 1, 1], WHITE); pl.push({ tex: t, mode: 0, verts: a });
+      // world box: plate, card slot, life slot and base tray, parked beside the world where nothing else is
+      const A = ASM && ASM[k]; if (!A) return;
+      const P = panelFor(k, ws), t = texOf(P.cv, false); if (P.dirty) { reupload(P.cv); P.dirty = false; }
+      const nx = Math.max(A.rect[0], Math.min(c[0], A.rect[2])), nz = Math.max(A.rect[1], Math.min(c[1], A.rect[3])), dd = Math.hypot(nx - c[0], nz - c[1]);
+      if (dd > r + 8) { const ux = (nx - c[0]) / dd, uz = (nz - c[1]) / dd; ribbon(rimv, [[c[0] + ux * (r - 6), c[1] + uz * (r - 6)], [nx, nz]], false, Math.max(2, px * 1.5), 1.5, [.62, .78, .95, .8]); }
+      const a = []; flatQuad(a, A.x0 + A.w / 2, A.z0 + A.h / 2, A.w, A.h, 0, 3.2, [0, 0, 1, 1], WHITE); pl.push({ tex: t, mode: 0, verts: a });
     });
     // travel lanes from each system's hub world to the other worlds of the system
     Object.keys(D.SYS).forEach(sk => {
@@ -528,6 +599,7 @@
     if (LAY || typeof GEO === 'undefined' || typeof SHL === 'undefined') return;
     const S0 = typeof FX !== 'undefined' && FX.sun, m = S0 && GEO.maps[S0.map];
     LAY = SHL.build(GEO, D, m ? [m[0] + S0.cx * .4, m[1] + S0.cy * .4] : null);
+    ASM = placeAsm(LAY.S);
     // belts: particle rings (gaps cut out where a pod sits on the ring)
     const r = mulb(4242); belts = [];
     LAY.belts.forEach(b => {
