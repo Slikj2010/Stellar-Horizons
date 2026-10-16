@@ -28,6 +28,13 @@
       if (SAT[k]) { const m = B[k], cx = (m[0] + m[2]) / 2, cy = (m[1] + m[3]) / 2, hw = Math.max((m[2] - m[0]) / 2, 330), hh = Math.max((m[3] - m[1]) / 2, 280); B[k] = [cx - hw, cy - hh, cx + hw, cy + hh]; }
       const b = B[k].map((v, i) => v + (i < 2 ? -40 : 40)), hubW = SAT[k] ? GEO.worlds[k] : D.SYS[k] && D.SYS[k].hub && GEO.worlds[D.SYS[k].hub];
       let hub = hubW && hubW.orbit ? hubW.orbit.slice() : [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
+      if (!hubW && GEO.sys[k]) {      // a system with no hub world (the Scattered Disk): centre it on the circle its transfer boxes sit round
+        const P = Object.values(GEO.sys[k].box), n = P.length; let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, sz = 0, sxz = 0, syz = 0;
+        P.forEach(([x, y]) => { sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y; const z = x * x + y * y; sz += z; sxz += x * z; syz += y * z; });
+        const A = [[sxx, sxy, sx], [sxy, syy, sy], [sx, sy, n]], bb = [sxz, syz, sz], det = m => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+        const rep = c => A.map((r, i) => r.map((v, j) => j === c ? bb[i] : v)), d0 = det(A);
+        if (Math.abs(d0) > 1e-6) hub = [det(rep(0)) / d0 / 2, det(rep(1)) / d0 / 2];
+      }
       if (k === 'mer' && sunC) hub = sunC.slice();      // Mercury's pod is pinned so that the board's sun sits at the middle of the scene
       pods[k] = { k, name: SAT[k] ? D.W[k].n : D.SYS[k].n, bbox: b, hub, org: [0, 0], ring: SAT[k] ? SAT[k].ring : RING[k] || 0, ang: 0, sat: !!SAT[k] };
     });

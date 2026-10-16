@@ -555,6 +555,20 @@
   const rkc = (n, seed, c1, c2, o) => { const r = mulb(seed), a = []; for (let i = 0; i < n; i++) a.push(Object.assign({ s: .2 + r() * .32, rho: .5 + r() * 1.5, w: (.1 + r() * .22) * (r() < .5 ? 1 : -1), ph: r() * 6.28, c1, c2, lp: .34, ice: 0, el: .68 + r() * .3, sd: r() * 60, spin: .4 + r(), tt: 0, rg: 0 }, o || {})); return a; };
   const P_ = (o) => Object.assign({ s: 1, rho: 0, w: .12, ph: 0, c1: [.35, .33, .31], c2: [.6, .57, .53], lp: .05, ice: 0, el: 1, tt: 0, rg: 0, sd: 1, spin: .5 }, o);
   const ROCK = [[.3, .27, .24], [.55, .5, .44]], ICY = [[.55, .56, .6], [.9, .92, .96]], RED = [[.28, .1, .06], [.58, .3, .18]];
+  // the Scattered Disk's icy bodies, thrown into the free disc inside the transfer-box arc so none touch each other or the boxes
+  function scaParts() {
+    const U = 18, R = 100, r = mulb(91), spec = [
+      [1.3, [.4, .16, .1], [.75, .38, .25], .2], [1.1, [.85, .86, .9], [1, 1, 1], 1], [1, [.3, .32, .4], [.62, .66, .78], .6], [.9, [.5, .25, .15], [.8, .55, .4], .3], [.85, [.32, .34, .42], [.6, .64, .76], .5], [.75, [.7, .72, .8], [.95, .96, 1], .8],
+      [.7, [.3, .12, .08], [.62, .32, .22], .2], [.65, [.34, .36, .44], [.64, .68, .8], .5], [.6, [.55, .5, .46], [.85, .8, .74], .3], [.55, [.3, .32, .4], [.6, .64, .76], .6], [.5, [.8, .82, .88], [1, 1, 1], .9], [.45, [.4, .22, .16], [.7, .45, .33], .3]];
+    const placed = [], out = [];
+    spec.forEach(([s, c1, c2, ice], i) => {
+      const rr = U * s * 1.1; let best = null;
+      for (let t = 0; t < 4000 && !best; t++) { const a = r() * 6.2832, d = Math.sqrt(r()) * (R - rr), x = Math.cos(a) * d * 1.05, z = Math.sin(a) * d * 1.1 + 34; if (placed.every(q => Math.hypot(q[0] - x, (q[1] - z) * .62) > q[2] + rr + 5)) best = [x, z, rr]; }
+      best = best || [(i - 6) * 14, 40, rr]; placed.push(best);
+      out.push(P_({ s, rho: Math.hypot(best[0], best[1] / .85) / U, ph: Math.atan2(best[1] / .85, best[0]), w: 0, c1, c2, ice, lp: i % 3 === 1 ? .04 : .2, el: i % 3 === 1 ? 1 : .85, sd: 70 + i * 3, spin: .25 + (i % 4) * .15 }));
+    });
+    return out;
+  }
   const MODELS = {
     nea: { u: 1, parts: rkc(3, 11, ...ROCK, { lp: .38 }).map((p, i) => Object.assign(p, { s: [.8, .55, .42][i], rho: [1.1, 1.5, .9][i] })) },
     pho: { u: 1, parts: [P_({ s: .75, rho: 1, w: .5, lp: .32, el: .8, c1: [.24, .2, .18], c2: [.45, .38, .33], sd: 4 }), P_({ s: .5, rho: 1.8, w: .2, ph: 3, lp: .28, el: .85, c1: [.3, .27, .24], c2: [.55, .5, .45], sd: 9 })] },
@@ -570,7 +584,7 @@
     obe: { u: 1, parts: [P_({ s: 1.15, rho: 0, c1: [.42, .4, .4], c2: [.72, .7, .68], ice: .4, sd: 31 }), P_({ s: .95, rho: 2.1, w: .25, ph: 2, c1: [.38, .34, .3], c2: [.62, .56, .5], ice: .3, sd: 33 })] },
     umb: { u: 1, parts: [P_({ s: .8, rho: 1.6, w: .32, c1: [.2, .2, .22], c2: [.4, .4, .42], sd: 35 }), P_({ s: .95, rho: 0, c1: [.7, .72, .76], c2: [.95, .96, .98], ice: .8, sd: 37 }), P_({ s: .6, rho: 2.3, w: .18, ph: 3, c1: [.4, .4, .42], c2: [.78, .78, .8], ice: .5, lp: .15, sd: 39 })] },
     gal: { u: 1, parts: [P_({ s: .95, rho: 0, lp: .22, el: .9, c1: [.22, .21, .22], c2: [.42, .4, .4], sd: 41 }), P_({ s: .5, rho: 1.5, w: .5, lp: .3, el: .8, c1: [.2, .2, .2], c2: [.4, .38, .36], sd: 43 }), P_({ s: .42, rho: 2.1, w: .3, ph: 2.5, lp: .3, el: .8, c1: [.25, .24, .24], c2: [.45, .42, .4], sd: 45 })] },
-    sca: { u: 1, parts: rkc(7, 71, [.3, .32, .4], [.62, .66, .78], { ice: .6, s: .5, rho: 1.2, lp: .2, el: .85 }).map((p, i) => Object.assign(p, { rho: .8 + i * .55, s: [1.2, .8, 1.0, .6, .9, .5, .7][i], ph: i * 1.1, w: (i % 2 ? .06 : -.05) })).concat([P_({ s: 1.3, rho: 1.6, w: .05, ph: 3.5, lp: .04, c1: [.4, .16, .1], c2: [.75, .38, .25], ice: .2, sd: 77 }), P_({ s: 1.0, rho: 3.0, w: .04, ph: 5.1, lp: .06, c1: [.85, .86, .9], c2: [1, 1, 1], ice: 1, sd: 79 }), P_({ s: .8, rho: 3.7, w: -.04, ph: 1.9, lp: .1, c1: [.5, .25, .15], c2: [.8, .55, .4], ice: .3, sd: 81 })]) },
+    sca: { u: 1, parts: scaParts() },
     kui: { u: 1, parts: rkc(9, 51, [.32, .34, .4], [.62, .66, .75], { ice: .6 }).concat(rkc(3, 52, [.4, .2, .12], [.7, .42, .28], { ice: .2, s: .35 })) },
     plu: { u: 1, parts: [P_({ s: 1.15, rho: 0, w: 0, lp: .03, c1: [.5, .3, .2], c2: [.97, .92, .84], ice: .35, sd: 49, spin: .35 }), P_({ s: .62, rho: 1.9, w: .32, c1: [.33, .32, .36], c2: [.58, .55, .56], ice: .2, lp: .04, sd: 53 })] },
     hau: { u: 1, parts: [P_({ s: 1.1, rho: 0, el: .55, lp: .08, c1: [.82, .85, .92], c2: [1, 1, 1], ice: 1, sd: 57, spin: 1.6 }), P_({ s: .8, rho: 2.2, w: .15, ph: 3, c1: [.5, .25, .13], c2: [.8, .52, .34], ice: .3, lp: .04, sd: 59 })] },
@@ -736,7 +750,7 @@
       const Rg = ringOf(k), c = mapP(Rg.c[0], Rg.c[1], pod), u = Rg.r * S * .26, y = u * .75;
       items.push({ t: 'model', k, kind, spec: MODELS[k], x: c[0], z: c[1], u, y, d: dist2(c[0], y, c[1]) });
     });
-    if (G && LAY.pods.sca) { const hp = LAY.pods.sca, c = mapP(hp.hub[0], hp.hub[1], hp), u = 24, y = u * .75; items.push({ t: 'model', k: 'sca', kind: 'rocks', spec: MODELS.sca, x: c[0], z: c[1], u, y, d: dist2(c[0], y, c[1]) }); }
+    if (G && LAY.pods.sca) { const hp = LAY.pods.sca, c = mapP(hp.hub[0], hp.hub[1], hp), u = 18, y = u * .75; items.push({ t: 'model', k: 'sca', kind: 'rocks', spec: MODELS.sca, x: c[0], z: c[1], u, y, d: dist2(c[0], y, c[1]) }); }
     stand.forEach(r => { const y = (r.lift || 0) * S + r.h * S / 2; items.push({ t: 'spr', r, d: dist2(r.X, y, r.Z) }); });
     items.sort((p, q) => q.d - p.d);
     { const a = []; items.forEach(it => { if (it.t === 'planet') flatQuad(a, it.x, it.z, it.r * 2.1, it.r * 1.2, 0, 1.6, [0, 0, 1, 1], [0, 0, 0, .38]); else if (it.t === 'model') flatQuad(a, it.x, it.z, it.u * (it.kind === 'sprite' ? 3 : 4.6), it.u * (it.kind === 'sprite' ? 1.8 : 2.8), 0, 1.6, [0, 0, 1, 1], [0, 0, 0, .3]); else if (!it.r.text) flatQuad(a, it.r.X, it.r.Z, it.r.w * S * .9, it.r.w * S * .5, 0, 1.6, [0, 0, 1, 1], [0, 0, 0, .4]); }); flush(pQ, a, null, 2); }
