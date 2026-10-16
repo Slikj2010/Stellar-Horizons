@@ -465,6 +465,26 @@
     }
     x.restore();
   }
+  function drawBeltLinks(T, S, px) {
+    if (!G) return; const lanes = [];
+    // belt links: the Main Belt, the Kuiper Belt and the Scattered Disk are joined to their satellite worlds by arcs along the belt
+    const SATH = { cer: 'bel', hyg: 'bel', ves: 'bel', plu: 'kui', hau: 'kui', eri: 'sca', sed: 'sca', dsa: 'sca' }, HUEL = { bel: [.95, .78, .5], kui: [.62, .78, .98], sca: [.75, .65, 1] };
+    Object.keys(SATH).forEach(k => {
+      const hk = SATH[k], hp = LAY.pods[hk], sp = LAY.pods[k]; if (!hp || !sp || !GEO.worlds[k]) return;
+      let A, ra; if (GEO.worlds[hk]) { const R = ringOf(hk); A = mapP(R.c[0], R.c[1], hp); ra = R.r * S + 12; } else { A = mapP(hp.hub[0], hp.hub[1], hp); ra = 80; }
+      const R2 = ringOf(k), B = mapP(R2.c[0], R2.c[1], sp), rb = R2.r * S + 12, col = HUEL[hk];
+      const r0 = Math.hypot(A[0], A[1]), r1 = Math.hypot(B[0], B[1]); let a0 = Math.atan2(A[1], A[0]), da = Math.atan2(B[1], B[0]) - a0; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832;
+      const n = Math.max(30, Math.ceil(Math.abs(da) * Math.max(r0, r1) / 90)), pts = [];
+      for (let i = 0; i <= n; i++) { const t = i / n, rr = r0 + (r1 - r0) * t, an = a0 + da * t, q = [Math.cos(an) * rr, Math.sin(an) * rr]; if (Math.hypot(q[0] - A[0], q[1] - A[1]) > ra && Math.hypot(q[0] - B[0], q[1] - B[1]) > rb) pts.push(q); }
+      if (pts.length < 2) return;
+      ribbon(lanes, pts, false, Math.max(2, px * 1.0), 1.3, [col[0], col[1], col[2], .22]);
+      let acc = 0, next = (T * 70) % 150; const ds = Math.max(12, px * 4);
+      for (let i = 1; i < pts.length; i++) { const p0 = pts[i - 1], p1 = pts[i], L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]); while (next < acc + L) { const u = (next - acc) / L; flatQuad(lanes, p0[0] + (p1[0] - p0[0]) * u, p0[1] + (p1[1] - p0[1]) * u, ds, ds, 0, 1.5, [0, 0, 1, 1], [col[0], col[1], col[2], .85]); next += 150; } acc += L; }
+      const e = pts[pts.length - 1], f = pts[pts.length - 2], dx = e[0] - f[0], dz = e[1] - f[1], l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, h = Math.max(30, px * 9);
+      fillPoly(lanes, [[e[0], e[1]], [e[0] - ux * h - uz * h * .45, e[1] - uz * h + ux * h * .45], [e[0] - ux * h + uz * h * .45, e[1] - uz * h - ux * h * .45]], 1.5, [col[0], col[1], col[2], .9]);
+    });
+    flush(pQ, lanes, null, 1);
+  }
   function drawWorlds(T, S, px) {
     if (!G) return;
     const zone = [], rimv = [], dots = [], fillv = [], lanes = [], pl = [];
@@ -550,6 +570,7 @@
     obe: { u: 1, parts: [P_({ s: 1.15, rho: 0, c1: [.42, .4, .4], c2: [.72, .7, .68], ice: .4, sd: 31 }), P_({ s: .95, rho: 2.1, w: .25, ph: 2, c1: [.38, .34, .3], c2: [.62, .56, .5], ice: .3, sd: 33 })] },
     umb: { u: 1, parts: [P_({ s: .8, rho: 1.6, w: .32, c1: [.2, .2, .22], c2: [.4, .4, .42], sd: 35 }), P_({ s: .95, rho: 0, c1: [.7, .72, .76], c2: [.95, .96, .98], ice: .8, sd: 37 }), P_({ s: .6, rho: 2.3, w: .18, ph: 3, c1: [.4, .4, .42], c2: [.78, .78, .8], ice: .5, lp: .15, sd: 39 })] },
     gal: { u: 1, parts: [P_({ s: .95, rho: 0, lp: .22, el: .9, c1: [.22, .21, .22], c2: [.42, .4, .4], sd: 41 }), P_({ s: .5, rho: 1.5, w: .5, lp: .3, el: .8, c1: [.2, .2, .2], c2: [.4, .38, .36], sd: 43 }), P_({ s: .42, rho: 2.1, w: .3, ph: 2.5, lp: .3, el: .8, c1: [.25, .24, .24], c2: [.45, .42, .4], sd: 45 })] },
+    sca: { u: 1, parts: rkc(7, 71, [.3, .32, .4], [.62, .66, .78], { ice: .6, s: .5, rho: 1.2, lp: .2, el: .85 }).map((p, i) => Object.assign(p, { rho: .8 + i * .55, s: [1.2, .8, 1.0, .6, .9, .5, .7][i], ph: i * 1.1, w: (i % 2 ? .06 : -.05) })).concat([P_({ s: 1.3, rho: 1.6, w: .05, ph: 3.5, lp: .04, c1: [.4, .16, .1], c2: [.75, .38, .25], ice: .2, sd: 77 }), P_({ s: 1.0, rho: 3.0, w: .04, ph: 5.1, lp: .06, c1: [.85, .86, .9], c2: [1, 1, 1], ice: 1, sd: 79 }), P_({ s: .8, rho: 3.7, w: -.04, ph: 1.9, lp: .1, c1: [.5, .25, .15], c2: [.8, .55, .4], ice: .3, sd: 81 })]) },
     kui: { u: 1, parts: rkc(9, 51, [.32, .34, .4], [.62, .66, .75], { ice: .6 }).concat(rkc(3, 52, [.4, .2, .12], [.7, .42, .28], { ice: .2, s: .35 })) },
     plu: { u: 1, parts: [P_({ s: 1.15, rho: 0, w: 0, lp: .03, c1: [.5, .3, .2], c2: [.97, .92, .84], ice: .35, sd: 49, spin: .35 }), P_({ s: .62, rho: 1.9, w: .32, c1: [.33, .32, .36], c2: [.58, .55, .56], ice: .2, lp: .04, sd: 53 })] },
     hau: { u: 1, parts: [P_({ s: 1.1, rho: 0, el: .55, lp: .08, c1: [.82, .85, .92], c2: [1, 1, 1], ice: 1, sd: 57, spin: 1.6 }), P_({ s: .8, rho: 2.2, w: .15, ph: 3, c1: [.5, .25, .13], c2: [.8, .52, .34], ice: .3, lp: .04, sd: 59 })] },
@@ -660,6 +681,7 @@
       const a = []; Object.values(LAY.pods).forEach(p => { const r = p.rect, i = 6; quad(a, [[r[0] + i, 0, r[1] + i], [r[2] - i, 0, r[1] + i], [r[2] - i, 0, r[3] - i], [r[0] + i, 0, r[3] - i]], [(r[0] + i) / 160, (r[1] + i) / 160, (r[2] - i) / 160, (r[3] - i) / 160], [.02, .05, .09, .8]); });
       flush(pQ, a, null, 10);
     }
+    drawBeltLinks(T, S, px);
     if (C.dist < 26000) { drawBoxes(T); drawWorlds(T, S, px); }
     { const a = []; Object.values(LAY.pods).forEach(p => { const r = p.rect, i = 14; ribbon(a, [[r[0] + i, r[1] + i], [r[2] - i, r[1] + i], [r[2] - i, r[3] - i], [r[0] + i, r[3] - i]], true, Math.max(5, px * 1.2), .6, [.31, .76, .85, .22]); }); flush(pQ, a, null, 1); }
     // 4 the Sun
@@ -714,6 +736,7 @@
       const Rg = ringOf(k), c = mapP(Rg.c[0], Rg.c[1], pod), u = Rg.r * S * .26, y = u * .75;
       items.push({ t: 'model', k, kind, spec: MODELS[k], x: c[0], z: c[1], u, y, d: dist2(c[0], y, c[1]) });
     });
+    if (G && LAY.pods.sca) { const hp = LAY.pods.sca, c = mapP(hp.hub[0], hp.hub[1], hp), u = 24, y = u * .75; items.push({ t: 'model', k: 'sca', kind: 'rocks', spec: MODELS.sca, x: c[0], z: c[1], u, y, d: dist2(c[0], y, c[1]) }); }
     stand.forEach(r => { const y = (r.lift || 0) * S + r.h * S / 2; items.push({ t: 'spr', r, d: dist2(r.X, y, r.Z) }); });
     items.sort((p, q) => q.d - p.d);
     { const a = []; items.forEach(it => { if (it.t === 'planet') flatQuad(a, it.x, it.z, it.r * 2.1, it.r * 1.2, 0, 1.6, [0, 0, 1, 1], [0, 0, 0, .38]); else if (it.t === 'model') flatQuad(a, it.x, it.z, it.u * (it.kind === 'sprite' ? 3 : 4.6), it.u * (it.kind === 'sprite' ? 1.8 : 2.8), 0, 1.6, [0, 0, 1, 1], [0, 0, 0, .3]); else if (!it.r.text) flatQuad(a, it.r.X, it.r.Z, it.r.w * S * .9, it.r.w * S * .5, 0, 1.6, [0, 0, 1, 1], [0, 0, 0, .4]); }); flush(pQ, a, null, 2); }
@@ -739,7 +762,7 @@
         if (it.kind === 'sprite') { const sz = it.u * (it.k === 'dsa' ? 3.8 : 3.2), cv = spriteFor(it.k), a = []; quad(a, billboard([it.x, it.y + Math.sin(T * 1.2 + it.x) * it.u * .08, it.z], sz, sz), [0, 0, 1, 1], WHITE); flush(pQ, a, texOf(cv, false), 0); }
         else if (it.kind === 'stars') drawStars(it, T); else drawModel(it, T);
         const ext = it.u * (it.kind === 'sprite' ? 2.6 : it.k === 'alp' ? 3 : 2.4), c = proj(it.x, it.y, it.z), e = proj(it.x + rgt[0] * ext, it.y + rgt[1] * ext, it.z + rgt[2] * ext);
-        if (c && e) picks.push({ sx: c[0], sy: c[1], pr: Math.hypot(e[0] - c[0], e[1] - c[1]), hit: { t: 'world', k: it.k }, z: c[2], planet: true });
+        if (c && e && GEO.worlds[it.k]) picks.push({ sx: c[0], sy: c[1], pr: Math.hypot(e[0] - c[0], e[1] - c[1]), hit: { t: 'world', k: it.k }, z: c[2], planet: true });
       } else {
         const r = it.r, iw = r.img.width, ih = r.img.height, uv = [r.f[0] / iw, r.f[1] / ih, (r.f[0] + r.f[2]) / iw, (r.f[1] + r.f[3]) / ih];
         const w = r.w * S, h = r.h * S, hw = w / 2, l = (r.lift || 0) * S, bob = r.text ? 0 : Math.sin(T * 1.3 + r.x * .013 + r.y * .017) * 3 * S;
