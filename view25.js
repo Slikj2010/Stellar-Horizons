@@ -647,7 +647,7 @@
       else if (ty === 1) { x.rotate(r() * 3); x.scale(1, .5 + r() * .4); for (let a = 0; a < 2; a++) for (let i = 0; i < 160; i++) { const t = i / 160, an = a * 3.1416 + t * 5.2, rr = 6 + t * 50, px = Math.cos(an) * rr + (r() - .5) * 6, py = Math.sin(an) * rr + (r() - .5) * 6; x.fillStyle = `rgba(${150 + t * 90 | 0},${185 + t * 40 | 0},255,${.5 * (1 - t) + .08})`; x.beginPath(); x.arc(px, py, 1.6 + r() * 1.6, 0, 6.2832); x.fill(); } glow(0, 0, 22, '255,236,190', .95); }  // spiral
       else if (ty === 2) { x.rotate(r() * 3); x.scale(1, .13); glow(0, 0, 62, '255,214,150', .9); glow(0, 0, 20, '255,246,220', 1); }                         // edge-on
       else if (ty === 3) { x.rotate(r() * 3); x.scale(1, .65); glow(0, 0, 40, '120,170,255', .9); glow(0, 0, 11, '235,244,255', 1); }                       // small blue
-      else { x.rotate(r() * 3); x.lineCap = 'round'; for (let i = 0; i < 3; i++) { x.strokeStyle = `rgba(255,${110 + i * 20},${60 + i * 20},${.85 - i * .2})`; x.lineWidth = 5 - i * 1.4; x.beginPath(); x.arc(-34, 0, 44 + i * 2, -.75, .75); x.stroke(); } }   // lensed arc
+      else { x.rotate(r() * 3); x.scale(1, .7 + r() * .25); glow(0, 0, 50, '255,214,160', .9); glow(0, 0, 14, '255,246,226', 1); }                      // warm compact elliptical
       x.restore();
     }
     return GALX = c;
@@ -666,7 +666,7 @@
   function drawDeep(it, T) {      // a small three-dimensional cluster of galaxies
     const u = it.u, at = galaxyAtlas(), r = mulb(901), g = [], items = [];
     for (let i = 0; i < 22; i++) {
-      const R = u * (.3 + r() * 3.4), an = r() * 6.2832 + T * .02 * (.5 + r()), ph = (r() - .5) * u * 3, cell = (r() * 16) | 0, s = u * (.9 + r() * 1.5) * (cell % 5 === 4 ? 1.2 : 1);
+      const R = u * (.6 + r() * 4.6), an = r() * 6.2832 + T * .02 * (.5 + r()), ph = (r() - .5) * u * 4, cell = (r() * 16) | 0, s = u * (.9 + r() * 1.5) * 1.2;
       items.push({ p: [it.x + Math.cos(an) * R, it.y + ph + u * .3, it.z + Math.sin(an) * R * .7], cell, s, d: 0 });
     }
     items.forEach(o => { o.d = dist2(o.p[0], o.p[1], o.p[2]); }); items.sort((a, b) => b.d - a.d);
