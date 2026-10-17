@@ -663,16 +663,15 @@
     for (let i = 0; i < 2; i++) { const px = r() * W, py = r() * H; glow(px, py, 22, '255,255,255', 1); x.strokeStyle = 'rgba(190,215,255,.7)'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(px - 46, py); x.lineTo(px + 46, py); x.moveTo(px, py - 46); x.lineTo(px, py + 46); x.stroke(); }
     return DEEPBG = c;
   }
-  function drawDeep(it, T) {      // the space telescope in front of a small three-dimensional cluster of galaxies
+  function drawDeep(it, T) {      // a small three-dimensional cluster of galaxies
     const u = it.u, at = galaxyAtlas(), r = mulb(901), g = [], items = [];
     for (let i = 0; i < 22; i++) {
-      const R = u * (2.2 + r() * 2.6), an = r() * 6.2832 + T * .02 * (.5 + r()), ph = (r() - .5) * u * 3, cell = (r() * 16) | 0, s = u * (.9 + r() * 1.5) * (cell % 5 === 4 ? 1.2 : 1);
+      const R = u * (.3 + r() * 3.4), an = r() * 6.2832 + T * .02 * (.5 + r()), ph = (r() - .5) * u * 3, cell = (r() * 16) | 0, s = u * (.9 + r() * 1.5) * (cell % 5 === 4 ? 1.2 : 1);
       items.push({ p: [it.x + Math.cos(an) * R, it.y + ph + u * .3, it.z + Math.sin(an) * R * .7], cell, s, d: 0 });
     }
     items.forEach(o => { o.d = dist2(o.p[0], o.p[1], o.p[2]); }); items.sort((a, b) => b.d - a.d);
     items.forEach(o => { const cx = (o.cell % 4) / 4, cy = ((o.cell / 4) | 0) / 4; quad(g, billboard(o.p, o.s, o.s), [cx, cy, cx + .25, cy + .25], [1, 1, 1, .9]); });
     flush(pQ, g, texOf(at, false), 0);
-    const sz = u * 3.4, cv = spriteFor('dsa'), a = []; quad(a, billboard([it.x, it.y + Math.sin(T * 1.2 + it.x) * u * .08, it.z], sz, sz), [0, 0, 1, 1], WHITE); flush(pQ, a, texOf(cv, false), 0);
   }
   function drawStars(it, T) {
     const u = it.u, S3 = [{ o: -1.3, z: .2, r: 1.15, c: [1, .94, .68] }, { o: 1.35, z: -.3, r: .85, c: [1, .62, .3] }, { o: 3.4, z: 1.1, r: .34, c: [1, .3, .2] }], g = [], a = [];
