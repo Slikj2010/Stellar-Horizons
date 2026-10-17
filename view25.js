@@ -388,6 +388,7 @@
       const add = (x0, z0, pref) => cands.push({ x0, z0, pref });
       const anchor = k === 'jup' && ring.tro ? ring.tro : null;      // Jupiter's box sits clear under the Trojans & Greeks
       if (anchor) { for (let ex = 0; ex <= 120; ex += 20) for (let off = -w * .5; off <= w * .5; off += 20) add(anchor.c[0] - w / 2 + off, anchor.c[1] + anchor.r + g + ex, ex * .2 + Math.abs(off) * .05); }
+      else if (k === 'eur') { for (let ex = 0; ex <= 160; ex += 10) for (let off = -.5; off <= .5; off += .125) add(c[0] - w / 2 + off * w, c[1] + r + g + ex, ex * 1.2 + Math.abs(off) * 20); }      // Europa's box goes straight below it
       else for (let ex = 0; ex <= 140; ex += 14) {
         for (let off = -.5; off <= .5; off += .125) {
           add(c[0] + r + g + ex, c[1] - h / 2 + off * h, ex * 1.2 + Math.abs(off) * 20);                  // right
