@@ -336,9 +336,12 @@
     x.save(); x.translate(100, 200);
     x.beginPath(); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.2832 + .5236; x.lineTo(Math.cos(a) * 82, Math.sin(a) * 82); } x.closePath();
     x.fillStyle = dead ? 'rgba(60,20,20,.8)' : 'rgba(255,255,255,.07)'; x.fill(); x.lineWidth = 5; x.strokeStyle = dead ? '#ef6b5b' : fc; x.stroke();
-    x.textAlign = 'center'; x.font = `700 20px ${FONT}`; x.fillStyle = '#a9bfd2'; x.fillText('EXPLORE', 0, -52);
-    x.font = `700 104px ${FONT}`; x.shadowColor = dead ? '#ef6b5b' : fc; x.shadowBlur = 22; x.fillStyle = '#fff'; x.fillText(String(Math.max(0, ws.v)), 0, 4); x.shadowBlur = 0;
-    x.font = `600 19px ${FONT}`; x.fillStyle = dead ? '#ef6b5b' : '#a9bfd2'; x.fillText(dead ? 'DEPLETED' : ws.v !== w.v ? 'printed ' + w.v : 'research value', 0, 56);
+    {      // hex text: each line is shrunk until it fits the hexagon's width at its own height
+      const hw = y => Math.max(0, Math.min(71, (82 - Math.abs(y)) * 1.732)), fitHex = (t, wt, size, yc, min) => { let f = size; for (;;) { x.font = `${wt} ${f}px ${FONT}`; if (x.measureText(t).width <= 2 * (hw(Math.abs(yc) + f * .5) - 6) || f <= min) break; f -= 1; } };
+      x.textAlign = 'center'; fitHex('EXPLORE', 700, 18, -52, 9); x.fillStyle = '#a9bfd2'; x.fillText('EXPLORE', 0, -52);
+      const vt = String(Math.max(0, ws.v)); fitHex(vt, 700, 86, 4, 40); x.shadowColor = dead ? '#ef6b5b' : fc; x.shadowBlur = 22; x.fillStyle = '#fff'; x.fillText(vt, 0, 6); x.shadowBlur = 0;
+      const lt = dead ? 'DEPLETED' : ws.v !== w.v ? 'printed ' + w.v : 'research value'; fitHex(lt, 600, 17, 54, 8); x.fillStyle = dead ? '#ef6b5b' : '#a9bfd2'; x.fillText(lt, 0, 54);
+    }
     x.restore();
     // stat boxes
     const stat = (a, label, val, col) => { rrect(x, a, 112, 128, 92, 12); x.fillStyle = 'rgba(255,255,255,.06)'; x.fill(); x.textAlign = 'left'; fitFont(x, label, 600, 19, 104, 11, FONT); x.fillStyle = '#8fa6bb'; x.fillText(label, a + 12, 132); fitFont(x, val, 700, 46, 104, 20, FONT); x.fillStyle = col || '#fff'; x.fillText(val, a + 12, 172); };
