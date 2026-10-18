@@ -339,8 +339,8 @@
     {      // hex text: each line is shrunk until it fits the hexagon's width at its own height
       const hw = y => Math.max(0, Math.min(71, (82 - Math.abs(y)) * 1.732)), fitHex = (t, wt, size, yc, min) => { let f = size; for (;;) { x.font = `${wt} ${f}px ${FONT}`; if (x.measureText(t).width <= 2 * (hw(Math.abs(yc) + f * .5) - 6) || f <= min) break; f -= 1; } };
       x.textAlign = 'center'; fitHex('EXPLORE', 700, 18, -52, 9); x.fillStyle = '#a9bfd2'; x.fillText('EXPLORE', 0, -52);
-      const vt = String(Math.max(0, ws.v)); fitHex(vt, 700, 86, 4, 40); x.shadowColor = dead ? '#ef6b5b' : fc; x.shadowBlur = 22; x.fillStyle = '#fff'; x.fillText(vt, 0, 6); x.shadowBlur = 0;
-      const lt = dead ? 'DEPLETED' : ws.v !== w.v ? 'printed ' + w.v : 'research value'; fitHex(lt, 600, 17, 54, 8); x.fillStyle = dead ? '#ef6b5b' : '#a9bfd2'; x.fillText(lt, 0, 54);
+      const vt = String(Math.max(0, ws.v)); fitHex(vt, 700, 86, 4, 40); x.shadowColor = dead ? '#ef6b5b' : fc; x.shadowBlur = 22; x.fillStyle = '#fff'; x.fillText(vt, 0, ws.v !== w.v || dead ? 6 : 12); x.shadowBlur = 0;
+      const lt = dead ? 'DEPLETED' : ws.v !== w.v ? 'printed ' + w.v : null; if (lt) { fitHex(lt, 600, 17, 54, 8); x.fillStyle = dead ? '#ef6b5b' : '#a9bfd2'; x.fillText(lt, 0, 54); }
     }
     x.restore();
     // stat boxes
