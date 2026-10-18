@@ -664,14 +664,32 @@
     for (let i = 0; i < 2; i++) { const px = r() * W, py = r() * H; glow(px, py, 22, '255,255,255', 1); x.strokeStyle = 'rgba(190,215,255,.7)'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(px - 46, py); x.lineTo(px + 46, py); x.moveTo(px, py - 46); x.lineTo(px, py + 46); x.stroke(); }
     return DEEPBG = c;
   }
-  function drawDeep(it, T) {      // a small three-dimensional cluster of galaxies
-    const u = it.u, at = galaxyAtlas(), r = mulb(901), g = [], items = [];
-    for (let i = 0; i < 22; i++) {
-      const R = u * (.6 + r() * 4.6), an = r() * 6.2832 + T * .02 * (.5 + r()), ph = (r() - .5) * u * 4, cell = (r() * 16) | 0, s = u * (.9 + r() * 1.5) * 1.2;
-      items.push({ p: [it.x + Math.cos(an) * R, it.y + ph + u * .3, it.z + Math.sin(an) * R * .7], cell, s, d: 0 });
+  let NEBA = null;
+  function nebulaAtlas() {      // four soft coloured gas clouds, 2x2 cells of 256 px
+    if (NEBA) return NEBA; const c = document.createElement('canvas'); c.width = c.height = 512; const x = c.getContext('2d'), r = mulb(555);
+    const cols = ['235,90,170', '70,190,200', '140,100,240', '255,150,70'];
+    cols.forEach((col, n) => {
+      const cx = (n % 2) * 256 + 128, cy = ((n / 2) | 0) * 256 + 128;
+      for (let i = 0; i < 46; i++) { const an = r() * 6.2832, d = Math.pow(r(), .7) * 78, px = cx + Math.cos(an) * d, py = cy + Math.sin(an) * d * .75, R = 22 + r() * 52, g = x.createRadialGradient(px, py, 0, px, py, R); g.addColorStop(0, `rgba(${col},${.16 + r() * .14})`); g.addColorStop(1, `rgba(${col},0)`); x.fillStyle = g; x.beginPath(); x.arc(px, py, R, 0, 6.2832); x.fill(); }
+      for (let i = 0; i < 18; i++) { const an = r() * 6.2832, d = r() * 60, px = cx + Math.cos(an) * d, py = cy + Math.sin(an) * d, R = 8 + r() * 16, g = x.createRadialGradient(px, py, 0, px, py, R); g.addColorStop(0, 'rgba(255,240,225,.22)'); g.addColorStop(1, 'rgba(255,240,225,0)'); x.fillStyle = g; x.beginPath(); x.arc(px, py, R, 0, 6.2832); x.fill(); }
+    });
+    return NEBA = c;
+  }
+  let DEEPI = null;
+  function drawDeep(it, T) {      // a three-dimensional galaxy cluster with gas clouds, filling the whole Deep Space Astronomy pod
+    const u = it.u, pod = podOfW('dsa'), rc = pod.rect, ar = ASM && ASM.dsa && ASM.dsa.rect;
+    if (!DEEPI || DEEPI.key !== rc.join()) {
+      const r = mulb(901), gal = [], neb = [], inBox = (x, z, m) => ar && x > ar[0] - m && x < ar[2] + m && z > ar[1] - m && z < ar[3] + m, W = rc[2] - rc[0], H = rc[3] - rc[1];
+      for (let i = 0; i < 9; i++) { let x, z, t = 0; const sz = u * (2.4 + r() * 2.4); do { x = rc[0] + sz * .45 + (W - sz * .9) * Math.pow(r(), 1.2); z = rc[1] + sz * .4 + (H - sz * .8) * (1 - Math.pow(r(), 1.25)); } while (inBox(x, z, 40) && ++t < 30); neb.push({ x, z, cell: (r() * 4) | 0, s: sz, y: -u * .2 - r() * u * .6 }); }
+      for (let i = 0; i < 80; i++) { let x, z, t = 0; if (i < 14) { const R = u * (.4 + r() * 3.6), an = r() * 6.2832; x = it.x + Math.cos(an) * R; z = it.z + Math.sin(an) * R * .7; } else do { x = rc[0] + W * (.06 + .88 * Math.pow(r(), 1.35)); z = rc[1] + H * (.94 - .86 * Math.pow(r(), 1.4)); } while (inBox(x, z, 30) && ++t < 30); gal.push({ x, z, cell: (r() * 16) | 0, s: u * (.7 + Math.pow(r(), 1.5) * 1.7) * 1.2, y: it.y + (r() - .5) * u * 4, sp: .5 + r() }); }
+      DEEPI = { key: rc.join(), gal, neb };
     }
-    items.forEach(o => { o.d = dist2(o.p[0], o.p[1], o.p[2]); }); items.sort((a, b) => b.d - a.d);
-    items.forEach(o => { const cx = (o.cell % 4) / 4, cy = ((o.cell / 4) | 0) / 4; quad(g, billboard(o.p, o.s, o.s), [cx, cy, cx + .25, cy + .25], [1, 1, 1, .9]); });
+    const at = galaxyAtlas(), na = nebulaAtlas(), g = [], n = [], gi = [];
+    DEEPI.neb.forEach(o => { const cx = (o.cell % 2) / 2, cy = ((o.cell / 2) | 0) / 2; quad(n, billboard([o.x, o.y, o.z], o.s, o.s * .8), [cx, cy, cx + .5, cy + .5], [1, 1, 1, .5]); });
+    flush(pQ, n, texOf(na, false), 0);
+    DEEPI.gal.forEach(o => { const a = T * .015 * o.sp, ca = Math.cos(a), sa = Math.sin(a), dx = o.x - it.x, dz = o.z - it.z; gi.push({ p: [it.x + dx * ca - dz * sa, o.y, it.z + dx * sa + dz * ca], cell: o.cell, s: o.s }); });
+    gi.forEach(o => { o.d = dist2(o.p[0], o.p[1], o.p[2]); }); gi.sort((p, q) => q.d - p.d);
+    gi.forEach(o => { const cx = (o.cell % 4) / 4, cy = ((o.cell / 4) | 0) / 4; quad(g, billboard(o.p, o.s, o.s), [cx, cy, cx + .25, cy + .25], [1, 1, 1, .9]); });
     flush(pQ, g, texOf(at, false), 0);
   }
   function drawStars(it, T) {
