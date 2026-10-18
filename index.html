@@ -1604,6 +1604,27 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter') { if (!G.over && !typing) press($('next')); return; }
   press(document.querySelector('#panel [data-tt-close], #panel [data-a="treeclose"], #side [data-tt-close], #side [data-a="treeclose"]'));
 }, true);
+// camera hotkeys: jump to a system (2D and 2.5D); belts cycle through their satellites on repeated presses
+const JUMP = { '1': ['mer'], '2': ['ven'], ' ': ['ear'], '3': ['mar'], '4': ['bel', 'cer', 'ves', 'hyg'], '5': ['jup'], '6': ['sat'], '7': ['ura'], '8': ['nep'], '9': ['kui', 'plu', 'hau'], '0': ['sca', 'eri', 'sed'] };
+let jumpLast = null, jumpI = 0;
+function jumpPoint(k) {      // sheet position of a system or satellite on the flat board
+  const w = GEO.worlds[k], sy = D.SYS[k];
+  if (w && !sy) return w.orbit || w.exp;
+  const hub = sy && sy.hub && GEO.worlds[sy.hub];
+  if (hub && (hub.orbit || hub.exp)) return hub.orbit || hub.exp;
+  const P = GEO.sys[k] && Object.values(GEO.sys[k].box); if (P && P.length) return [P.reduce((a, q) => a + q[0], 0) / P.length, P.reduce((a, q) => a + q[1], 0) / P.length];
+  return null;
+}
+document.addEventListener('keydown', e => {
+  const list = JUMP[e.key]; if (!list || !G || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  const tag = ((e.target || {}).tagName || ''), vis = id => $(id) && !$(id).hidden;
+  if (/INPUT|TEXTAREA|SELECT/.test(tag) || vis('menu') || vis('pick') || vis('pause') || vis('modal') || vis('zov') || (e.target && e.target.closest && e.target.closest('#dev'))) return;
+  if (e.key === ' ' && /BUTTON|^A$/.test(tag)) e.target.blur();      // Space is the Earth hotkey: it must not also press the focused button
+  jumpI = jumpLast === e.key ? (jumpI + 1) % list.length : 0; jumpLast = e.key;
+  const k = list[jumpI]; e.preventDefault();
+  if (V25.on) { V25.focusPod(k); return; }
+  const q = jumpPoint(k); if (q) focus(q, list.length > 1 && jumpI > 0 ? .9 : .5);
+});
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('zov').hidden) { e.stopImmediatePropagation(); e.preventDefault(); closeZoom(); } }, true);
 // what each facility level does (rules 2.7), shown on the base panel with its counter
 const FACDESC = {
