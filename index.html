@@ -1066,6 +1066,7 @@ function hull(poly) { if (HULLS.has(poly)) return HULLS.get(poly); const P = pol
 const DOTR = { ear: 152, mar: 136, jup: 312, ura: 232, bel: 136, kui: 142, sca: 149 };
 const RINGS = {};
 function ringOf(w) {
+  if (w === 'sun' && typeof V25 !== 'undefined' && V25.on && V25.sunRing) return V25.sunRing;      // 2.5D: Sun Observation is the circle round the Sun
   if (RINGS[w]) return RINGS[w];
   const g = GEO.worlds[w];
   if (!g.poly) return RINGS[w] = { c: g.orbit || g.exp, r: 60 + CS / 2 + 6 };

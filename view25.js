@@ -469,14 +469,14 @@
   function drawBeltLinks(T, S, px) {
     if (!G) return; const lanes = [];
     // belt links: the Main Belt, the Kuiper Belt and the Scattered Disk are joined to their satellite worlds by arcs along the belt
-    const SATH = { cer: 'bel', hyg: 'bel', ves: 'bel', plu: 'kui', hau: 'kui', eri: 'sca', sed: 'sca' }, HUEL = { bel: [.95, .78, .5], kui: [.62, .78, .98], sca: [.75, .65, 1] };
+    const SATH = { mer: 'sun', cer: 'bel', hyg: 'bel', ves: 'bel', plu: 'kui', hau: 'kui', eri: 'sca', sed: 'sca' }, HUEL = { sun: [1, .72, .3], bel: [.95, .78, .5], kui: [.62, .78, .98], sca: [.75, .65, 1] };
     Object.keys(SATH).forEach(k => {
       const hk = SATH[k], hp = LAY.pods[hk], sp = LAY.pods[k]; if (!hp || !sp || !GEO.worlds[k]) return;
       let A, ra; if (GEO.worlds[hk]) { const R = ringOf(hk); A = mapP(R.c[0], R.c[1], hp); ra = R.r * S + 12; } else { A = mapP(hp.hub[0], hp.hub[1], hp); ra = 80; }
       const R2 = ringOf(k), B = mapP(R2.c[0], R2.c[1], sp), rb = R2.r * S + 12, col = HUEL[hk];
       const r0 = Math.hypot(A[0], A[1]), r1 = Math.hypot(B[0], B[1]); let a0 = Math.atan2(A[1], A[0]), da = Math.atan2(B[1], B[0]) - a0; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832;
-      const n = Math.max(30, Math.ceil(Math.abs(da) * Math.max(r0, r1) / 90)), pts = [];
-      for (let i = 0; i <= n; i++) { const t = i / n, rr = r0 + (r1 - r0) * t, an = a0 + da * t, q = [Math.cos(an) * rr, Math.sin(an) * rr]; if (Math.hypot(q[0] - A[0], q[1] - A[1]) > ra && Math.hypot(q[0] - B[0], q[1] - B[1]) > rb) pts.push(q); }
+      const n = Math.max(30, Math.ceil(Math.abs(da) * Math.max(r0, r1) / 90)), pts = [], straight = hk === 'sun';      // the Sun link is a straight line
+      for (let i = 0; i <= n; i++) { const t = i / n, rr = r0 + (r1 - r0) * t, an = a0 + da * t, q = straight ? [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t] : [Math.cos(an) * rr, Math.sin(an) * rr]; if (Math.hypot(q[0] - A[0], q[1] - A[1]) > ra && Math.hypot(q[0] - B[0], q[1] - B[1]) > rb && !(straight && q[0] > sp.rect[0] && q[0] < sp.rect[2] && q[1] > sp.rect[1] && q[1] < sp.rect[3])) pts.push(q); }
       if (pts.length < 2) return;
       ribbon(lanes, pts, false, Math.max(2, px * 1.0), 1.3, [col[0], col[1], col[2], .22]);
       let acc = 0, next = (T * 70) % 150; const ds = Math.max(12, px * 4);
@@ -683,6 +683,7 @@
     if (LAY || typeof GEO === 'undefined' || typeof SHL === 'undefined') return;
     const S0 = typeof FX !== 'undefined' && FX.sun, m = S0 && GEO.maps[S0.map];
     LAY = SHL.build(GEO, D, m ? [m[0] + S0.cx * .4, m[1] + S0.cy * .4] : null);
+    V.sunRing = m ? { c: [m[0] + S0.cx * .4, m[1] + S0.cy * .4], r: LAY.sunR * 1.12 / LAY.S } : null;
     ASM = placeAsm(LAY.S);
     // belts: particle rings (gaps cut out where a pod sits on the ring)
     const r = mulb(4242); belts = [];
@@ -732,12 +733,12 @@
     }
     // 3 pod plates: a dark glass floor with a faint grid under each system; the printed sheets are no longer used
     {
-      const a = []; Object.values(LAY.pods).forEach(p => { const r = p.rect, i = 6; quad(a, [[r[0] + i, 0, r[1] + i], [r[2] - i, 0, r[1] + i], [r[2] - i, 0, r[3] - i], [r[0] + i, 0, r[3] - i]], [(r[0] + i) / 160, (r[1] + i) / 160, (r[2] - i) / 160, (r[3] - i) / 160], [.02, .05, .09, .8]); });
+      const a = []; Object.values(LAY.pods).forEach(p => { if (p.k === 'sun') return; const r = p.rect, i = 6; quad(a, [[r[0] + i, 0, r[1] + i], [r[2] - i, 0, r[1] + i], [r[2] - i, 0, r[3] - i], [r[0] + i, 0, r[3] - i]], [(r[0] + i) / 160, (r[1] + i) / 160, (r[2] - i) / 160, (r[3] - i) / 160], [.02, .05, .09, .8]); });
       flush(pQ, a, null, 10);
     }
     drawBeltLinks(T, S, px);
     if (C.dist < 26000) { drawBoxes(T); drawWorlds(T, S, px); }
-    { const a = []; Object.values(LAY.pods).forEach(p => { const r = p.rect, i = 14; ribbon(a, [[r[0] + i, r[1] + i], [r[2] - i, r[1] + i], [r[2] - i, r[3] - i], [r[0] + i, r[3] - i]], true, Math.max(5, px * 1.2), .6, [.31, .76, .85, .22]); }); flush(pQ, a, null, 1); }
+    { const a = []; Object.values(LAY.pods).forEach(p => { if (p.k === 'sun') return; const r = p.rect, i = 14; ribbon(a, [[r[0] + i, r[1] + i], [r[2] - i, r[1] + i], [r[2] - i, r[3] - i], [r[0] + i, r[3] - i]], true, Math.max(5, px * 1.2), .6, [.31, .76, .85, .22]); }); flush(pQ, a, null, 1); }
     // 4 the Sun
     {
       const R = LAY.sunR, y = R * .35, a = [], g = [];
@@ -786,7 +787,7 @@
     });
     if (G) Object.keys(GEO.worlds).forEach(k => {
       if (B && B.b[k]) return;
-      const kind = MODELS[k] ? 'rocks' : k === 'dsa' ? 'deep' : k === 'sun' ? 'sprite' : k === 'alp' ? 'stars' : null, dw = D.W[k], pod = kind && dw && podOfW(k); if (!pod) return;
+      const kind = MODELS[k] ? 'rocks' : k === 'dsa' ? 'deep' : k === 'alp' ? 'stars' : null, dw = D.W[k], pod = kind && dw && podOfW(k); if (!pod) return;
       const Rg = ringOf(k), c = mapP(Rg.c[0], Rg.c[1], pod), u = Rg.r * S * .26, y = u * .75;
       items.push({ t: 'model', k, kind, spec: MODELS[k], x: c[0], z: c[1], u, y, d: dist2(c[0], y, c[1]) });
     });
@@ -843,7 +844,7 @@
         flatQuad(a, x, z, 9 * ph, 9 * ph, 0, 3, [0, 0, 1, 1], [.55, .9, 1, al]);
         const s0 = proj(x, y + h / 2, z); if (s0 && al > .3) picks.push({ sx: s0[0], sy: s0[1], pr: Math.max(h / ph * .5, w / ph * .5), hit: key ? { t: 'pod', k: key } : null, z: 0, label: true });
       };
-      Object.values(LAY.pods).forEach(p => { if (p.k === 'mer') return; const q = mapP(p.hub[0], p.hub[1], p); lab(p.name.toUpperCase(), q[0], q[1], p.k); });
+      Object.values(LAY.pods).forEach(p => { if (p.k === 'sun') return; const q = mapP(p.hub[0], p.hub[1], p); lab(p.name.toUpperCase(), q[0], q[1], p.k); });
       lab('SUN', 0, 0, 'mer', true);
       batch(d0); flush(pQ, a, null, 2);
     }

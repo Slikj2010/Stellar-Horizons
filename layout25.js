@@ -11,7 +11,7 @@
   const PREF = { ven: -150, ear: 25, mar: -55, bel: 120, jup: -140, sat: 35, ura: 205, nep: 95, kui: -25, sca: 150, alp: -75 }; // preferred angle in degrees (0 = east, +90 = south)
   // Satellite worlds that sit out in the belts at their own place instead of inside their system's pod: ring radius follows the
   // semi-major axis (Main Belt band 4300-5500 = 2.1-3.3 AU, Kuiper band 11600-13200 = 30-50 AU, the scattered disc beyond), angle is spread round the belt.
-  const SAT = { ves: { ring: 4560, ang: 290 }, cer: { ring: 4970, ang: 205 }, hyg: { ring: 5150, ang: 25 }, plu: { ring: 12360, ang: 215 }, hau: { ring: 12760, ang: 295 }, eri: { ring: 13950, ang: 100 }, sed: { ring: 14500, ang: 30 }, dsa: { ring: 15245, ang: -30.8 } };
+  const SAT = { ves: { ring: 4560, ang: 290 }, cer: { ring: 4970, ang: 205 }, hyg: { ring: 5150, ang: 25 }, plu: { ring: 12360, ang: 215 }, hau: { ring: 12760, ang: 295 }, eri: { ring: 13950, ang: 100 }, sed: { ring: 14500, ang: 30 }, dsa: { ring: 15245, ang: -30.8 }, sun: { ring: 0, ang: 0 } };   // 'sun' (Sun Observation) is the circle round the Sun itself
   const BELTS = [{ k: 'bel', r0: 4300, r1: 5500, n: 30000, col: [.72, .62, .5] }, { k: 'kui', r0: 11600, r1: 13200, n: 26000, col: [.62, .76, .92] }];
 
   function build(GEO, D, sunC) {
@@ -25,7 +25,7 @@
     });
     const pods = {};
     Object.keys(B).forEach(k => {
-      if (SAT[k]) { const m = B[k], cx = (m[0] + m[2]) / 2, cy = (m[1] + m[3]) / 2, hw = Math.max((m[2] - m[0]) / 2, 330), hh = Math.max((m[3] - m[1]) / 2, 280); B[k] = [cx - hw, cy - hh, cx + hw, cy + hh]; }
+      if (SAT[k]) { const m = B[k], cx = (m[0] + m[2]) / 2, cy = (m[1] + m[3]) / 2, hw = k === 'sun' ? 520 : Math.max((m[2] - m[0]) / 2, 330), hh = k === 'sun' ? 520 : Math.max((m[3] - m[1]) / 2, 280); B[k] = [cx - hw, cy - hh, cx + hw, cy + hh]; }
       const b = B[k].map((v, i) => v + (i < 2 ? -40 : 40)), hubW = SAT[k] ? GEO.worlds[k] : D.SYS[k] && D.SYS[k].hub && GEO.worlds[D.SYS[k].hub];
       let hub = hubW && hubW.orbit ? hubW.orbit.slice() : [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
       if (!hubW && GEO.sys[k]) {      // a system with no hub world (the Scattered Disk): centre it on the circle its transfer boxes sit round
@@ -35,15 +35,17 @@
         const rep = c => A.map((r, i) => r.map((v, j) => j === c ? bb[i] : v)), d0 = det(A);
         if (Math.abs(d0) > 1e-6) hub = [det(rep(0)) / d0 / 2, det(rep(1)) / d0 / 2];
       }
-      if (k === 'mer' && sunC) hub = sunC.slice();      // Mercury's pod is pinned so that the board's sun sits at the middle of the scene
+      if (k === 'sun' && sunC) hub = sunC.slice();      // the Sun Observation pod is pinned so that the board's sun sits at the middle of the scene
       pods[k] = { k, name: SAT[k] ? D.W[k].n : D.SYS[k].n, bbox: b, hub, org: [0, 0], ring: SAT[k] ? SAT[k].ring : RING[k] || 0, ang: 0, sat: !!SAT[k] };
     });
     // overlap test between placed pods (rectangles in scene units)
     const rect = p => [p.org[0] + (p.bbox[0] - p.hub[0]) * S, p.org[1] + (p.bbox[1] - p.hub[1]) * S, p.org[0] + (p.bbox[2] - p.hub[0]) * S, p.org[1] + (p.bbox[3] - p.hub[1]) * S];
     const hit = (a, b, m) => a[0] - m < b[2] && a[2] + m > b[0] && a[1] - m < b[3] && a[3] + m > b[1];
+    { const m = pods.mer; m.org = [0, 0]; m.org = [0, -430 - (m.bbox[3] - m.hub[1]) * S]; }      // Mercury's pod sits well north of the Sun, joined to it by a link
     const placed = [pods.mer];
     ['ven', 'ear', 'mar', 'bel', 'jup', 'sat', 'ura', 'nep', 'kui', 'sca', 'alp'].concat(Object.keys(SAT)).forEach(k => {
       const p = pods[k]; let best = null; const PA = SAT[k] ? SAT[k].ang : PREF[k];
+      if (k === 'sun') { p.ang = 0; p.org = [0, 0]; return; }
       for (let m of [200, 120, 40, -1e9]) {
         for (let d = 0; d <= 180; d += 5) for (const sg of d ? [1, -1] : [1]) {
           const a = (PA + sg * d) * Math.PI / 180; p.org = [Math.cos(a) * p.ring, Math.sin(a) * p.ring];
