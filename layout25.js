@@ -26,6 +26,7 @@
     const pods = {};
     Object.keys(B).forEach(k => {
       if (SAT[k]) { const m = B[k], cx = (m[0] + m[2]) / 2, cy = (m[1] + m[3]) / 2, hw = k === 'sun' ? 520 : Math.max((m[2] - m[0]) / 2, k === 'dsa' ? 495 : 330), hh = k === 'sun' ? 520 : Math.max((m[3] - m[1]) / 2, k === 'dsa' ? 420 : 280); B[k] = [cx - hw, cy - hh, cx + hw, cy + hh]; }
+      if (k === 'alp') { const m = B[k], cx = (m[0] + m[2]) / 2, cy = (m[1] + m[3]) / 2, hw = m[2] - m[0], hh = m[3] - m[1]; B[k] = [cx - hw, cy - hh, cx + hw, cy + hh]; }      // Alpha Centauri's pod is twice as large each way, to hold its star system
       const b = B[k].map((v, i) => v + (i < 2 ? -40 : 40)), hubW = SAT[k] ? GEO.worlds[k] : D.SYS[k] && D.SYS[k].hub && GEO.worlds[D.SYS[k].hub];
       let hub = hubW && hubW.orbit ? hubW.orbit.slice() : [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
       if (!hubW && GEO.sys[k]) {      // a system with no hub world (the Scattered Disk): centre it on the circle its transfer boxes sit round

@@ -311,6 +311,8 @@
   const TAGTXT = { severeAtm: 'Severe atmosphere', volcanic: 'Volcanic', rad: 'Radiation', minimal: 'Minimal gravity', reentry: 'Re-entry', venus: null };
   const KIND = w => { const t = w.tags; return t.includes('sunobs') ? 'Solar observatory' : t.includes('alpha') ? 'Interstellar target' : t.includes('tele') ? 'Telescope site' : t.includes('gas') ? 'Gas giant' : t.includes('earth') ? 'Home orbit' : t.includes('rocky') && t.includes('icy') ? 'Rocky-icy world' : t.includes('icy') ? 'Icy world' : t.includes('rocky') ? 'Rocky world' : t.includes('station') ? 'Orbital site' : 'World'; };
   const panels = new Map();
+  // set a font that makes the text fit the given width (shrinks in 1px steps down to min) and return the size used
+  function fitFont(x, t, weight, size, maxW, min, FONT) { let f = size; x.font = `${weight} ${f}px ${FONT}`; while (x.measureText(t).width > maxW && f > min) { f -= 1; x.font = `${weight} ${f}px ${FONT}`; } return f; }
   function rrect(x, a, b, w, h, r) { x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r); x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath(); }
   // number of bases (any faction, plus a non-player faction's) on a world: the tray shows one slot for each, appearing as bases are built
   const baseCount = (k, ws) => (G ? G.bases.filter(b => b.w === k).length : 0) + (typeof otherFacs === 'function' ? otherFacs().reduce((a, g) => a + g.bases.filter(b => b.w === k).length, 0) : 0) + (ws.npf ? 1 : 0);
@@ -324,9 +326,10 @@
     x.fillStyle = fc; x.globalAlpha = .18; rrect(x, 6, 6, 628, 56, 24); x.fill(); x.globalAlpha = 1;
     x.textBaseline = 'middle';
     // name and kind
-    let fs = 56; x.font = `700 ${fs}px ${FONT}`; while (x.measureText(w.n).width > 420 && fs > 24) { fs -= 2; x.font = `700 ${fs}px ${FONT}`; }
+    x.font = `700 24px ${FONT}`; const chipW = x.measureText(F[1]).width;
+    fitFont(x, w.n, 700, 56, 588 - 28 - chipW - 24, 20, FONT);
     x.textAlign = 'left'; x.fillStyle = '#eaf6ff'; x.fillText(w.n, 28, 36);
-    x.font = `500 28px ${FONT}`; x.fillStyle = '#9fb7cc'; x.fillText(KIND(w), 28, 86);
+    fitFont(x, KIND(w), 500, 28, 560, 14, FONT); x.fillStyle = '#9fb7cc'; x.fillText(KIND(w), 28, 86);
     // field chip
     x.font = `700 24px ${FONT}`; x.textAlign = 'right'; x.fillStyle = fc; x.fillText(F[1], 616, 36);
     // explore tile
@@ -338,20 +341,24 @@
     x.font = `600 19px ${FONT}`; x.fillStyle = dead ? '#ef6b5b' : '#a9bfd2'; x.fillText(dead ? 'DEPLETED' : ws.v !== w.v ? 'printed ' + w.v : 'research value', 0, 56);
     x.restore();
     // stat boxes
-    const stat = (a, label, val, col) => { rrect(x, a, 112, 128, 92, 12); x.fillStyle = 'rgba(255,255,255,.06)'; x.fill(); x.textAlign = 'left'; x.font = `600 19px ${FONT}`; x.fillStyle = '#8fa6bb'; x.fillText(label, a + 12, 132); x.font = `700 46px ${FONT}`; x.fillStyle = col || '#fff'; x.fillText(val, a + 12, 172); };
+    const stat = (a, label, val, col) => { rrect(x, a, 112, 128, 92, 12); x.fillStyle = 'rgba(255,255,255,.06)'; x.fill(); x.textAlign = 'left'; fitFont(x, label, 600, 19, 104, 11, FONT); x.fillStyle = '#8fa6bb'; x.fillText(label, a + 12, 132); fitFont(x, val, 700, 46, 104, 20, FONT); x.fillStyle = col || '#fff'; x.fillText(val, a + 12, 172); };
     stat(196, 'LIFE CHANCE', ws.life ? 'FOUND' : (w.tags.includes('alpha') ? '3–10%' : w.life ? w.life + '%' : '—'), ws.life ? '#6edc8c' : '#fff');
     stat(334, 'BASE COST', w.base ? String(w.base) : '—');
-    rrect(x, 472, 112, 152, 92, 12); x.fillStyle = 'rgba(255,255,255,.06)'; x.fill(); x.textAlign = 'left'; x.font = `600 19px ${FONT}`; x.fillStyle = '#8fa6bb'; x.fillText('PRODUCES', 484, 132);
+    rrect(x, 472, 112, 152, 92, 12); x.fillStyle = 'rgba(255,255,255,.06)'; x.fill(); x.textAlign = 'left'; fitFont(x, 'PRODUCES', 600, 19, 128, 11, FONT); x.fillStyle = '#8fa6bb'; x.fillText('PRODUCES', 484, 132);
     const pr = Object.entries(w.prod || {}); if (!pr.length) { x.font = `700 46px ${FONT}`; x.fillStyle = '#fff'; x.fillText('—', 484, 172); }
-    pr.forEach(([r, n], i) => { const yy = 156 + i * 24; x.fillStyle = RESC[r] || '#fff'; x.beginPath(); x.arc(492, yy + 8, 7, 0, 6.2832); x.fill(); x.font = `700 26px ${FONT}`; x.fillStyle = '#fff'; x.fillText(`${r} ${n}`, 506, yy + 9); });
+    pr.forEach(([r, n], i) => { const yy = 156 + i * 24; x.fillStyle = RESC[r] || '#fff'; x.beginPath(); x.arc(492, yy + 8, 7, 0, 6.2832); x.fill(); fitFont(x, `${r} ${n}`, 700, 26, 112, 14, FONT); x.fillStyle = '#fff'; x.fillText(`${r} ${n}`, 506, yy + 9); });
     // tags and state
     const chips = []; w.tags.forEach(t => { if (TAGTXT[t]) chips.push([TAGTXT[t], '#9fc3dd']); });
-    if (w.tags.includes('alpha')) { chips.push(['d10 per success:', '#e8d27a'], ['1-4 Physics 3%', '#5aaaff'], ['5-7 Engineering 5%', '#d5dbe6'], ['8-10 Biology 10%', '#6edc8c']); }
+    if (w.tags.includes('alpha')) { chips.push(['d10 per success:', '#e8d27a'], ['1-4 Physics 3%', '#5aaaff', 1], ['5-7 Engineering 5%', '#d5dbe6'], ['8-10 Biology 10%', '#6edc8c']); }
     if (ws.sol) chips.push(['Solar power', '#f2b13c']); if (D.TERRA && D.TERRA[k]) chips.push([`Terraform ${ws.terra}/${D.TERRA[k]}`, '#6edc8c']);
     if (ws.npf) chips.push([`${(typeof E !== 'undefined' && E.npfName) ? E.npfName(G, k) : 'NPF'} base`, '#c9a6ff']); if (ws.blk) chips.push(['BLOCKADED', '#ef6b5b']);
-    let cx = 196, cy = 236; x.font = `600 25px ${FONT}`;
-    chips.forEach(([t, col]) => { const wd = x.measureText(t).width + 26; if (cx + wd > 624) { cx = 196; cy += 46; } rrect(x, cx, cy, wd, 38, 19); x.fillStyle = 'rgba(255,255,255,.07)'; x.fill(); x.lineWidth = 2; x.strokeStyle = col; x.stroke(); x.fillStyle = col; x.textAlign = 'left'; x.fillText(t, cx + 13, cy + 20); cx += wd + 10; });
-    if (w.rng) { x.textAlign = 'right'; x.font = `500 19px ${FONT}`; x.fillStyle = '#6f879b'; x.fillText(`random world d100 ${w.rng[0]}–${w.rng[1]}`, 616, 326); }
+    {      // chips wrap inside the plate: the font shrinks until every row fits (a chip with a third value breaks the line after it)
+      const limit = w.rng ? 314 : 338, W0 = 428; let fz = 25, rows;
+      const lay = f => { x.font = `600 ${f}px ${FONT}`; const pad = f * .52, hh = f * 1.5, out = []; let cx = 196, cy = 236, ok = true; chips.forEach(([t, col, br]) => { const wd = x.measureText(t).width + pad * 2; if (wd > W0) ok = false; if (cx + wd > 196 + W0 && cx > 196) { cx = 196; cy += hh + 8; } out.push({ t, col, x: cx, y: cy, wd, hh, pad }); cx += wd + 10; if (br) { cx = 196 + W0 + 1; } }); return { out, ok: ok && (!out.length || out[out.length - 1].y + hh <= limit) }; };
+      for (;;) { rows = lay(fz); if (rows.ok || fz <= 13) break; fz -= 1; }
+      x.font = `600 ${fz}px ${FONT}`; rows.out.forEach(c => { rrect(x, c.x, c.y, c.wd, c.hh, c.hh / 2); x.fillStyle = 'rgba(255,255,255,.07)'; x.fill(); x.lineWidth = 2; x.strokeStyle = c.col; x.stroke(); x.fillStyle = c.col; x.textAlign = 'left'; x.fillText(c.t, c.x + c.pad, c.y + c.hh / 2 + 1); });
+    }
+    if (w.rng) { x.textAlign = 'right'; fitFont(x, `random world d100 ${w.rng[0]}–${w.rng[1]}`, 500, 19, 400, 11, FONT); x.fillStyle = '#6f879b'; x.fillText(`random world d100 ${w.rng[0]}–${w.rng[1]}`, 616, 326); }
     if (dead) { x.fillStyle = 'rgba(20,0,0,.28)'; rrect(x, 6, 6, 628, 340, 24); x.fill(); }
     x.setTransform(1, 0, 0, 1, 0, 0); drawTray(x, k, ws, w, FONT, nb); P.dirty = true; return P;
   }
@@ -450,7 +457,7 @@
     // card slot
     if (kd.card) {
       const [cx, cz, cw, ch] = SLOT.card, X = cx - cw / 2, Y = cz - ch / 2, c = ws.card && D.CARDS.find(q => q.n === ws.card);
-      if (!c) { x.save(); x.setLineDash([4, 3]); x.lineWidth = 1.3; x.strokeStyle = 'rgba(160,200,240,.45)'; rrect(x, X, Y, cw, ch, 8); x.stroke(); x.restore(); x.textAlign = 'center'; x.font = `700 9px ${FONT}`; x.fillStyle = '#9fb7cc'; x.fillText('WORLD CARD', cx, cz - 6); x.font = `500 7px ${FONT}`; x.fillStyle = '#6f879b'; x.fillText('placed on depletion', cx, cz + 6); }
+      if (!c) { x.save(); x.setLineDash([4, 3]); x.lineWidth = 1.3; x.strokeStyle = 'rgba(160,200,240,.45)'; rrect(x, X, Y, cw, ch, 8); x.stroke(); x.restore(); x.textAlign = 'center'; fitFont(x, 'WORLD CARD', 700, 9, cw - 14, 5, FONT); x.fillStyle = '#9fb7cc'; x.fillText('WORLD CARD', cx, cz - 6); fitFont(x, 'placed on depletion', 500, 7, cw - 14, 4, FONT); x.fillStyle = '#6f879b'; x.fillText('placed on depletion', cx, cz + 6); }
       else {
         const col = (FIELD[c.rf] || ['#9ad'])[0];
         rrect(x, X, Y, cw, ch, 8); x.fillStyle = 'rgba(4,12,26,.92)'; x.fill(); x.lineWidth = 1.8; x.strokeStyle = col; x.stroke();
@@ -459,9 +466,9 @@
         x.textAlign = 'left'; x.fillStyle = '#eaf6ff'; x.fillText(c.n, X + 6, Y + 8.5);
         x.save(); x.translate(X + 22, Y + 40); x.beginPath(); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.2832 + .5236; x.lineTo(Math.cos(a) * 16, Math.sin(a) * 16); } x.closePath(); x.fillStyle = 'rgba(255,255,255,.07)'; x.fill(); x.lineWidth = 1.8; x.strokeStyle = col; x.stroke();
         x.textAlign = 'center'; x.font = `700 21px ${FONT}`; x.fillStyle = '#fff'; x.shadowColor = col; x.shadowBlur = 6; x.fillText(String(c.rv), 0, 1); x.shadowBlur = 0; x.font = `600 6px ${FONT}`; x.fillStyle = '#a9bfd2'; x.fillText((FIELD[c.rf] || ['', ''])[1].slice(0, 3), 0, 12); x.restore();
-        let yy = Y + 26; x.textAlign = 'left'; Object.entries(c.prod).forEach(([r, n]) => { if (!n) return; x.fillStyle = RESC[r] || '#fff'; x.beginPath(); x.arc(X + 46, yy, 3.2, 0, 6.2832); x.fill(); x.font = `700 10px ${FONT}`; x.fillStyle = '#fff'; x.fillText(`${r} ${n}`, X + 53, yy + .5); yy += 12; });
+        let yy = Y + 26; x.textAlign = 'left'; Object.entries(c.prod).forEach(([r, n]) => { if (!n) return; x.fillStyle = RESC[r] || '#fff'; x.beginPath(); x.arc(X + 46, yy, 3.2, 0, 6.2832); x.fill(); fitFont(x, `${r} ${n}`, 700, 10, X + cw - 6 - (X + 53), 5, FONT); x.fillStyle = '#fff'; x.fillText(`${r} ${n}`, X + 53, yy + .5); yy += 12; });
         const bt = Object.entries(c.bonus).map(([a, v]) => `+${v} ${BONUS[a] || a}`).concat(c.lifeB ? [`+${c.lifeB}% life`] : []).join(' · ');
-        x.font = `600 6.5px ${FONT}`; x.fillStyle = '#9fc3dd'; x.textAlign = 'left'; x.fillText('EXPLORE ' + bt, X + 6, Y + ch - 5, cw - 10);
+        fitFont(x, 'EXPLORE ' + bt, 600, 6.5, cw - 10, 3.5, FONT); x.fillStyle = '#9fc3dd'; x.textAlign = 'left'; x.fillText('EXPLORE ' + bt, X + 6, Y + ch - 5);
       }
     }
     x.restore();
@@ -720,10 +727,16 @@
     gi.forEach(({ o }) => { const cx = (o.cell % 4) / 4, cy = ((o.cell / 4) | 0) / 4, gl = 1 + .06 * Math.sin(T * .7 + o.ph); quad(g, billboard([o.x, o.y, o.z], o.s, o.s), [cx, cy, cx + .25, cy + .25], [gl, gl, gl, .92]); });
     flush(pQ, g, texOf(at, false), 0);
   }
-  function drawStars(it, T) {
-    const u = it.u, S3 = [{ o: -1.3, z: .2, r: 1.15, c: [1, .94, .68] }, { o: 1.35, z: -.3, r: .85, c: [1, .62, .3] }, { o: 3.4, z: 1.1, r: .34, c: [1, .3, .2] }], g = [], a = [];
-    S3.forEach(st => { const pos = [it.x + st.o * u * Math.cos(T * .05) , it.y, it.z + st.o * u * Math.sin(T * .05) * .6 + st.z * u]; quad(g, billboard(pos, st.r * u * 3, st.r * u * 3), [0, 0, 1, 1], [st.c[0], st.c[1], st.c[2], .55]); quad(a, billboard(pos, st.r * u, st.r * u), [0, 0, 1, 1], [st.c[0], st.c[1], st.c[2], 1]); });
-    flush(pQ, g, null, 3); flush(pQ, a, null, 7);
+  const ALPHA_PL = { giant: P_({ lp: .015, tt: 1, spin: .7, c1: [.74, .5, .3], c2: [.97, .86, .66], sd: 71 }), b: P_({ lp: .1, c1: [.34, .3, .26], c2: [.62, .55, .48], sd: 72, spin: .8 }), c: P_({ lp: .03, c1: [.3, .4, .55], c2: [.62, .74, .88], sd: 73, spin: .6 }), d: P_({ lp: .12, c1: [.3, .27, .25], c2: [.5, .46, .42], sd: 74, spin: 1 }) };
+  function drawStars(it, T) {      // Alpha Centauri A and B circling each other at a fixed distance, a candidate gas giant round the pair, and Proxima with its three planets
+    const u = it.u * 1.1, th = T * .05, at = (r, an, y) => [it.x + Math.cos(an) * r * u, it.y + (y || 0) * u, it.z + Math.sin(an) * r * u], bodies = [];
+    const star = (pos, r, c) => bodies.push({ star: true, pos, r, c, d: dist2(pos[0], pos[1], pos[2]) }), planet = (pos, r, part) => bodies.push({ pos, r, part, d: dist2(pos[0], pos[1], pos[2]) });
+    star(at(.94, th), .62, [1, .94, .68]); star(at(1.26, th + Math.PI), .46, [1, .62, .3]);               // A and B, 2.2u apart whatever the angle
+    planet(at(2.1, th * 1.7 + 1.1, .05), .26, ALPHA_PL.giant);                                              // the candidate gas giant
+    const pc = th * .4 + 3.9, P0 = at(3.0, pc); star(P0, .18, [1, .3, .2]);                                // Proxima Centauri, far out and slow
+    [[.26, .075, 'b', 2.1], [.37, .066, 'c', 1.3], [.5, .06, 'd', .8]].forEach(([d, r, n, sp], i) => { const an = T * sp * .25 + i * 2.1; planet([P0[0] + Math.cos(an) * d * u, P0[1], P0[2] + Math.sin(an) * d * u], r, ALPHA_PL[n]); });
+    bodies.sort((p, q) => q.d - p.d);
+    bodies.forEach(o => { if (o.star) { const g = [], a = []; quad(g, billboard(o.pos, o.r * u * 3, o.r * u * 3), [0, 0, 1, 1], [o.c[0], o.c[1], o.c[2], .55]); quad(a, billboard(o.pos, o.r * u, o.r * u), [0, 0, 1, 1], [o.c[0], o.c[1], o.c[2], 1]); flush(pQ, g, null, 3); flush(pQ, a, null, 7); } else drawRock(o.pos, o.r * u, o.part, T); });
   }
   function ensure() {
     if (LAY || typeof GEO === 'undefined' || typeof SHL === 'undefined') return;
@@ -862,7 +875,7 @@
         flushRun();
         if (it.kind === 'sprite') { const sz = it.u * (it.k === 'dsa' ? 3.8 : 3.2), cv = spriteFor(it.k), a = []; quad(a, billboard([it.x, it.y + Math.sin(T * 1.2 + it.x) * it.u * .08, it.z], sz, sz), [0, 0, 1, 1], WHITE); flush(pQ, a, texOf(cv, false), 0); }
         else if (it.kind === 'deep') drawDeep(it, T); else if (it.kind === 'stars') drawStars(it, T); else drawModel(it, T);
-        const ext = it.u * (it.kind === 'deep' ? 3.4 : it.kind === 'sprite' ? 2.6 : it.k === 'alp' ? 3 : 2.4), c = proj(it.x, it.y, it.z), e = proj(it.x + rgt[0] * ext, it.y + rgt[1] * ext, it.z + rgt[2] * ext);
+        const ext = it.u * (it.kind === 'deep' ? 3.4 : it.kind === 'sprite' ? 2.6 : it.k === 'alp' ? 4.4 : 2.4), c = proj(it.x, it.y, it.z), e = proj(it.x + rgt[0] * ext, it.y + rgt[1] * ext, it.z + rgt[2] * ext);
         if (c && e && GEO.worlds[it.k]) picks.push({ sx: c[0], sy: c[1], pr: Math.hypot(e[0] - c[0], e[1] - c[1]), hit: { t: 'world', k: it.k }, z: c[2], planet: true });
       } else {
         const r = it.r, iw = r.img.width, ih = r.img.height, uv = [r.f[0] / iw, r.f[1] / ih, (r.f[0] + r.f[2]) / iw, (r.f[1] + r.f[3]) / ih];
