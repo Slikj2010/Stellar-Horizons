@@ -639,16 +639,44 @@
 
   // deep-field art: galaxy sprites (elliptical, spiral, edge-on, lensed arc, diffraction-spike star), all drawn procedurally
   let GALX = null, DEEPBG = null;
-  function galaxyAtlas() {
-    if (GALX) return GALX; const c = document.createElement('canvas'); c.width = c.height = 512; const x = c.getContext('2d'), r = mulb(77);
-    const glow = (cx, cy, R, col, a) => { const g = x.createRadialGradient(cx, cy, 0, cx, cy, R); g.addColorStop(0, `rgba(${col},${a})`); g.addColorStop(.25, `rgba(${col},${a * .45})`); g.addColorStop(1, `rgba(${col},0)`); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, R, 0, 6.2832); x.fill(); };
-    for (let n = 0; n < 16; n++) {      // 4x4 cells of 128 px
-      const cx = (n % 4) * 128 + 64, cy = ((n / 4) | 0) * 128 + 64, ty = n % 5; x.save(); x.translate(cx, cy);
-      if (ty === 0) { x.rotate(r() * 3); x.scale(1, .55 + r() * .3); glow(0, 0, 60, '255,232,185', .95); glow(0, 0, 18, '255,250,235', 1); }                 // elliptical
-      else if (ty === 1) { x.rotate(r() * 3); x.scale(1, .5 + r() * .4); for (let a = 0; a < 2; a++) for (let i = 0; i < 160; i++) { const t = i / 160, an = a * 3.1416 + t * 5.2, rr = 6 + t * 50, px = Math.cos(an) * rr + (r() - .5) * 6, py = Math.sin(an) * rr + (r() - .5) * 6; x.fillStyle = `rgba(${150 + t * 90 | 0},${185 + t * 40 | 0},255,${.5 * (1 - t) + .08})`; x.beginPath(); x.arc(px, py, 1.6 + r() * 1.6, 0, 6.2832); x.fill(); } glow(0, 0, 22, '255,236,190', .95); }  // spiral
-      else if (ty === 2) { x.rotate(r() * 3); x.scale(1, .13); glow(0, 0, 62, '255,214,150', .9); glow(0, 0, 20, '255,246,220', 1); }                         // edge-on
-      else if (ty === 3) { x.rotate(r() * 3); x.scale(1, .65); glow(0, 0, 40, '120,170,255', .9); glow(0, 0, 11, '235,244,255', 1); }                       // small blue
-      else { x.rotate(r() * 3); x.scale(1, .7 + r() * .25); glow(0, 0, 50, '255,214,160', .9); glow(0, 0, 14, '255,246,226', 1); }                      // warm compact elliptical
+  function galaxyAtlas() {      // 4x4 cells of 256 px: spirals with dust lanes and star-forming knots, barred spirals, ellipticals, edge-on discs, rings, irregulars
+    if (GALX) return GALX; const CS = 256, c = document.createElement('canvas'); c.width = c.height = CS * 4; const x = c.getContext('2d'), r = mulb(77);
+    const glow = (cx, cy, R, col, a, mid) => { const g = x.createRadialGradient(cx, cy, 0, cx, cy, R); g.addColorStop(0, `rgba(${col},${a})`); g.addColorStop(mid || .3, `rgba(${col},${a * .4})`); g.addColorStop(1, `rgba(${col},0)`); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, R, 0, 6.2832); x.fill(); };
+    const gauss = () => (r() + r() + r() + r() - 2) / 2;
+    const arms = (n, wind, r0, r1, spread, dens, tilt) => {      // star particles along logarithmic-style arms, warm inside and blue outside, with pink star-forming knots
+      for (let a = 0; a < n; a++) for (let i = 0; i < dens; i++) {
+        const t = Math.pow(i / dens, .8), an = a * 6.2832 / n + t * wind + tilt, rr = r0 + t * (r1 - r0), sp = 2 + t * spread, px = Math.cos(an) * rr + gauss() * sp, py = Math.sin(an) * rr + gauss() * sp;
+        const cr = 255 - t * 105 | 0, cg = 226 - t * 30 | 0, cb = 170 + t * 85 | 0; x.fillStyle = `rgba(${cr},${cg},${cb},${.22 + r() * .35})`; x.beginPath(); x.arc(px, py, .6 + r() * 1.7, 0, 6.2832); x.fill();
+        if (r() < .012) { glow(px, py, 5 + r() * 5, '255,120,170', .55, .4); }
+      }
+    };
+    const lanes = (n, wind, r0, r1, tilt, off) => { x.save(); x.globalCompositeOperation = 'destination-out'; x.lineCap = 'round'; for (let a = 0; a < n; a++) { x.beginPath(); for (let i = 0; i <= 60; i++) { const t = i / 60, an = a * 6.2832 / n + t * wind + tilt + off, rr = r0 + t * (r1 - r0), px = Math.cos(an) * rr, py = Math.sin(an) * rr; i ? x.lineTo(px, py) : x.moveTo(px, py); } x.strokeStyle = 'rgba(0,0,0,.42)'; x.lineWidth = 5; x.stroke(); x.strokeStyle = 'rgba(0,0,0,.2)'; x.lineWidth = 11; x.stroke(); } x.restore(); };
+    for (let n = 0; n < 16; n++) {
+      const cx = (n % 4) * CS + CS / 2, cy = ((n / 4) | 0) * CS + CS / 2, ty = n % 8, v = (n / 8) | 0, tilt = r() * 6.2832; x.save(); x.beginPath(); x.rect(cx - CS / 2, cy - CS / 2, CS, CS); x.clip(); x.translate(cx, cy);
+      if (ty === 0 || ty === 4) {          // spiral (face-on / inclined)
+        const incl = ty === 0 ? .85 - r() * .25 : .38 + r() * .15; x.rotate(r() * 3.14); x.scale(1, incl);
+        glow(0, 0, 118, '170,190,255', .18, .5); arms(2 + v, 4.2 + r() * 1.5, 14, 112, 11, 520, tilt); lanes(2 + v, 4.2, 14, 108, tilt, -.2); glow(0, 0, 40, '255,224,165', .9, .35); glow(0, 0, 11, '255,250,238', 1, .5);
+      } else if (ty === 1) {               // barred spiral
+        x.rotate(r() * 3.14); x.scale(1, .7 - r() * .15); glow(0, 0, 112, '170,190,255', .16, .5);
+        const bl = 36, ba = 0; x.save(); x.rotate(ba); x.scale(1, .22); glow(0, 0, bl * 1.5, '255,215,150', .9, .4); x.restore();
+        x.save(); x.translate(Math.cos(ba) * bl, Math.sin(ba) * bl); arms(1, 4, 6, 100, 10, 300, ba + 1.57); x.restore(); x.save(); x.translate(-Math.cos(ba) * bl, -Math.sin(ba) * bl); arms(1, 4, 6, 100, 10, 300, ba - 1.57); x.restore();
+        glow(0, 0, 22, '255,244,220', .95, .4);
+      } else if (ty === 2) {               // giant elliptical with faint shells and globular clusters
+        x.rotate(r() * 3.14); x.scale(1, .62 + r() * .3); glow(0, 0, 110, '255,225,175', .5, .6); glow(0, 0, 70, '255,230,185', .8, .45); glow(0, 0, 26, '255,248,230', 1, .5);
+        for (let i = 0; i < 26; i++) { const an = r() * 6.2832, d = 30 + r() * 80; x.fillStyle = `rgba(255,235,190,${.3 + r() * .4})`; x.beginPath(); x.arc(Math.cos(an) * d, Math.sin(an) * d, .8 + r() * 1.1, 0, 6.2832); x.fill(); }
+      } else if (ty === 3) {               // edge-on disc with a dust lane
+        x.rotate(r() * 3.14); x.save(); x.scale(1, .12); glow(0, 0, 118, '255,222,165', .85, .5); x.restore(); x.save(); x.scale(1, .3); glow(0, 0, 40, '255,232,190', .8, .5); x.restore();
+        x.save(); x.globalCompositeOperation = 'destination-out'; x.fillStyle = 'rgba(0,0,0,.55)'; x.beginPath(); x.ellipse(0, 1, 100, 2.4, 0, 0, 6.2832); x.fill(); x.restore(); glow(0, -1, 14, '255,248,230', .9, .5);
+      } else if (ty === 5) {               // ring galaxy
+        x.rotate(r() * 3.14); x.scale(1, .75); x.lineWidth = 12; for (let k = 0; k < 3; k++) { x.strokeStyle = `rgba(150,190,255,${.12 + k * .1})`; x.lineWidth = 16 - k * 5; x.beginPath(); x.ellipse(0, 0, 62, 62, 0, 0, 6.2832); x.stroke(); }
+        for (let i = 0; i < 150; i++) { const an = r() * 6.2832, d = 62 + gauss() * 6; x.fillStyle = `rgba(210,225,255,${.3 + r() * .4})`; x.beginPath(); x.arc(Math.cos(an) * d, Math.sin(an) * d, .6 + r() * 1.3, 0, 6.2832); x.fill(); if (r() < .05) glow(Math.cos(an) * d, Math.sin(an) * d, 6, '255,130,170', .6, .4); }
+        glow(0, 0, 30, '255,225,170', .9, .4);
+      } else if (ty === 6) {               // irregular clumpy dwarf
+        x.rotate(r() * 3.14); x.scale(1, .7); for (let i = 0; i < 14; i++) { const an = r() * 6.2832, d = r() * 50; glow(Math.cos(an) * d, Math.sin(an) * d, 14 + r() * 22, r() < .5 ? '140,185,255' : '200,215,255', .45, .5); }
+        for (let i = 0; i < 6; i++) glow(gauss() * 40, gauss() * 30, 6 + r() * 4, '255,130,175', .6, .4);
+      } else {                             // compact blue galaxy with a bright core
+        x.rotate(r() * 3.14); x.scale(1, .6 + r() * .3); glow(0, 0, 70, '120,170,255', .5, .5); glow(0, 0, 26, '200,225,255', .95, .4); glow(0, 0, 8, '255,255,255', 1, .5);
+      }
       x.restore();
     }
     return GALX = c;
@@ -676,20 +704,20 @@
     return NEBA = c;
   }
   let DEEPI = null;
-  function drawDeep(it, T) {      // a three-dimensional galaxy cluster with gas clouds, filling the whole Deep Space Astronomy pod
+  function drawDeep(it, T) {      // a still galaxy cluster with gas clouds filling the whole Deep Space Astronomy pod, clear of its world box
     const u = it.u, pod = podOfW('dsa'), rc = pod.rect, ar = ASM && ASM.dsa && ASM.dsa.rect;
     if (!DEEPI || DEEPI.key !== rc.join()) {
-      const r = mulb(901), gal = [], neb = [], inBox = (x, z, m) => ar && x > ar[0] - m && x < ar[2] + m && z > ar[1] - m && z < ar[3] + m, W = rc[2] - rc[0], H = rc[3] - rc[1];
-      for (let i = 0; i < 9; i++) { let x, z, t = 0; const sz = u * (2.4 + r() * 2.4); do { x = rc[0] + sz * .45 + (W - sz * .9) * Math.pow(r(), 1.2); z = rc[1] + sz * .4 + (H - sz * .8) * (1 - Math.pow(r(), 1.25)); } while (inBox(x, z, 40) && ++t < 30); neb.push({ x, z, cell: (r() * 4) | 0, s: sz, y: -u * .2 - r() * u * .6 }); }
-      for (let i = 0; i < 80; i++) { let x, z, t = 0; if (i < 14) { const R = u * (.4 + r() * 3.6), an = r() * 6.2832; x = it.x + Math.cos(an) * R; z = it.z + Math.sin(an) * R * .7; } else do { x = rc[0] + W * (.06 + .88 * Math.pow(r(), 1.35)); z = rc[1] + H * (.94 - .86 * Math.pow(r(), 1.4)); } while (inBox(x, z, 30) && ++t < 30); gal.push({ x, z, cell: (r() * 16) | 0, s: u * (.7 + Math.pow(r(), 1.5) * 1.7) * 1.2, y: it.y + (r() - .5) * u * 4, sp: .5 + r() }); }
+      const r = mulb(901), gal = [], neb = [], W = rc[2] - rc[0], H = rc[3] - rc[1];
+      const clear = (x, z, s) => !ar || !(x + s * .7 > ar[0] - 20 && x - s * .7 < ar[2] + 20 && z + s * .7 > ar[1] - 20 && z - s * 1.9 < ar[3] + s * 1.4);      // the sprite stands up, so it also reaches north of its foot and hides the box on its south side
+      for (let i = 0; i < 9; i++) { let x, z, t = 0, ok; const sz = u * (2 + r() * 1.6); do { x = rc[0] + sz * .5 + (W - sz) * Math.pow(r(), 1.1); z = rc[1] + sz * .4 + (H - sz * .8) * (1 - Math.pow(r(), 1.2)); ok = neb.every(q => Math.hypot(q.x - x, q.z - z) > (q.s + sz) * .62); } while (!(ok && clear(x, z, sz * .5)) && ++t < 200); if (t < 200) neb.push({ x, z, cell: (r() * 4) | 0, s: sz, y: -u * .2 }); }
+      for (let i = 0; i < 56; i++) { let x, z, t = 0, ok; const sz = u * (.8 + Math.pow(r(), 1.5) * 1.5) * 1.75; do { x = rc[0] + sz * .6 + (W - sz * 1.2) * Math.pow(r(), 1.25); z = rc[1] + sz * .9 + (H - sz * 1.2) * (1 - Math.pow(r(), 1.3)); ok = gal.every(q => Math.hypot(q.x - x, q.z - z) > (q.s + sz) * .42); } while (!(ok && clear(x, z, sz)) && ++t < 200); if (t < 200) gal.push({ x, z, cell: [0, 8, 1, 9, 4, 12, 2, 10, 0, 1, 4, 2, 3, 5, 6, 7][(r() * 16) | 0], s: sz, y: sz * .5, ph: r() * 6.2832 }); }
       DEEPI = { key: rc.join(), gal, neb };
     }
-    const at = galaxyAtlas(), na = nebulaAtlas(), g = [], n = [], gi = [];
+    const at = galaxyAtlas(), na = nebulaAtlas(), g = [], n = [], gi = DEEPI.gal.map(o => ({ o, d: dist2(o.x, o.y, o.z) }));
     DEEPI.neb.forEach(o => { const cx = (o.cell % 2) / 2, cy = ((o.cell / 2) | 0) / 2; quad(n, billboard([o.x, o.y, o.z], o.s, o.s * .8), [cx, cy, cx + .5, cy + .5], [1, 1, 1, .5]); });
     flush(pQ, n, texOf(na, false), 0);
-    DEEPI.gal.forEach(o => { const a = T * .015 * o.sp, ca = Math.cos(a), sa = Math.sin(a), dx = o.x - it.x, dz = o.z - it.z; gi.push({ p: [it.x + dx * ca - dz * sa, o.y, it.z + dx * sa + dz * ca], cell: o.cell, s: o.s }); });
-    gi.forEach(o => { o.d = dist2(o.p[0], o.p[1], o.p[2]); }); gi.sort((p, q) => q.d - p.d);
-    gi.forEach(o => { const cx = (o.cell % 4) / 4, cy = ((o.cell / 4) | 0) / 4; quad(g, billboard(o.p, o.s, o.s), [cx, cy, cx + .25, cy + .25], [1, 1, 1, .9]); });
+    gi.sort((p, q) => q.d - p.d);
+    gi.forEach(({ o }) => { const cx = (o.cell % 4) / 4, cy = ((o.cell / 4) | 0) / 4, gl = 1 + .06 * Math.sin(T * .7 + o.ph); quad(g, billboard([o.x, o.y, o.z], o.s, o.s), [cx, cy, cx + .25, cy + .25], [gl, gl, gl, .92]); });
     flush(pQ, g, texOf(at, false), 0);
   }
   function drawStars(it, T) {
