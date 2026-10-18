@@ -729,12 +729,14 @@
   }
   const ALPHA_PL = { giant: P_({ lp: .015, tt: 1, spin: .7, c1: [.74, .5, .3], c2: [.97, .86, .66], sd: 71 }), b: P_({ lp: .1, c1: [.34, .3, .26], c2: [.62, .55, .48], sd: 72, spin: .8 }), c: P_({ lp: .03, c1: [.3, .4, .55], c2: [.62, .74, .88], sd: 73, spin: .6 }), d: P_({ lp: .12, c1: [.3, .27, .25], c2: [.5, .46, .42], sd: 74, spin: 1 }) };
   function drawStars(it, T) {      // Alpha Centauri A and B circling each other at a fixed distance, a candidate gas giant round the pair, and Proxima with its three planets
-    const u = it.u * 1.1, th = T * .05, at = (r, an, y) => [it.x + Math.cos(an) * r * u, it.y + (y || 0) * u, it.z + Math.sin(an) * r * u], bodies = [];
+    const u = it.u, th = T * .05, at = (r, an, y) => [it.x + Math.cos(an) * r * u, it.y + (y || 0) * u, it.z + Math.sin(an) * r * u], bodies = [];
     const star = (pos, r, c) => bodies.push({ star: true, pos, r, c, d: dist2(pos[0], pos[1], pos[2]) }), planet = (pos, r, part) => bodies.push({ pos, r, part, d: dist2(pos[0], pos[1], pos[2]) });
-    star(at(.94, th), .62, [1, .94, .68]); star(at(1.26, th + Math.PI), .46, [1, .62, .3]);               // A and B, 2.2u apart whatever the angle
-    planet(at(2.1, th * 1.7 + 1.1, .05), .26, ALPHA_PL.giant);                                              // the candidate gas giant
-    const pc = th * .4 + 3.9, P0 = at(3.0, pc); star(P0, .18, [1, .3, .2]);                                // Proxima Centauri, far out and slow
-    [[.26, .075, 'b', 2.1], [.37, .066, 'c', 1.3], [.5, .06, 'd', .8]].forEach(([d, r, n, sp], i) => { const an = T * sp * .25 + i * 2.1; planet([P0[0] + Math.cos(an) * d * u, P0[1], P0[2] + Math.sin(an) * d * u], r, ALPHA_PL[n]); });
+    // orbits never cross: giant (0.26u) circles A at 1.15u; A and B are 3u apart; Proxima's planets (out to 0.6u) circle Proxima 3.5u from the centre
+    const A = at(1.28, th), B = at(1.72, th + Math.PI);
+    star(A, .62, [1, .94, .68]); star(B, .46, [1, .62, .3]);
+    { const an = T * .4 + 1.1; planet([A[0] + Math.cos(an) * 1.15 * u, A[1] + .05 * u, A[2] + Math.sin(an) * 1.15 * u], .26, ALPHA_PL.giant); }      // the candidate gas giant circles Alpha Centauri A
+    const P0 = at(3.5, th * .4 + 3.9); star(P0, .16, [1, .3, .2]);                                                                      // Proxima Centauri, far out and slow
+    [[.31, .075, 'b', 2.1], [.44, .066, 'c', 1.3], [.6, .06, 'd', .8]].forEach(([d, r, n, sp], i) => { const an = T * sp * .25 + i * 2.1; planet([P0[0] + Math.cos(an) * d * u, P0[1], P0[2] + Math.sin(an) * d * u], r, ALPHA_PL[n]); });
     bodies.sort((p, q) => q.d - p.d);
     bodies.forEach(o => { if (o.star) { const g = [], a = []; quad(g, billboard(o.pos, o.r * u * 3, o.r * u * 3), [0, 0, 1, 1], [o.c[0], o.c[1], o.c[2], .55]); quad(a, billboard(o.pos, o.r * u, o.r * u), [0, 0, 1, 1], [o.c[0], o.c[1], o.c[2], 1]); flush(pQ, g, null, 3); flush(pQ, a, null, 7); } else drawRock(o.pos, o.r * u, o.part, T); });
   }
