@@ -38,8 +38,8 @@ try:
             sp = pg.evaluate("V25.picks().filter(p => p.rec && p.rec.hit && p.rec.hit.t === 'ship' && p.rec.hit.id === %d).map(p => [p.sx, p.sy])" % info['id'])
             tp = pg.evaluate("(() => { const q = V25.toScreen(%f, %f, 0); return [q[0], q[1]]; })()" % (info['x'], info['y']))
             box = pg.evaluate("(() => { const r = V25.canvas().getBoundingClientRect(); return [r.left, r.top]; })()")
-            chk(bool(sp), 'new ship is pickable at ' + str(sp))
-            if sp:
+            chk(not sp, 'ships waiting on Earth live on the faction board, not the map: ' + str(sp))
+            if False:
                 pg.mouse.move(box[0] + sp[0][0], box[1] + sp[0][1]); pg.mouse.down(); pg.mouse.move(box[0] + sp[0][0] + 20, box[1] + sp[0][1] + 20, steps=3)
                 time.sleep(.3); chk(pg.evaluate("!!dragS && !!targets"), 'dragging a counter highlights its destinations')
                 pg.screenshot(path=out + '/e_drag.png')
