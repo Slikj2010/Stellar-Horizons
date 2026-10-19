@@ -122,7 +122,7 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
 }
 /* faction board (digital take on the printed faction sheet): opens over the map from the Faction tab */
 #fboard { user-select: none; -webkit-user-select: none; position: absolute; inset: 0; z-index: 9; overflow: auto; background: #070b11; padding: 14px 16px 22px; overscroll-behavior: contain; }
-#fboard .fb { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; max-width: 1240px; margin: 0 auto; }
+#fboard .fb { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; align-items: start; max-width: 1240px; margin: 0 auto; }
 #fboard .fc { background: linear-gradient(180deg, #0f1824, #0b121b); border: 1px solid #263a50; border-radius: 10px; padding: 10px 12px; min-width: 0; position: relative; }
 #fboard .fc > h4 { margin: 0 0 8px; font: 700 12px var(--f-disp); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); display: flex; align-items: center; gap: 8px; }
 #fboard .fc > h4 small { font: 500 11px var(--f-body); letter-spacing: 0; text-transform: none; color: #6f879b; margin-left: auto; }
@@ -1746,7 +1746,11 @@ function boardHTML() {
     dest = G.phase !== 'move' ? '<p class="dim" style="margin:8px 0 0">Launches happen in the Movement step.</p>' : !mv.length ? '<p class="dim" style="margin:8px 0 0">This ship cannot launch now (it may need a launch vehicle, or has already moved).</p>' : `<div class="dg"><p class="dim" style="margin:0 0 6px">Launch to:</p>${D.SYS_ORDER.filter(sy => groups[sy]).map(sy => `<div><b>${esc(D.SYS[sy].n)}</b>${groups[sy].map(g => `<button data-fdest="${esc(g.dest)}">${esc(E.locName(g.dest))}${g.list[0].eta ? ' · ' + g.list[0].eta + 't' : ''}</button>`).join('')}</div>`).join('')}</div>`;
   }
   const opts = E.buildOptions(G, 'earth');
-  const units = opts.map(o => `<div class="un">${plainCnt(o.kind + '|' + o.u.n, 36)}<div><b>${esc(o.u.n)}</b> <span class="dim">${esc(o.kind)}</span><small>${resHTML(o.cost)} = ${esc(E.earthCostTxt(G, o.cost))}${o.why ? ' · ' + esc(o.why) : ''}</small></div><button class="b" data-fbuild="${esc(o.key)}" ${o.why || G.estep !== 'build' && G.phase !== 'econ' ? 'disabled' : ''}>Build</button></div>`).join('');
+  const bp = G.phase === 'build';
+  const units = opts.map(o => `<div class="un">${plainCnt(o.kind + '|' + o.u.n, 36)}<div><b>${esc(o.u.n)}</b> <span class="dim">${esc(o.kind)}</span><small>${resHTML(o.cost)} = ${esc(E.earthCostTxt(G, o.cost))}${o.why ? ' · ' + esc(o.why) : ''}</small></div><span class="row" style="margin:0"><button class="b" data-build="${esc(o.key)}" ${!bp || o.why || G.cash < E.earthCash(G, o.cost) ? 'disabled' : ''}>Build</button>${o.cv && !o.why && bp ? `<button class="b" data-buildr="${esc(o.key)}" title="Reserved: 1 SUP and 1 Fuel cheaper">Reserved</button>` : ''}</span></div>`).join('');
+  const cvs = G.ships.filter(s => s.cls === 'CV').map(s => `<div class="un">${plainCnt(s.res ? s.img + '|back' : s.img, 36)}<div><b>${esc(s.name)}</b> <span class="dim">CV-${s.sz} · ${esc(E.locName(s.loc))}${s.dmg ? ' · ' + s.dmg + ' damage' : ''}${s.res ? ' · reserved' : ''}</span></div><span class="row" style="margin:0">${bp ? (s.res ? `<button class="b" data-unres="${s.id}" ${E.unreserveInfo(G, s).ok ? '' : 'disabled'}>Unreserve</button>` : `<button class="b" data-reserve="${s.id}">Reserve</button>`) + (s.dmg ? `<button class="b" data-repair="${s.id}">Repair</button>` : '') : ''}${s.loc === 'earth' && s.cap ? `<button class="b" data-sel="${s.id}">Load cargo</button>` : ''}</span></div>`).join('');
+  const yards = bp ? G.bases.filter(b => b.fac.sup).map(b => `<div class="un"><div><b>${esc(b.name)} shipyard</b><small>Stock ${resHTML(b.stock)}</small></div><span class="row" style="margin:0">${[1, 2, 3, 4].map(z => `<button class="b" data-lvb="${z}" data-base="${b.id}">LV-${z}</button>`).join('')}</span></div>`).join('') : '';
+  const scrap = bp && E.scrapRule(G) ? [['earth', 'Earth'], ...G.bases.map(b => [b.id, b.name])].flatMap(([w, n]) => [1, 2, 3, 4].filter(z => G.lv[w] && G.lv[w][z]).map(z => `<button class="b" data-lvscrap="${z}" data-where="${w}">Scrap LV-${z} at ${esc(n)}</button>`)).join('') : '';
   const techs = D.TECH.filter(t => G.tech[t.k]).map(t => `<span class="f-${t.f}">${esc(t.n)}</span>`).join('');
   const pols = D.POL.filter(p => E.polLv(G, p.k)).map(p => D.POL_LV[E.polLv(G, p.k) - 1] + p.n).join(', ');
   return `<div class="fb">
@@ -1759,8 +1763,9 @@ function boardHTML() {
   <div class="fc s8"><h4>Bases <small>${G.bases.length} founded</small></h4><div class="bslots">${slots}</div></div>
   <div class="fc s4"><h4>Victory points</h4><div class="vp">${sc.total}<small>${esc(sc.rating)}</small></div><h4 style="margin-top:10px">Missions &amp; politics</h4><div class="dim">${G.mis.mine != null ? esc(E.misTxt(G.mis.mine)) : 'No personal mission'}${G.mis.common != null ? '<br>Common: ' + esc(E.misTxt(G.mis.common)) : ''}<br>Kept ${G.mis.kept.length}/${E.misCap(G)} · politics markers ${G.polm} · ${esc(pols || 'no policies')}</div></div>
   <div class="fc s5"><h4>New builds <small>drag onto the launch pad</small></h4><div class="tray" id="fbtray">${tray || '<span class="dim" style="padding:6px">Nothing waiting on Earth. Build units from the list.</span>'}</div>
-    <div class="row" style="margin-top:8px">${[1, 2, 3, 4].map(z => `<button class="b" data-flv="${z}" ${G.phase === 'econ' ? '' : 'disabled'}>Build LV-${z} ${RS('ORE', 1)} ${RS('FUEL', z)}</button>`).join('')}</div></div>
-  <div class="fc s7"><h4>Units available to build</h4>${units}</div>
+    <div class="row" style="margin-top:8px">${[1, 2, 3, 4].map(z => `<button class="b" data-lv="${z}" ${bp ? '' : 'disabled'}>Build LV-${z} ${RS('ORE', 1)} ${RS('FUEL', z)}</button>`).join('')}</div></div>
+  <div class="fc s7"><h4>Earth shipyard${bp ? '' : ' <small>open in the Build &amp; service step</small>'}</h4><div style="max-height:430px;overflow:auto">${units}</div>${scrap ? '<div class="row" style="margin-top:6px">' + scrap + '</div>' : ''}</div>
+  ${cvs || yards ? `<div class="fc s12"><h4>Crew vehicles &amp; base shipyards</h4>${cvs}${yards}</div>` : ''}
   <div class="fc s12"><h4>Technologies <small>${D.TECH.filter(t => G.tech[t.k]).length} of ${D.TECH.length}</small></h4><div class="tk">${techs || '<span class="dim">none yet</span>'}</div></div>
   </div>`;
 }
@@ -1769,8 +1774,7 @@ function renderBoard() {
   el.hidden = !show; if (!show) return;
   const sx = el.scrollLeft, sy = el.scrollTop; el.innerHTML = boardHTML(); el.scrollLeft = sx; el.scrollTop = sy;
   el.querySelectorAll('[data-fbase]').forEach(b => b.onclick = () => { sel = { t: 'base', id: b.dataset.fbase }; tab = 'sel'; render(); });
-  el.querySelectorAll('[data-fbuild]').forEach(b => b.onclick = () => FN.unitAsk && FN.unitAsk(b.dataset.fbuild, false));
-  el.querySelectorAll('[data-flv]').forEach(b => b.onclick = () => FN.lvAsk && FN.lvAsk(+b.dataset.flv, 'earth'));
+  wire(el);
   el.querySelectorAll('[data-fdest]').forEach(b => b.onclick = () => { const s = G.ships.find(x => x.id == PAD); if (!s) return; const mv = E.moves(G, s).filter(m => m.dest === b.dataset.fdest); if (mv.length) chooseAndMove(s, b.dataset.fdest, mv, null); });
   // drag a ship between the new-builds tray and the launch pad (a plain click also moves it across)
   el.querySelectorAll('[data-fsid]').forEach(n => n.onpointerdown = e => {
@@ -2167,8 +2171,8 @@ function pcClick() {
   } };
   renderAsk();
 }
-function wire() {
-  const P = $('panel'), on = (sel_, fn) => P.querySelectorAll(sel_).forEach(b => b.onclick = () => fn(b));
+function wire(root) {
+  const P = root || $('panel'), on = (sel_, fn) => P.querySelectorAll(sel_).forEach(b => b.onclick = () => fn(b));
   const ship = () => sel && sel.t === 'ship' && G.ships.find(x => x.id === sel.id);
   on('[data-a="redraw"]', () => ask('Redraw your mission?', `<p>Return ${esc(E.misTxt(G.mis.mine))} to the pool and draw a new one for <b>2 politics markers</b> (you have ${G.polm}).</p>`, () => E.redrawMission(G), 'Redraw'));
   on('[data-a="buyvm"]', () => ask('Buy a victory marker?', `<p>Spend <b>4 politics markers</b> (you have ${G.polm}) for 1 victory marker, worth 1 VP at the end.</p>`, () => E.buyVictory(G), 'Buy'));
