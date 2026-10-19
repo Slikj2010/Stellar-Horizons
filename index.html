@@ -123,11 +123,9 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
 /* faction board (digital take on the printed faction sheet): opens over the map from the Faction tab */
 #fboard { user-select: none; -webkit-user-select: none; position: absolute; inset: 0; z-index: 9; overflow: auto; background: #070b11; padding: 14px 16px 22px; overscroll-behavior: contain; }
 #fboard .fb { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; align-items: start; max-width: 1240px; margin: 0 auto; }
-#fboard .lvt { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 46px; height: 56px; border-radius: 6px; border: 2px solid #c9d4e0; background: linear-gradient(180deg, #2a3a4d, #17212e); color: #eaf1f8; font: 700 10px system-ui; letter-spacing: .06em; box-shadow: 0 2px 5px #0008; position: relative; }
-#fboard .lvt b { font-size: 22px; line-height: 1; color: #ffb454; }
-#fboard .lvt svg { width: 14px; height: 14px; margin-bottom: 1px; fill: #c9d4e0; }
-#fboard .lvt.cool { opacity: .5; border-style: dashed; }
-#fboard .lvt.stage { width: 56px; height: 68px; }
+#fboard .lvt { display: inline-block; line-height: 0; filter: drop-shadow(0 2px 4px #0009); }
+#fboard .lvt.cool { opacity: .45; filter: grayscale(.6); }
+#fboard .lvt .cnt { display: block; }
 #fboard .lvs { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; min-height: 56px; align-items: center; }
 #fboard .fc { background: linear-gradient(180deg, #0f1824, #0b121b); border: 1px solid #263a50; border-radius: 10px; padding: 10px 12px; min-width: 0; position: relative; }
 #fboard .fc > h4 { margin: 0 0 8px; font: 700 12px var(--f-disp); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); display: flex; align-items: center; gap: 8px; }
@@ -1732,7 +1730,7 @@ function destGroups(s) {
   by.forEach((list, dest) => { const p = E.P(dest), sy = p.t === 'box' || p.t === 'fly' ? p.s : p.t === 'earth' ? 'ear' : (D.W[p.w] && D.W[p.w].sys) || 'ear'; (groups[sy] = groups[sy] || []).push({ dest, list }); });
   return { mv, groups };
 }
-const lvTok = (z, cool) => `<span class="lvt ${cool ? 'cool' : ''}" title="LV-${z}${cool ? ' (recovered, ready next turn)' : ''}"><svg viewBox="0 0 16 16"><path d="M8 0c2 2 3 5 3 8l2 3v2l-3-1H6l-3 1v-2l2-3c0-3 1-6 3-8z"/></svg>LV<b>${z}</b></span>`;
+const lvTok = (z, cool, big) => `<span class="lvt ${cool ? 'cool' : ''} ${big ? 'stage' : ''}" title="LV-${z}${cool ? ' (recovered, ready next turn)' : ''}">${plainCnt('LV-' + z, big ? 76 : 64)}</span>`;
 function lvTokens(key) {
   const st = G.lv[key] || {}, cl = (G.lvCool || {})[key] || {};
   return [1, 2, 3, 4].map(z => lvTok(z).repeat(st[z] || 0) + lvTok(z, 1).repeat(cl[z] || 0)).join('');
@@ -1753,7 +1751,7 @@ function boardHTML() {
   let padInner = '<div class="emp">Drag a ship here to stage it for launch.</div>', dest = '';
   if (pad) {
     const { mv, groups } = destGroups(pad), lv = mv.length && mv[0].lv;
-    padInner = `<div class="pi" data-fsid="${pad.id}" style="cursor:grab">${plainCnt(pad.res ? pad.img + '|back' : pad.img, 72)}<div><b>${esc(pad.name)}</b><br><span class="dim">${pad.cls === 'CV' ? 'CV-' + pad.sz : esc(pad.kind)}${E.sum(pad.cargo) ? ' · cargo ' + E.resTxt(pad.cargo) : ''}</span><br><span class="dim">${lv ? 'Launch vehicle LV-' + lv.n + (lv.stock ? ' from stock' : ' (new)') : G.phase === 'move' ? 'No launch vehicle available' : ''}</span></div>${lv ? lvTok(lv.n).replace('class="lvt', 'class="lvt stage') : ''}</div>`;
+    padInner = `<div class="pi" data-fsid="${pad.id}" style="cursor:grab">${plainCnt(pad.res ? pad.img + '|back' : pad.img, 72)}<div><b>${esc(pad.name)}</b><br><span class="dim">${pad.cls === 'CV' ? 'CV-' + pad.sz : esc(pad.kind)}${E.sum(pad.cargo) ? ' · cargo ' + E.resTxt(pad.cargo) : ''}</span><br><span class="dim">${lv ? 'Launch vehicle LV-' + lv.n + (lv.stock ? ' from stock' : ' (new)') : G.phase === 'move' ? 'No launch vehicle available' : ''}</span></div>${lv ? lvTok(lv.n, 0, 1) : ''}</div>`;
     dest = G.phase !== 'move' ? '<p class="dim" style="margin:8px 0 0">Launches happen in the Movement step.</p>' : !mv.length ? '<p class="dim" style="margin:8px 0 0">This ship cannot launch now (it may need a launch vehicle, or has already moved).</p>' : `<div class="dg"><p class="dim" style="margin:0 0 6px">Launch to:</p>${D.SYS_ORDER.filter(sy => groups[sy]).map(sy => `<div><b>${esc(D.SYS[sy].n)}</b>${groups[sy].map(g => `<button data-fdest="${esc(g.dest)}">${esc(E.locName(g.dest))}${g.list[0].eta ? ' · ' + g.list[0].eta + 't' : ''}</button>`).join('')}</div>`).join('')}</div>`;
   }
   const opts = E.buildOptions(G, 'earth');
