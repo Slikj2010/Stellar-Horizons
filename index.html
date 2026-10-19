@@ -120,6 +120,38 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } td, th { padd
   #rail { border-left: 0; border-top: 1px solid var(--line); }
   #bar { gap: 2px 12px; padding: 6px 16px; } #bar .yr { font-size: 18px; }
 }
+/* faction board (digital take on the printed faction sheet): opens over the map from the Faction tab */
+#fboard { user-select: none; -webkit-user-select: none; position: absolute; inset: 0; z-index: 9; overflow: auto; background: #070b11; padding: 14px 16px 22px; overscroll-behavior: contain; }
+#fboard .fb { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; max-width: 1240px; margin: 0 auto; }
+#fboard .fc { background: linear-gradient(180deg, #0f1824, #0b121b); border: 1px solid #263a50; border-radius: 10px; padding: 10px 12px; min-width: 0; position: relative; }
+#fboard .fc > h4 { margin: 0 0 8px; font: 700 12px var(--f-disp); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); display: flex; align-items: center; gap: 8px; }
+#fboard .fc > h4 small { font: 500 11px var(--f-body); letter-spacing: 0; text-transform: none; color: #6f879b; margin-left: auto; }
+#fboard .s12 { grid-column: span 12; } #fboard .s8 { grid-column: span 8; } #fboard .s7 { grid-column: span 7; } #fboard .s6 { grid-column: span 6; } #fboard .s5 { grid-column: span 5; } #fboard .s4 { grid-column: span 4; } #fboard .s3 { grid-column: span 3; } #fboard .s2 { grid-column: span 2; }
+#fboard .fhead { display: flex; gap: 12px; align-items: center; } #fboard .fsw { width: 14px; align-self: stretch; border-radius: 4px; flex: none; }
+#fboard .fhead h2 { font: 700 30px/1 var(--f-disp); letter-spacing: .03em; margin: 0 0 4px; } #fboard .fsup { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; } #fboard .fsup .chip { color: var(--ink); background: #142030; }
+#fboard .fab { font-size: 12.5px; color: #9fb7cc; }
+#fboard .frel { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; } #fboard .frel > div { border: 1px solid #2a3d52; border-radius: 8px; padding: 6px 4px 5px; text-align: center; background: #101a27; min-height: 74px; }
+#fboard .frel b { display: block; font: 700 12px var(--f-disp); letter-spacing: .02em; } #fboard .frel small { display: block; color: #8ea1b3; font-size: 11px; margin-bottom: 4px; } #fboard .frel .tag { display: inline-block; margin: 1px; padding: 0 5px; border-radius: 9px; font: 700 11px var(--f-mono); color: #07101a; }
+#fboard .frel .r0 { background: #17304a; } #fboard .frel .r1 { background: #17324a; } #fboard .frel .r2 { background: #1c2f3d; } #fboard .frel .r3 { background: #1e232b; } #fboard .frel .r4 { background: #3a2420; } #fboard .frel .r5 { background: #46201c; }
+#fboard table { width: 100%; border-collapse: collapse; font-size: 13px; } #fboard th { font: 600 11px var(--f-disp); letter-spacing: .1em; text-transform: uppercase; color: #7f98ad; padding: 3px 6px; text-align: right; } #fboard th:first-child, #fboard td:first-child { text-align: left; }
+#fboard td { padding: 4px 6px; text-align: right; border-top: 1px solid #1b2a3b; font: 500 13px var(--f-mono); } #fboard tr.now td { background: rgba(242, 169, 59, .12); color: #ffd48a; }
+#fboard .fres { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; } #fboard .fres .big { font: 700 22px var(--f-mono); }
+#fboard .pad { margin-top: 6px; min-height: 124px; border: 2px dashed #3b566f; border-radius: 12px; background: repeating-linear-gradient(135deg, rgba(255,255,255,.025) 0 10px, transparent 10px 20px); display: grid; place-items: center; padding: 8px; position: relative; text-align: center; }
+#fboard .pad.over { border-color: var(--ion); background: rgba(79, 195, 217, .12); } #fboard .pad.full { border-style: solid; border-color: var(--beacon); }
+#fboard .pad .pl { position: absolute; left: 12px; top: 6px; font: 700 12px var(--f-disp); letter-spacing: .22em; color: #6f879b; }
+#fboard .pad .emp { color: #6f879b; font-size: 13px; } #fboard .pad .pi { display: flex; gap: 14px; align-items: center; text-align: left; }
+#fboard .dg { margin-top: 8px; max-height: 190px; overflow: auto; border-top: 1px solid #1b2a3b; padding-top: 6px; } #fboard .dg > div { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 5px; } #fboard .dg b { font: 600 11px var(--f-disp); letter-spacing: .1em; text-transform: uppercase; color: #7f98ad; min-width: 76px; }
+#fboard .dg button { font: 600 12px var(--f-body); padding: 3px 8px; border-radius: 12px; border: 1px solid #2f4a63; background: #122030; color: var(--ink); cursor: pointer; } #fboard .dg button:hover { border-color: var(--ion); }
+#fboard .tray { display: flex; flex-wrap: wrap; gap: 10px; min-height: 78px; align-items: flex-start; border: 1px dashed #2f4a63; border-radius: 10px; padding: 8px; } #fboard .tray.over { border-color: var(--ion); background: rgba(79,195,217,.08); }
+#fboard .fs { display: grid; justify-items: center; gap: 3px; width: 78px; padding: 6px 2px; border-radius: 8px; border: 1px solid transparent; cursor: grab; touch-action: none; user-select: none; font-size: 11px; text-align: center; line-height: 1.15; }
+#fboard .fs:hover { border-color: #2f4a63; background: #101a27; } #fboard .fs.sel { border-color: var(--beacon); background: rgba(242, 169, 59, .1); } #fboard .fs small { color: #8ea1b3; }
+#fboard .bslots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; } #fboard .bs { border: 1px solid #263a50; border-radius: 10px; padding: 8px 10px; min-height: 84px; background: #0d1520; cursor: pointer; } #fboard .bs.empty { border-style: dashed; cursor: default; opacity: .7; }
+#fboard .bs b { font: 700 15px var(--f-disp); letter-spacing: .03em; } #fboard .bs small { display: block; color: #8ea1b3; font-size: 12px; } #fboard .bs:not(.empty):hover { border-color: var(--ion); }
+#fboard .un { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; align-items: center; padding: 6px 0; border-top: 1px solid #1b2a3b; font-size: 13px; } #fboard .un small { display: block; color: #8ea1b3; font-size: 11.5px; }
+#fboard .tk { display: flex; flex-wrap: wrap; gap: 4px; max-height: 132px; overflow: auto; } #fboard .tk span { font-size: 11px; padding: 1px 7px; border-radius: 9px; background: #142030; border: 1px solid #2a3d52; }
+#fboard .vp { font: 700 38px/1 var(--f-disp); color: var(--beacon); } #fboard .vp small { display: block; font: 500 12px var(--f-body); color: #9fb7cc; margin-top: 4px; }
+.fbghost { position: fixed; z-index: 99; pointer-events: none; opacity: .92; transform: translate(-50%, -50%); filter: drop-shadow(0 4px 10px #000); }
+@media (max-width: 900px) { #fboard .fb > .fc { grid-column: span 12 !important; } #fboard .bslots { grid-template-columns: repeat(2, 1fr); } #fboard .frel { grid-template-columns: repeat(3, 1fr); } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 /* technology tree (dark take on the printed Technology Tree) */
 #ttree { position: absolute; inset: 0; z-index: 20; overflow: auto; touch-action: pan-x pan-y; background: #070b11; overscroll-behavior: contain; }
@@ -197,7 +229,7 @@ p.order { margin: -2px 0 10px; }
 <div id="app">
   <div id="bar"></div>
   <div id="main">
-    <div id="stage"><div id="hint"></div>
+    <div id="stage"><div id="hint"></div><div id="fboard" hidden></div>
       <div id="zoom"><button class="b" id="zin" aria-label="Zoom in">+</button><button class="b" id="zout" aria-label="Zoom out">−</button><button class="b" id="zfit">Whole map</button><button class="b" id="zme">My ships</button><button class="b" id="v25" title="Switch between the flat map and the 2.5D space view">2.5D</button><span id="v25c" hidden><button class="b" id="v25l" aria-label="Rotate left">⟲</button><button class="b" id="v25r" aria-label="Rotate right">⟳</button><button class="b" id="v25u" aria-label="Tilt up">⤒</button><button class="b" id="v25d" aria-label="Tilt down">⤓</button></span></div>
     </div>
     <div id="ttree" hidden></div>
@@ -1222,11 +1254,12 @@ function paintObjects() {
   paintWorldBoxes();
   V25.mode = 'stand'; V25.lift = 34;
   // probes on Earth
-  (G.probes.earth || []).forEach((n, i) => { const p = posOf('earth'); drawTex(ATL[G.f].img, uf('Probe|' + n), p[0] - 100 - i * 28, p[1] + 34, 30); });
+
   // ships
   const byLoc = {}, owner = new Map();
-  G.ships.forEach(s => (byLoc[s.loc] = byLoc[s.loc] || []).push(s));
-  otherFacs().forEach(g => g.ships.forEach(s => { owner.set(s, g.f); (byLoc[s.loc] = byLoc[s.loc] || []).push(s); }));
+  // ships waiting on Earth live on the faction board (Faction tab), not on the map
+  G.ships.forEach(s => { if (s.loc !== 'earth') (byLoc[s.loc] = byLoc[s.loc] || []).push(s); });
+  otherFacs().forEach(g => g.ships.forEach(s => { if (s.loc === 'earth') return; owner.set(s, g.f); (byLoc[s.loc] = byLoc[s.loc] || []).push(s); }));
   Object.entries(byLoc).forEach(([loc, list]) => {
     const p = posOf(loc), cols = Math.min(list.length, 3), lp0 = E.P(loc);
     const RL = lp0.t === 'orbit' && GEO.worlds[lp0.w] ? ringLayout(lp0.w, list.filter(x => !(dragS && dragS.s === x))) : null;
@@ -1304,6 +1337,7 @@ function render() {
   wire();
   wireFilters($('panel'));
   renderTree();
+  renderBoard();
   const nx = $('next');
   nx.textContent = G.over ? 'New campaign' : G.ask.length ? 'Answer the question first' : nextLabel();
   nx.disabled = !G.over && !!G.ask.length;
@@ -1665,7 +1699,7 @@ function factionsTable() {
 }
 function panelFac() {
   const F = D.FAC[G.f], [lre, lcv, lb] = E.lims(G);
-  return `<h2>${esc(F.n)}${G.variant ? ' · ' + esc(F.variants[G.variant].n) : ''}</h2>${factionsTable()}<img class="board-img" src="boards/${G.f}.webp" alt="${esc(F.n)} faction sheet">
+  return `<h2>${esc(F.n)}${G.variant ? ' · ' + esc(F.variants[G.variant].n) : ''}</h2>${factionsTable()}<p class="dim">The faction board is on the map: drag new builds onto the launch pad there.</p>
   <div class="row"><button class="b" data-zoomg="buildings">All buildings</button><button class="b" data-zoomg="units">All units</button></div>
   <p class="dim">${esc(F.ab)}</p>
   <table><tr><th>Support</th><th>Used</th><th>Limit</th></tr><tr><td>Robotic explorers</td><td class="mono">${E.nonProbeRE(G)}</td><td class="mono">${lre}</td></tr><tr><td>Crew vehicles</td><td class="mono">${E.nCV(G)}</td><td class="mono">${lcv}</td></tr><tr><td>Bases</td><td class="mono">${E.nBase(G)}</td><td class="mono">${lb}</td></tr></table>
@@ -1679,6 +1713,77 @@ function panelFac() {
   <h3>Crew range ${E.range(G) >= 99 ? 'unlimited' : E.range(G)} · transfers ×${E.mult(G)} · recall ${E.recall(G)}% · malfunction ${E.malfBase(G)}% · engine ${E.engBase(G)}%</h3>
   <h3>Resources on the faction board</h3><p class="dim">${resHTML(E.estock(G))}. Used first when building, launching or loading on Earth; the rest is bought at $1B each. Nothing is sold for cash.</p>
   <h3>Launch vehicles on Earth</h3><p class="dim">${lvTxt()}</p><p class="dim">Two-sided counters: ${esc(E.lvPoolTxt(G))}.</p>`;
+}
+// ---------------- faction board: the digital faction sheet (opened by the Faction tab) ----------------
+let PAD = null;                        // id of the ship staged on the launch pad
+const FN = {};                         // build helpers shared with the board (set up in wire)
+const plainCnt = (key, size) => cssCounter(key, size).replace(' zoomable', '').replace(/ data-zoomu="[^"]*"/, '').replace(' title="Click to enlarge"', '');
+const RELCOL = ['#6fb3ff', '#7fc4e6', '#9dd1c6', '#aeb6c0', '#e39b6a', '#ef6b5b'];
+function destGroups(s) {
+  const mv = E.moves(G, s), by = new Map();
+  mv.forEach(m => { const a = by.get(m.dest) || []; a.push(m); by.set(m.dest, a); });
+  const groups = {};
+  by.forEach((list, dest) => { const p = E.P(dest), sy = p.t === 'box' || p.t === 'fly' ? p.s : p.t === 'earth' ? 'ear' : (D.W[p.w] && D.W[p.w].sys) || 'ear'; (groups[sy] = groups[sy] || []).push({ dest, list }); });
+  return { mv, groups };
+}
+function boardHTML() {
+  const F = D.FAC[G.f], [lre, lcv, lb] = E.lims(G), dr = G.y < 2060 ? 0 : G.y < 2090 ? 1 : G.y < 2120 ? 2 : 3, sc = E.score(G);
+  const ships = G.ships.filter(s => s.loc === 'earth');
+  if (PAD != null && !ships.some(s => s.id == PAD)) PAD = null;
+  const pad = PAD != null ? ships.find(s => s.id == PAD) : null;
+  const rel = D.REL.map((n, i) => { const c = F.rel[i]; return `<div class="r${i}"><b style="color:${RELCOL[i]}">${n}</b><small>${c ? (c[0] ? '$' + c[0] + 'B / ' : '') + c[1] + 'R' : '&nbsp;'}</small>${Object.keys(G.rel).filter(k => G.rel[k] === i).map(k => `<span class="tag" style="background:${D.FAC[k].c}" title="${esc(D.FAC[k].n)}">${esc(D.FAC[k].pre)}</span>`).join('')}</div>`; }).join('');
+  const prod = F.pr.map((r, i) => `<tr class="${i === dr ? 'now' : ''}"><td>${['2030', '2060', '2090', '2120+'][i]}</td><td>$${r[0]}B</td><td class="f-Phy">${r[1]}</td><td class="f-Eng">${r[2]}</td><td class="f-Bio">${r[3]}</td></tr>`).join('');
+  const maxSet = Math.max(0, ...G.bases.map(b => b.set));
+  const sett = D.SETT.map((r, i) => { const nx = D.SETT[i + 1], on = G.bases.some(b => b.set >= r[0] && (!nx || b.set < nx[0])); return `<tr class="${on ? 'now' : ''}"><td>${r[0]}${nx ? '–' + (nx[0] - 1) : '+'}</td><td>${r[1]}</td><td>${r[2] ? '+' + r[2] : '–'}</td><td>${r[3] ? '+' + r[3] : '–'}</td></tr>`; }).join('');
+  const slots = D.BASE_NAMES[G.f].map(n => { const b = G.bases.find(x => x.name === n); if (!b) return `<div class="bs empty"><b>${esc(n)}</b><small>Not founded</small></div>`; const fac = [['lab', 'Lab'], ['mine', 'Mine'], ['sup', 'Supply'], ['def', 'Defense']].filter(([k]) => b.fac[k]).map(([k, l]) => `${l} ${b.fac[k]}`).join(' · ');
+    return `<div class="bs" data-fbase="${b.id}"><b>${esc(n)}</b><small>${esc((D.W[b.w] || {}).n || b.w)} · ${b.set} settlement${b.set === 1 ? '' : 's'}</small><small>${fac || 'no facilities'}</small><small>Stock ${resHTML(b.stock)}</small></div>`; }).join('');
+  const shipEl = s => `<div class="fs ${pad && pad.id == s.id ? 'sel' : ''}" data-fsid="${s.id}" title="Drag to the launch pad">${plainCnt(s.res ? s.img + '|back' : s.img, 56)}<span>${esc(s.name)}</span><small>${s.cls === 'CV' ? 'CV-' + s.sz : s.kind}${s.res ? ' · reserved' : ''}</small></div>`;
+  const tray = ships.filter(s => !(pad && pad.id == s.id)).map(shipEl).join('') + (G.probes.earth || []).map(n => `<div class="fs" style="cursor:default" title="Probes ride along with a robotic explorer">${plainCnt('Probe|' + n, 40)}<span>${esc(n)}</span><small>probe</small></div>`).join('');
+  let padInner = '<div class="emp">Drag a ship here to stage it for launch.</div>', dest = '';
+  if (pad) {
+    const { mv, groups } = destGroups(pad), lv = mv.length && mv[0].lv;
+    padInner = `<div class="pi" data-fsid="${pad.id}" style="cursor:grab">${plainCnt(pad.res ? pad.img + '|back' : pad.img, 72)}<div><b>${esc(pad.name)}</b><br><span class="dim">${pad.cls === 'CV' ? 'CV-' + pad.sz : esc(pad.kind)}${E.sum(pad.cargo) ? ' · cargo ' + E.resTxt(pad.cargo) : ''}</span><br><span class="dim">${lv ? 'Launch vehicle LV-' + lv.n + (lv.stock ? ' from stock' : ' (new)') : G.phase === 'move' ? 'No launch vehicle available' : ''}</span></div></div>`;
+    dest = G.phase !== 'move' ? '<p class="dim" style="margin:8px 0 0">Launches happen in the Movement step.</p>' : !mv.length ? '<p class="dim" style="margin:8px 0 0">This ship cannot launch now (it may need a launch vehicle, or has already moved).</p>' : `<div class="dg"><p class="dim" style="margin:0 0 6px">Launch to:</p>${D.SYS_ORDER.filter(sy => groups[sy]).map(sy => `<div><b>${esc(D.SYS[sy].n)}</b>${groups[sy].map(g => `<button data-fdest="${esc(g.dest)}">${esc(E.locName(g.dest))}${g.list[0].eta ? ' · ' + g.list[0].eta + 't' : ''}</button>`).join('')}</div>`).join('')}</div>`;
+  }
+  const opts = E.buildOptions(G, 'earth');
+  const units = opts.map(o => `<div class="un">${plainCnt(o.kind + '|' + o.u.n, 36)}<div><b>${esc(o.u.n)}</b> <span class="dim">${esc(o.kind)}</span><small>${resHTML(o.cost)} = ${esc(E.earthCostTxt(G, o.cost))}${o.why ? ' · ' + esc(o.why) : ''}</small></div><button class="b" data-fbuild="${esc(o.key)}" ${o.why || G.estep !== 'build' && G.phase !== 'econ' ? 'disabled' : ''}>Build</button></div>`).join('');
+  const techs = D.TECH.filter(t => G.tech[t.k]).map(t => `<span class="f-${t.f}">${esc(t.n)}</span>`).join('');
+  const pols = D.POL.filter(p => E.polLv(G, p.k)).map(p => D.POL_LV[E.polLv(G, p.k) - 1] + p.n).join(', ');
+  return `<div class="fb">
+  <div class="fc s5 fhead"><div class="fsw" style="background:${F.c}"></div><div><h2>${esc(F.n)}${G.variant ? ' · ' + esc(F.variants[G.variant].n) : ''}</h2><div class="fsup"><span class="chip">Robotic explorers ${E.nonProbeRE(G)}/${lre}</span><span class="chip">Crew vehicles ${E.nCV(G)}/${lcv}</span><span class="chip">Bases ${G.bases.length}/${lb}</span><span class="chip">Cash $${G.cash}B</span></div><div class="fab">${esc(F.ab)}</div></div></div>
+  <div class="fc s7"><h4>Foreign relations</h4><div class="frel">${rel}</div></div>
+  <div class="fc s4"><h4>Earth production <small>funds · Physics · Engineering · Biology</small></h4><table><tr><th>Decade</th><th>Funds</th><th>Phy</th><th>Eng</th><th>Bio</th></tr>${prod}</table></div>
+  <div class="fc s4"><h4>Earth resources &amp; technology</h4><div class="fres">${resHTML(E.estock(G))}<span class="dim">on the faction board · LVs: ${esc(lvTxt())}</span></div>
+    <div class="pad ${pad ? 'full' : ''}" id="fbpad"><span class="pl">LAUNCH PAD</span>${padInner}</div>${dest}</div>
+  <div class="fc s4"><h4>Base population <small>settlements · trade · resources · tech</small></h4><table><tr><th>Settl.</th><th>Trade</th><th>Res.</th><th>Tech</th></tr>${sett}</table></div>
+  <div class="fc s8"><h4>Bases <small>${G.bases.length} founded</small></h4><div class="bslots">${slots}</div></div>
+  <div class="fc s4"><h4>Victory points</h4><div class="vp">${sc.total}<small>${esc(sc.rating)}</small></div><h4 style="margin-top:10px">Missions &amp; politics</h4><div class="dim">${G.mis.mine != null ? esc(E.misTxt(G.mis.mine)) : 'No personal mission'}${G.mis.common != null ? '<br>Common: ' + esc(E.misTxt(G.mis.common)) : ''}<br>Kept ${G.mis.kept.length}/${E.misCap(G)} · politics markers ${G.polm} · ${esc(pols || 'no policies')}</div></div>
+  <div class="fc s5"><h4>New builds <small>drag onto the launch pad</small></h4><div class="tray" id="fbtray">${tray || '<span class="dim" style="padding:6px">Nothing waiting on Earth. Build units from the list.</span>'}</div>
+    <div class="row" style="margin-top:8px">${[1, 2, 3, 4].map(z => `<button class="b" data-flv="${z}" ${G.phase === 'econ' ? '' : 'disabled'}>Build LV-${z} ${RS('ORE', 1)} ${RS('FUEL', z)}</button>`).join('')}</div></div>
+  <div class="fc s7"><h4>Units available to build</h4>${units}</div>
+  <div class="fc s12"><h4>Technologies <small>${D.TECH.filter(t => G.tech[t.k]).length} of ${D.TECH.length}</small></h4><div class="tk">${techs || '<span class="dim">none yet</span>'}</div></div>
+  </div>`;
+}
+function renderBoard() {
+  const el = $('fboard'), show = tab === 'fac' && !!G;
+  el.hidden = !show; if (!show) return;
+  const sx = el.scrollLeft, sy = el.scrollTop; el.innerHTML = boardHTML(); el.scrollLeft = sx; el.scrollTop = sy;
+  el.querySelectorAll('[data-fbase]').forEach(b => b.onclick = () => { sel = { t: 'base', id: b.dataset.fbase }; tab = 'sel'; render(); });
+  el.querySelectorAll('[data-fbuild]').forEach(b => b.onclick = () => FN.unitAsk && FN.unitAsk(b.dataset.fbuild, false));
+  el.querySelectorAll('[data-flv]').forEach(b => b.onclick = () => FN.lvAsk && FN.lvAsk(+b.dataset.flv, 'earth'));
+  el.querySelectorAll('[data-fdest]').forEach(b => b.onclick = () => { const s = G.ships.find(x => x.id == PAD); if (!s) return; const mv = E.moves(G, s).filter(m => m.dest === b.dataset.fdest); if (mv.length) chooseAndMove(s, b.dataset.fdest, mv, null); });
+  // drag a ship between the new-builds tray and the launch pad (a plain click also moves it across)
+  el.querySelectorAll('[data-fsid]').forEach(n => n.onpointerdown = e => {
+    if (e.button) return; e.preventDefault();
+    const id = n.dataset.fsid, x0 = e.clientX, y0 = e.clientY; let ghost = null;
+    const over = (sel_, x, y) => { const r = $(sel_) && $(sel_).getBoundingClientRect(); return r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; };
+    const mv = ev => { if (!ghost && Math.hypot(ev.clientX - x0, ev.clientY - y0) > 6) { ghost = n.cloneNode(true); ghost.className = 'fbghost'; ghost.removeAttribute('data-fsid'); document.body.appendChild(ghost); } if (ghost) { ghost.style.left = ev.clientX + 'px'; ghost.style.top = ev.clientY + 'px'; const a = over('fbpad', ev.clientX, ev.clientY), b = over('fbtray', ev.clientX, ev.clientY); $('fbpad').classList.toggle('over', !!a); $('fbtray').classList.toggle('over', !!b); } };
+    const up = ev => { document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); if (ghost) ghost.remove();
+      const dragged = !!ghost, a = over('fbpad', ev.clientX, ev.clientY), b = over('fbtray', ev.clientX, ev.clientY);
+      if (dragged) { if (a) PAD = id; else if (b) PAD = null; } else PAD = PAD == id ? null : id;
+      sel = { t: 'ship', id: isNaN(+id) ? id : +id }; renderBoard(); };
+    document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
+  });
 }
 function panelTech() {
   const can = G.estep === 'tech', n = D.TECH.filter(t => G.tech[t.k]).length, R = rtInfo();
@@ -2081,11 +2186,13 @@ function wire() {
   on('[data-pol]', b => { const p = D.POL.find(x => x.k === b.dataset.pol), lv = E.polLv(G, p.k); ask(`Adopt ${D.POL_LV[lv]}${p.n}?`, `<p>${esc(p.d[lv])}.</p><p class="dim">You can adopt one policy per decade.</p>`, () => E.choosePolicy(G, p.k), 'Adopt'); });
   on('[data-dev]', b => { const t = D.TECHK[b.dataset.dev], c = E.techCost(G, t); ask(`Develop ${t.n}?`, `<p>${esc(t.d)}.</p><p>Costs <b>${c} ${E.FN[t.f]} points</b> (you have ${G.bank[t.f]}).</p><p class="dim">${esc(E.techCostTxt(G, t))}.</p>`, () => rtDevelop(t.k), 'Develop'); });
   const lvAsk = (z, where) => { const bs = where === 'earth' ? null : G.bases.find(x => x.id === where); ask(`Build LV-${z}${bs ? ' at ' + bs.name : ''}?`, `<p>${costLine({ ORE: 1, FUEL: z }, bs)}</p><p class="dim">Two-sided counters: ${esc(E.lvPoolTxt(G))}.</p>`, () => E.buildLV(G, z, where), 'Build'); };
+  FN.lvAsk = lvAsk;
   on('[data-lv]', b => lvAsk(+b.dataset.lv, 'earth'));
   on('[data-lvscrap]', b => { const z = +b.dataset.lvscrap, w = b.dataset.where; ask(`Scrap LV-${z}?`, `<p>You get back <b>${resHTML({ ORE: Math.round(1 / 2), FUEL: Math.round(z / 2) })}</b> (half of ${resHTML({ ORE: 1, FUEL: z })})${w === 'earth' ? ' onto your faction board' : ' into the base'}, and its two-sided counter is free again.</p>`, () => E.scrapLV(G, w, z), 'Scrap'); });
   on('[data-lvb]', b => lvAsk(+b.dataset.lvb, b.dataset.base));
   const unitAsk = (key, reserved) => { const o = E.buildOptions(G, 'earth').find(x => x.key === key); const cost = { ...o.cost }; if (reserved) { cost.SUP = Math.max(0, cost.SUP - 1); cost.FUEL = Math.max(0, cost.FUEL - 1); }
     ask(`Build ${o.kind} ${o.u.n}${reserved ? ' (reserved)' : ''}?`, `<div class="row">${cssCounter(key.split('|')[1] ? o.kind + '|' + o.u.n : '', 64)}<p class="dim" style="margin:0">Search ${o.u.ev}${o.u.spec ? ', spectrometer' : ''}${o.u.lab ? ', mobile lab' : ''}${o.u.cargo ? ' · cargo ' + o.u.cargo : ''}${o.u.cb ? ' · combat ' + o.u.cb : ''}</p></div><p>${costLine(cost, 'earth')}</p>${reserved ? '<p class="dim">Built on its reserved side: 1 SUP and 1 Fuel cheaper, and the first unreserve is included.</p>' : ''}${o.kind !== 'Probe' ? '<p class="dim">It still needs a launch vehicle to leave Earth.</p>' : ''}`, () => E.buildUnit(G, key, 'earth', reserved), 'Build'); };
+  FN.unitAsk = unitAsk;
   on('[data-build]', b => unitAsk(b.dataset.build, false));
   on('[data-buildr]', b => unitAsk(b.dataset.buildr, true));
   on('[data-unres]', b => { const s = G.ships.find(x => x.id == b.dataset.unres), u = E.unreserveInfo(G, s); if (!u.ok) { toast(u.why); return; } ask(`Unreserve ${s.name}?`, `<p>${esc(s.name)} returns to active service at ${esc(u.where)}.</p><p>Costs <b>${esc(u.costTxt)}</b> (1 SUP and 1 Fuel).</p><p class="dim">Reserved crew vehicles cannot explore, produce, trade or found bases until unreserved.</p>`, () => E.unreserve(G, s), 'Unreserve'); });

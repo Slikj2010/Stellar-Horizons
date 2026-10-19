@@ -323,3 +323,6 @@ Controls: left-drag pans, the wheel zooms, right-drag (or Shift-drag) rotates an
 
 ## Camera hotkeys (2D and 2.5D)
 1 Mercury, 2 Venus, Space Earth, 3 Mars, 4 Main Belt, 5 Jupiter, 6 Saturn, 7 Uranus, 8 Neptune, 9 Kuiper Belt, 0 Scattered Disk. Pressing 4, 9 or 0 again steps through that belt's satellites (4: Ceres, Vesta, Hygeia-Pallas; 9: Pluto-Charon, Haumea-Makemake; 0: Eris-Dysnomia, Sedna) and then returns to the belt. Hotkeys are ignored while a dialog, menu or text box is open.
+
+## Faction board (Faction tab)
+The Faction tab opens a full digital copy of the printed faction sheet over the map: foreign relations, Earth production by decade, resources and launch vehicles, base population table, base slots (click to select), victory points, missions and politics, technologies and the build list. Ships built and waiting on Earth appear only here (not on the Earth model). Drag a ship from NEW BUILDS onto the LAUNCH PAD (or click it), then choose a destination in the Movement step to launch it with the usual engine roll.
