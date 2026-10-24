@@ -19,10 +19,22 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 
 Game="*res://engine/game.gd"
 
+[debug]
+
+gdscript/warnings/integer_division=0
+gdscript/warnings/incompatible_ternary=0
+gdscript/warnings/confusable_local_declaration=0
+gdscript/warnings/confusable_local_usage=0
+gdscript/warnings/shadowed_variable=0
+gdscript/warnings/shadowed_variable_base_class=0
+gdscript/warnings/unused_parameter=0
+gdscript/warnings/narrowing_conversion=0
+
 [display]
 
 window/size/viewport_width=1600
 window/size/viewport_height=900
+window/size/mode=2
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
