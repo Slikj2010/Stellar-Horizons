@@ -119,12 +119,18 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 				if not G.over: Game.AI.botPhase(G)
 				Game.next()])
 			a.append(["wait", 1])
-		a.append(["call", func(): main.tabs.current_tab = 3])
+		a.append(["call", func(): main.tabs.current_tab = main.TAB_LOG])
 		a.append(["wait", 20])
 		a.append(["shot", "09_log"])
 		a.append(["call", func(): main.tabs.current_tab = 0; main.cam.setup(main.board.map_rect())])
 		a.append(["wait", 20])
 		a.append(["shot", "10_map"])
+		a.append(["call", func(): main.tabs.current_tab = main.TAB_TECH])
+		a.append(["wait", 20])
+		a.append(["shot", "11_tech"])
+		a.append(["call", func(): main.tabs.current_tab = main.TAB_POL])
+		a.append(["wait", 20])
+		a.append(["shot", "12_pol"])
 	return a
 
 func _find_node(n: Node, f: Callable):

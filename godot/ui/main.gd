@@ -21,6 +21,18 @@ extends Node
 @onready var menu: ColorRect = $HUD/Root/Menu
 @onready var menu_box: VBoxContainer = $HUD/Root/Menu/Center/Panel/Box
 @onready var fboard: Control = $HUD/Root/FactionBoard
+@onready var ttree: Control = $HUD/Root/TechTree
+@onready var tech_box: VBoxContainer = $HUD/Root/Side/VBox/Tabs/Tech/Box
+@onready var pol_box: VBoxContainer = $HUD/Root/Side/VBox/Tabs/Policy/Box
+
+const TAB_TURN := 0
+const TAB_SEL := 1
+const TAB_FAC := 2
+const TAB_TECH := 3
+const TAB_POL := 4
+const TAB_LOG := 5
+var modal: ColorRect
+var modal_box: VBoxContainer
 
 const PHASE_HELP := {
 	"econ": "Once a decade: politics and events, diplomacy, production, resource transport, bases, asteroids and pirates, technologies, settlement growth and policy.",
@@ -53,10 +65,14 @@ func _ready() -> void:
 	tabs.set_tab_title(0, "Turn")
 	tabs.set_tab_title(1, "Selected")
 	tabs.set_tab_title(2, "Faction")
-	tabs.set_tab_title(3, "Log")
+	tabs.set_tab_title(TAB_TECH, "Tech")
+	tabs.set_tab_title(TAB_POL, "Policy")
+	tabs.set_tab_title(TAB_LOG, "Log")
 	Game.board_node = board
 	fboard.main = self
+	ttree.main = self
 	tabs.tab_changed.connect(func(_i): _sync_fboard())
+	_make_modal()
 	show_menu("start")
 	refresh()
 
@@ -160,19 +176,26 @@ func refresh() -> void:
 	build_turn()
 	build_selected()
 	build_faction()
+	build_tech_panel()
+	build_pol_panel()
 	build_log()
 	next_btn.disabled = G.over or G.ask.size() > 0
 	next_btn.text = "Campaign over" if G.over else ("Answer the question first" if G.ask.size() else "Next: " + _next_name(G))
 	build_dialog()
 	_sync_fboard()
 
-## the faction board covers the map while the Faction tab is open
+## the faction board covers the map while the Faction tab is open, the trees while Tech or Policy is open
 func _sync_fboard() -> void:
-	var show: bool = Game.G != null and tabs.current_tab == 2 and not menu.visible
-	var was := fboard.visible
+	var on: bool = Game.G != null and not menu.visible
+	var show: bool = on and tabs.current_tab == TAB_FAC
 	fboard.visible = show
 	if show: fboard.refresh()
-	elif was: board.queue_redraw()
+	var tshow: bool = on and (tabs.current_tab == TAB_TECH or tabs.current_tab == TAB_POL)
+	ttree.visible = tshow
+	if tshow:
+		ttree.mode = "pol" if tabs.current_tab == TAB_POL else "tech"
+		ttree.refresh()
+	board.queue_redraw()
 
 func _next_name(G) -> String:
 	if G.phase == "econ":
@@ -257,8 +280,11 @@ func _turn_econ(box, G) -> void:
 			var ty := UIK.pick(h, ["ORE", "SUP", "FUEL"], 1)
 			var amt := UIK.spin(h, 1, left, 1)
 			UIK.button(h, "Transfer", func(): Game.act(E.transferRes(G, places[from.selected][0], places[to.selected][0], ty.get_item_text(ty.selected), int(amt.value))))
-	if st == "tech": _tech_list(box, G)
+	if st == "tech":
+		UIK.button(box, "Open the technology tree", func(): tabs.current_tab = TAB_TECH)
+		_tech_list(box, G)
 	if st == "policy":
+		UIK.button(box, "Open the policy tree", func(): tabs.current_tab = TAB_POL)
 		var left: int = SHRules.gi(G, "policyLeft", 0)
 		UIK.para(box, ("Choose %d more policies (missed decades)." % left) if left > 0 else ("Policy chosen." if SHRules.t(G.get("policyPicked")) else "Choose one policy to adopt or upgrade."))
 		for p in D.POL:
@@ -578,6 +604,75 @@ func build_faction() -> void:
 	UIK.head(box, "Score now: %s (%s)" % [SHRules.n(sc.total), sc.rating])
 	for p in sc.parts: UIK.para(box, "%s: %s" % [p[0], SHRules.n(p[1])], UIK.DIM, 13)
 
+# ---------------- Tech and Policy tabs (the trees cover the map) ----------------
+func build_tech_panel() -> void:
+	var G = Game.G
+	var box := tech_box
+	UIK.clear(box)
+	UIK.title(box, "Technologies")
+	var R = ttree.rt_info(G)
+	var can: bool = G.estep == "tech"
+	UIK.para(box, "Research turns: in reverse initiative order each faction develops one technology or passes; repeat until all have passed." if R != null else ("Develop technologies now: click a highlighted card in the tree." if can else "Technologies are developed in the economic phase (every decade from 2040). The tree shows what each one needs."), UIK.DIM, 13)
+	if R != null:
+		UIK.rich(box, ttree.rt_status_bb(G), 13)
+		if R.mine and not R.passed: UIK.button(box, "Pass", func(): ttree.pass_research())
+	for f in E.FIELDS: UIK.rich(box, "[color=#%s]%s[/color]: [b]%d[/b] points" % [UIK.FIELD_COL[f].to_html(false), E.FN[f], G.bank[f]], 14)
+	var cnt: int = D.TECH.filter(func(t): return SHRules.t(G.tech.get(t.k))).size()
+	UIK.para(box, "%d of %d developed. Each undeveloped technology costs 3 VP at the end. Costs drop by 3 for each other faction that has a technology (the faction tags on its card)." % [cnt, D.TECH.size()], UIK.DIM, 13)
+	UIK.button(box, "Convert politics markers (%d)…" % G.polm, func(): ttree.convert_dialog(), G.polm < 1)
+	UIK.button(box, "Back to the map", func(): tabs.current_tab = TAB_TURN)
+
+func build_pol_panel() -> void:
+	var G = Game.G
+	var box := pol_box
+	UIK.clear(box)
+	UIK.title(box, "Policies")
+	UIK.para(box, "Adopt a policy now: click a highlighted card in the tree." if (G.estep == "policy" and not SHRules.t(G.get("policyPicked"))) else "One policy is adopted each decade in the economic phase; each chain goes Basic → Vigorous → Unified.", UIK.DIM, 13)
+	var held := []
+	for p in D.POL:
+		var lv := E.polLv(G, p.k)
+		if lv: held.append(D.POL_LV[lv - 1] + p.n)
+	UIK.para(box, "You hold: " + (", ".join(held) if held.size() else "none") + ".")
+	UIK.para(box, "At most one Unified policy and ten policy levels in total.", UIK.DIM, 13)
+	UIK.button(box, "Back to the map", func(): tabs.current_tab = TAB_TURN)
+
+# ---------------- confirmation and choice dialogs ----------------
+func _make_modal() -> void:
+	modal = ColorRect.new()
+	modal.color = Color(0, 0, 0, 0.55)
+	modal.set_anchors_preset(Control.PRESET_FULL_RECT)
+	modal.visible = false
+	modal.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(modal)
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	modal.add_child(cc)
+	var pc := PanelContainer.new()
+	pc.custom_minimum_size = Vector2(540, 0)
+	cc.add_child(pc)
+	modal_box = VBoxContainer.new()
+	modal_box.add_theme_constant_override("separation", 10)
+	pc.add_child(modal_box)
+
+## a small dialog: title, text, and an OK button running fn (it may return an error text); fn null = just close
+func confirm(title: String, body: String, fn, ok_text := "OK") -> void:
+	var opts := [[ok_text, fn]]
+	if fn != null: opts.append(["Cancel", null])
+	choose(title, body, opts)
+
+## a dialog with several choices: opts = [[label, Callable or null]]
+func choose(title: String, body: String, opts: Array) -> void:
+	UIK.clear(modal_box)
+	UIK.title(modal_box, title)
+	UIK.para(modal_box, body, null, 14, 400)
+	var f := UIK.flow(modal_box)
+	for o in opts:
+		var cb = o[1]
+		UIK.button(f, o[0], func():
+			modal.visible = false
+			if cb != null: Game.act(cb.call()))
+	modal.visible = true
+
 # ---------------- Log tab ----------------
 func _log_col(c):
 	match c:
@@ -677,6 +772,7 @@ func _ask_title(a: Dictionary) -> String:
 func show_menu(mode: String) -> void:
 	menu.visible = true
 	fboard.visible = false
+	ttree.visible = false
 	UIK.clear(menu_box)
 	UIK.title(menu_box, "Stellar Horizons", 34)
 	if mode == "pause":

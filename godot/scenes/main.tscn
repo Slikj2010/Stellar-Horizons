@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://ui/main.gd" id="1"]
 [ext_resource type="Script" path="res://ui/board.gd" id="2"]
 [ext_resource type="Script" path="res://ui/board_camera.gd" id="3"]
 [ext_resource type="Theme" path="res://ui/theme.tres" id="4"]
 [ext_resource type="Script" path="res://ui/faction_board.gd" id="5"]
+[ext_resource type="Script" path="res://ui/tech_tree.gd" id="6"]
 
 [node name="Main" type="Node"]
 script = ExtResource("1")
@@ -40,6 +41,20 @@ offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("5")
+
+[node name="TechTree" type="Control" parent="HUD/Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 62.0
+offset_right = -460.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("6")
 
 [node name="TopBar" type="PanelContainer" parent="HUD/Root"]
 layout_mode = 1
@@ -136,11 +151,33 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
-[node name="Log" type="ScrollContainer" parent="HUD/Root/Side/VBox/Tabs"]
+[node name="Tech" type="ScrollContainer" parent="HUD/Root/Side/VBox/Tabs"]
 visible = false
 layout_mode = 2
 horizontal_scroll_mode = 0
 metadata/_tab_index = 3
+
+[node name="Box" type="VBoxContainer" parent="HUD/Root/Side/VBox/Tabs/Tech"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Policy" type="ScrollContainer" parent="HUD/Root/Side/VBox/Tabs"]
+visible = false
+layout_mode = 2
+horizontal_scroll_mode = 0
+metadata/_tab_index = 4
+
+[node name="Box" type="VBoxContainer" parent="HUD/Root/Side/VBox/Tabs/Policy"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Log" type="ScrollContainer" parent="HUD/Root/Side/VBox/Tabs"]
+visible = false
+layout_mode = 2
+horizontal_scroll_mode = 0
+metadata/_tab_index = 5
 
 [node name="Text" type="RichTextLabel" parent="HUD/Root/Side/VBox/Tabs/Log"]
 layout_mode = 2
