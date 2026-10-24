@@ -1,0 +1,6459 @@
+{
+ "D": {
+  "SYS": {
+   "mer": {
+    "n": "Mercury",
+    "t": -2,
+    "dec": 2100,
+    "hub": "mer",
+    "rad": true
+   },
+   "ven": {
+    "n": "Venus",
+    "t": -1,
+    "dec": 2100,
+    "hub": "ven"
+   },
+   "ear": {
+    "n": "Earth",
+    "t": 0,
+    "dec": 2040,
+    "hub": "ear"
+   },
+   "mar": {
+    "n": "Mars",
+    "t": 1,
+    "dec": 2050,
+    "hub": "mar"
+   },
+   "bel": {
+    "n": "Main Belt",
+    "t": 3,
+    "dec": 2070,
+    "hub": "bel"
+   },
+   "jup": {
+    "n": "Jupiter",
+    "t": 5,
+    "dec": 2100,
+    "hub": "jup"
+   },
+   "sat": {
+    "n": "Saturn",
+    "t": 7,
+    "dec": 2110,
+    "hub": "sat"
+   },
+   "ura": {
+    "n": "Uranus",
+    "t": 9,
+    "dec": 2120,
+    "hub": "ura"
+   },
+   "nep": {
+    "n": "Neptune",
+    "t": 11,
+    "dec": 2130,
+    "hub": "nep"
+   },
+   "kui": {
+    "n": "Kuiper Belt",
+    "t": 12,
+    "dec": 2140,
+    "hub": "kui"
+   },
+   "sca": {
+    "n": "Scattered Disk",
+    "t": 15,
+    "dec": 0,
+    "hub": null
+   },
+   "alp": {
+    "n": "Alpha Centauri",
+    "t": 45,
+    "dec": 0,
+    "hub": "alp"
+   }
+  },
+  "SYS_ORDER": [
+   "mer",
+   "ven",
+   "ear",
+   "mar",
+   "bel",
+   "jup",
+   "sat",
+   "ura",
+   "nep",
+   "kui",
+   "sca",
+   "alp"
+  ],
+  "W": {
+   "mer": {
+    "n": "Mercury",
+    "sys": "mer",
+    "f": "Eng",
+    "v": 6,
+    "life": 2,
+    "base": 6,
+    "prod": {
+     "ORE": 4
+    },
+    "tags": [
+     "rocky",
+     "rad",
+     "surf"
+    ],
+    "rng": [
+     1,
+     4
+    ]
+   },
+   "sun": {
+    "n": "Sun Observation",
+    "sys": "mer",
+    "f": "Phy",
+    "v": 5,
+    "life": 0,
+    "base": 0,
+    "prod": {},
+    "tags": [
+     "sunobs",
+     "rad"
+    ],
+    "rng": null
+   },
+   "ven": {
+    "n": "Venus",
+    "sys": "ven",
+    "f": "Phy",
+    "v": 6,
+    "life": 1,
+    "base": 6,
+    "prod": {
+     "FUEL": 3,
+     "ORE": 2
+    },
+    "tags": [
+     "rocky",
+     "volcanic",
+     "severeAtm",
+     "venus",
+     "surf"
+    ],
+    "rng": [
+     5,
+     7
+    ]
+   },
+   "ear": {
+    "n": "Earth orbit",
+    "sys": "ear",
+    "f": "Bio",
+    "v": 3,
+    "life": 0,
+    "base": 2,
+    "prod": {},
+    "tags": [
+     "station",
+     "earth",
+     "reentry"
+    ],
+    "rng": null
+   },
+   "moo": {
+    "n": "Moon",
+    "sys": "ear",
+    "f": "Eng",
+    "v": 4,
+    "life": 2,
+    "base": 3,
+    "prod": {
+     "ORE": 1
+    },
+    "tags": [
+     "rocky",
+     "surf"
+    ],
+    "rng": [
+     12,
+     19
+    ]
+   },
+   "nea": {
+    "n": "Near Earth Asteroids",
+    "sys": "ear",
+    "f": "Eng",
+    "v": 4,
+    "life": 3,
+    "base": 3,
+    "prod": {
+     "ORE": 2
+    },
+    "tags": [
+     "rocky",
+     "minimal"
+    ],
+    "rng": [
+     8,
+     11
+    ]
+   },
+   "mar": {
+    "n": "Mars",
+    "sys": "mar",
+    "f": "Bio",
+    "v": 6,
+    "life": 12,
+    "base": 4,
+    "prod": {
+     "ORE": 1,
+     "SUP": 2
+    },
+    "tags": [
+     "rocky",
+     "icy",
+     "surf"
+    ],
+    "rng": [
+     20,
+     26
+    ]
+   },
+   "pho": {
+    "n": "Phobos-Deimos",
+    "sys": "mar",
+    "f": "Eng",
+    "v": 4,
+    "life": 2,
+    "base": 4,
+    "prod": {
+     "ORE": 2
+    },
+    "tags": [
+     "rocky",
+     "minimal"
+    ],
+    "rng": [
+     27,
+     30
+    ]
+   },
+   "com": {
+    "n": "Comet",
+    "sys": "mar",
+    "f": "Phy",
+    "v": 4,
+    "life": 4,
+    "base": 0,
+    "prod": {},
+    "tags": [
+     "icy",
+     "minimal"
+    ],
+    "rng": null
+   },
+   "bel": {
+    "n": "Main Belt",
+    "sys": "bel",
+    "f": "Eng",
+    "v": 5,
+    "life": 3,
+    "base": 7,
+    "prod": {
+     "ORE": 3
+    },
+    "tags": [
+     "rocky",
+     "minimal"
+    ],
+    "rng": [
+     31,
+     33
+    ]
+   },
+   "cer": {
+    "n": "Ceres",
+    "sys": "bel",
+    "f": "Bio",
+    "v": 5,
+    "life": 5,
+    "base": 7,
+    "prod": {
+     "SUP": 1,
+     "ORE": 2
+    },
+    "tags": [
+     "icy",
+     "minimal"
+    ],
+    "rng": [
+     34,
+     35
+    ]
+   },
+   "hyg": {
+    "n": "Hygeia-Pallas",
+    "sys": "bel",
+    "f": "Eng",
+    "v": 4,
+    "life": 3,
+    "base": 7,
+    "prod": {
+     "ORE": 2
+    },
+    "tags": [
+     "rocky",
+     "minimal"
+    ],
+    "rng": [
+     36,
+     37
+    ]
+   },
+   "ves": {
+    "n": "Vesta",
+    "sys": "bel",
+    "f": "Eng",
+    "v": 4,
+    "life": 3,
+    "base": 7,
+    "prod": {
+     "ORE": 2
+    },
+    "tags": [
+     "rocky",
+     "minimal"
+    ],
+    "rng": [
+     38,
+     39
+    ]
+   },
+   "jup": {
+    "n": "Jupiter",
+    "sys": "jup",
+    "f": "Phy",
+    "v": 5,
+    "life": 1,
+    "base": 9,
+    "prod": {
+     "FUEL": 5
+    },
+    "tags": [
+     "gas",
+     "severeAtm",
+     "rad",
+     "station",
+     "surf"
+    ],
+    "rng": [
+     58,
+     59
+    ]
+   },
+   "io": {
+    "n": "Io",
+    "sys": "jup",
+    "f": "Phy",
+    "v": 7,
+    "life": 4,
+    "base": 8,
+    "prod": {
+     "FUEL": 3,
+     "ORE": 2
+    },
+    "tags": [
+     "rocky",
+     "volcanic",
+     "rad"
+    ],
+    "rng": [
+     54,
+     57
+    ]
+   },
+   "eur": {
+    "n": "Europa",
+    "sys": "jup",
+    "f": "Bio",
+    "v": 7,
+    "life": 14,
+    "base": 8,
+    "prod": {
+     "SUP": 3
+    },
+    "tags": [
+     "icy",
+     "rocky",
+     "rad"
+    ],
+    "rng": [
+     49,
+     53
+    ]
+   },
+   "gan": {
+    "n": "Ganymede",
+    "sys": "jup",
+    "f": "Phy",
+    "v": 6,
+    "life": 5,
+    "base": 8,
+    "prod": {
+     "ORE": 1,
+     "SUP": 2
+    },
+    "tags": [
+     "icy",
+     "rocky"
+    ],
+    "rng": [
+     44,
+     48
+    ]
+   },
+   "cal": {
+    "n": "Callisto",
+    "sys": "jup",
+    "f": "Bio",
+    "v": 5,
+    "life": 6,
+    "base": 8,
+    "prod": {
+     "ORE": 1,
+     "SUP": 2
+    },
+    "tags": [
+     "icy",
+     "rocky",
+     "surf"
+    ],
+    "rng": [
+     40,
+     43
+    ]
+   },
+   "tro": {
+    "n": "Trojans & Greeks",
+    "sys": "jup",
+    "f": "Eng",
+    "v": 5,
+    "life": 4,
+    "base": 9,
+    "prod": {
+     "ORE": 2,
+     "SUP": 1
+    },
+    "tags": [
+     "icy",
+     "rocky",
+     "minimal"
+    ],
+    "rng": [
+     60,
+     61
+    ]
+   },
+   "sat": {
+    "n": "Saturn",
+    "sys": "sat",
+    "f": "Phy",
+    "v": 5,
+    "life": 2,
+    "base": 9,
+    "prod": {
+     "FUEL": 4
+    },
+    "tags": [
+     "gas",
+     "severeAtm",
+     "station"
+    ],
+    "rng": [
+     72,
+     73
+    ]
+   },
+   "mim": {
+    "n": "Mimas-Enceladus-Tethys",
+    "sys": "sat",
+    "f": "Bio",
+    "v": 7,
+    "life": 9,
+    "base": 7,
+    "prod": {
+     "ORE": 2,
+     "SUP": 2
+    },
+    "tags": [
+     "icy",
+     "rocky"
+    ],
+    "rng": [
+     70,
+     71
+    ]
+   },
+   "dio": {
+    "n": "Dione-Rhea",
+    "sys": "sat",
+    "f": "Eng",
+    "v": 6,
+    "life": 5,
+    "base": 9,
+    "prod": {
+     "ORE": 2
+    },
+    "tags": [
+     "icy",
+     "rocky"
+    ],
+    "rng": [
+     68,
+     69
+    ]
+   },
+   "tit": {
+    "n": "Titan",
+    "sys": "sat",
+    "f": "Bio",
+    "v": 8,
+    "life": 9,
+    "base": 9,
+    "prod": {
+     "FUEL": 3,
+     "ORE": 2
+    },
+    "tags": [
+     "icy",
+     "rocky",
+     "volcanic"
+    ],
+    "rng": [
+     64,
+     67
+    ]
+   },
+   "hyp": {
+    "n": "Hyperion-Iapetus",
+    "sys": "sat",
+    "f": "Eng",
+    "v": 5,
+    "life": 4,
+    "base": 9,
+    "prod": {
+     "ORE": 2
+    },
+    "tags": [
+     "icy",
+     "rocky"
+    ],
+    "rng": [
+     62,
+     63
+    ]
+   },
+   "ura": {
+    "n": "Uranus",
+    "sys": "ura",
+    "f": "Phy",
+    "v": 5,
+    "life": 2,
+    "base": 8,
+    "prod": {
+     "FUEL": 4
+    },
+    "tags": [
+     "gas",
+     "severeAtm",
+     "station",
+     "surf"
+    ],
+    "rng": [
+     80,
+     81
+    ]
+   },
+   "cha": {
+    "n": "Chariklo",
+    "sys": "ura",
+    "f": "Phy",
+    "v": 5,
+    "life": 4,
+    "base": 9,
+    "prod": {
+     "ORE": 2
+    },
+    "tags": [
+     "icy",
+     "minimal"
+    ],
+    "rng": [
+     74,
+     75
+    ]
+   },
+   "obe": {
+    "n": "Oberon-Titania",
+    "sys": "ura",
+    "f": "Eng",
+    "v": 5,
+    "life": 5,
+    "base": 9,
+    "prod": {
+     "ORE": 2
+    },
+    "tags": [
+     "icy",
+     "rocky",
+     "minimal"
+    ],
+    "rng": [
+     76,
+     77
+    ]
+   },
+   "umb": {
+    "n": "Umbriel-Ariel-Miranda",
+    "sys": "ura",
+    "f": "Eng",
+    "v": 5,
+    "life": 4,
+    "base": 9,
+    "prod": {
+     "ORE": 2
+    },
+    "tags": [
+     "icy",
+     "rocky"
+    ],
+    "rng": [
+     78,
+     79
+    ]
+   },
+   "nep": {
+    "n": "Neptune",
+    "sys": "nep",
+    "f": "Phy",
+    "v": 7,
+    "life": 2,
+    "base": 8,
+    "prod": {
+     "FUEL": 4
+    },
+    "tags": [
+     "gas",
+     "severeAtm",
+     "station"
+    ],
+    "rng": [
+     87,
+     88
+    ]
+   },
+   "tri": {
+    "n": "Triton",
+    "sys": "nep",
+    "f": "Phy",
+    "v": 7,
+    "life": 7,
+    "base": 9,
+    "prod": {
+     "FUEL": 2,
+     "ORE": 2
+    },
+    "tags": [
+     "icy",
+     "volcanic"
+    ],
+    "rng": [
+     82,
+     84
+    ]
+   },
+   "gal": {
+    "n": "Galatea-Larissa-Proteus",
+    "sys": "nep",
+    "f": "Eng",
+    "v": 6,
+    "life": 3,
+    "base": 9,
+    "prod": {
+     "ORE": 2
+    },
+    "tags": [
+     "rocky",
+     "minimal"
+    ],
+    "rng": [
+     85,
+     86
+    ]
+   },
+   "kui": {
+    "n": "Kuiper Belt",
+    "sys": "kui",
+    "f": "Phy",
+    "v": 7,
+    "life": 6,
+    "base": 8,
+    "prod": {
+     "ORE": 2
+    },
+    "tags": [
+     "icy",
+     "minimal"
+    ],
+    "rng": [
+     94,
+     97
+    ]
+   },
+   "plu": {
+    "n": "Pluto-Charon",
+    "sys": "kui",
+    "f": "Phy",
+    "v": 8,
+    "life": 5,
+    "base": 9,
+    "prod": {
+     "ORE": 2
+    },
+    "tags": [
+     "icy"
+    ],
+    "rng": [
+     89,
+     93
+    ]
+   },
+   "hau": {
+    "n": "Haumea-Makemake",
+    "sys": "kui",
+    "f": "Phy",
+    "v": 7,
+    "life": 6,
+    "base": 9,
+    "prod": {
+     "ORE": 2
+    },
+    "tags": [
+     "icy",
+     "rocky"
+    ],
+    "rng": [
+     98,
+     100
+    ]
+   },
+   "sed": {
+    "n": "Sedna",
+    "sys": "sca",
+    "f": "Phy",
+    "v": 8,
+    "life": 5,
+    "base": 9,
+    "prod": {
+     "ORE": 2
+    },
+    "tags": [
+     "icy",
+     "minimal"
+    ],
+    "rng": null
+   },
+   "eri": {
+    "n": "Eris-Dysnomia",
+    "sys": "sca",
+    "f": "Phy",
+    "v": 9,
+    "life": 5,
+    "base": 9,
+    "prod": {
+     "ORE": 2
+    },
+    "tags": [
+     "icy"
+    ],
+    "rng": null
+   },
+   "dsa": {
+    "n": "Deep Space Astronomy",
+    "sys": "sca",
+    "f": "Phy",
+    "v": 9,
+    "life": 5,
+    "base": 0,
+    "prod": {},
+    "tags": [
+     "tele"
+    ],
+    "rng": null
+   },
+   "alp": {
+    "n": "Alpha Centauri",
+    "sys": "alp",
+    "f": "Phy",
+    "v": 9,
+    "life": 0,
+    "base": 0,
+    "prod": {},
+    "tags": [
+     "alpha"
+    ],
+    "rng": null
+   }
+  },
+  "ALPHA": [
+   [
+    4,
+    "Phy",
+    3
+   ],
+   [
+    7,
+    "Eng",
+    5
+   ],
+   [
+    10,
+    "Bio",
+    10
+   ]
+  ],
+  "SET_VP": {
+   "ear": 1,
+   "moo": 1.25,
+   "nea": 1.25,
+   "mar": 1.25,
+   "mer": 1.5,
+   "ven": 1.5,
+   "bel": 1.5,
+   "jup": 1.75,
+   "sat": 1.75
+  },
+  "CARDS": [
+   {
+    "n": "Chasms",
+    "prod": {
+     "ORE": 2,
+     "FUEL": 2,
+     "SUP": 4
+    },
+    "rf": "Phy",
+    "rv": 3,
+    "el": "rockyOrIcy",
+    "bonus": {
+     "crew": 1
+    },
+    "lifeB": 0,
+    "img": "Chasms"
+   },
+   {
+    "n": "Cratered Surface",
+    "prod": {
+     "ORE": 1,
+     "FUEL": 1,
+     "SUP": 1
+    },
+    "rf": "Eng",
+    "rv": 1,
+    "el": "rockyOrIcy",
+    "bonus": {
+     "rover": 2
+    },
+    "lifeB": 0,
+    "img": "Cratered Surface"
+   },
+   {
+    "n": "Escarpments",
+    "prod": {
+     "ORE": 3,
+     "FUEL": 2,
+     "SUP": 1
+    },
+    "rf": "Eng",
+    "rv": 2,
+    "el": "rockyOrIcy",
+    "bonus": {
+     "crew": 3
+    },
+    "lifeB": 0,
+    "img": "Escarpments"
+   },
+   {
+    "n": "Frozen Methane",
+    "prod": {
+     "ORE": 1,
+     "FUEL": 6,
+     "SUP": 2
+    },
+    "rf": "Phy",
+    "rv": 4,
+    "el": "notVenus",
+    "bonus": {
+     "spec": 1
+    },
+    "lifeB": 0,
+    "img": "Frozen Methane"
+   },
+   {
+    "n": "Helium-3",
+    "prod": {
+     "ORE": 1,
+     "FUEL": 6,
+     "SUP": 1
+    },
+    "rf": "Phy",
+    "rv": 6,
+    "el": "gas",
+    "bonus": {
+     "probe": 6
+    },
+    "lifeB": 0,
+    "img": "Helium-3"
+   },
+   {
+    "n": "Hematite",
+    "prod": {
+     "ORE": 5,
+     "FUEL": 2,
+     "SUP": 2
+    },
+    "rf": "Eng",
+    "rv": 4,
+    "el": "rocky",
+    "bonus": {
+     "orbiter": 2,
+     "flyby": 2
+    },
+    "lifeB": 0,
+    "img": "Hematite"
+   },
+   {
+    "n": "Hydrogen",
+    "prod": {
+     "ORE": 1,
+     "FUEL": 4,
+     "SUP": 2
+    },
+    "rf": "Phy",
+    "rv": 2,
+    "el": "gas",
+    "bonus": {
+     "probe": 4
+    },
+    "lifeB": 0,
+    "img": "Hydrogen"
+   },
+   {
+    "n": "Impact Basin",
+    "prod": {
+     "ORE": 2,
+     "FUEL": 2,
+     "SUP": 2
+    },
+    "rf": "Eng",
+    "rv": 4,
+    "el": "rocky",
+    "bonus": {
+     "rover": 2
+    },
+    "lifeB": 0,
+    "img": "Impact Basin"
+   },
+   {
+    "n": "Maria",
+    "prod": {
+     "ORE": 3,
+     "FUEL": 2,
+     "SUP": 1
+    },
+    "rf": "Eng",
+    "rv": 2,
+    "el": "rocky",
+    "bonus": {
+     "rover": 4
+    },
+    "lifeB": 0,
+    "img": "Maria"
+   },
+   {
+    "n": "Mixed Ice",
+    "prod": {
+     "ORE": 3,
+     "FUEL": 5,
+     "SUP": 4
+    },
+    "rf": "Bio",
+    "rv": 4,
+    "el": "icy",
+    "bonus": {
+     "spec": 3
+    },
+    "lifeB": 0,
+    "img": "Mixed Ice"
+   },
+   {
+    "n": "Precious Metals",
+    "prod": {
+     "ORE": 6,
+     "FUEL": 3,
+     "SUP": 2
+    },
+    "rf": "Eng",
+    "rv": 6,
+    "el": "rocky",
+    "bonus": {
+     "spec": 3
+    },
+    "lifeB": 0,
+    "img": "Precious Metals"
+   },
+   {
+    "n": "Ridged Terrain",
+    "prod": {
+     "ORE": 3,
+     "FUEL": 3,
+     "SUP": 3
+    },
+    "rf": "Eng",
+    "rv": 3,
+    "el": "rockyOrIcy",
+    "bonus": {
+     "crew": 2
+    },
+    "lifeB": 0,
+    "img": "Ridged Terrain"
+   },
+   {
+    "n": "Silicate Rocks",
+    "prod": {
+     "ORE": 2,
+     "FUEL": 1,
+     "SUP": 1
+    },
+    "rf": "Eng",
+    "rv": 2,
+    "el": "rocky",
+    "bonus": {
+     "spec": 2
+    },
+    "lifeB": 0,
+    "img": "Silicate Rocks"
+   },
+   {
+    "n": "Subterranean Water",
+    "prod": {
+     "ORE": 2,
+     "FUEL": 4,
+     "SUP": 6
+    },
+    "rf": "Bio",
+    "rv": 6,
+    "el": "icy",
+    "bonus": {
+     "spec": 2
+    },
+    "lifeB": 5,
+    "img": "Subterrain Water"
+   },
+   {
+    "n": "Volcanoes",
+    "prod": {
+     "ORE": 5,
+     "FUEL": 6,
+     "SUP": 1
+    },
+    "rf": "Phy",
+    "rv": 7,
+    "el": "volcanic",
+    "bonus": {
+     "all": 2
+    },
+    "lifeB": 0,
+    "img": "Valcanoes"
+   },
+   {
+    "n": "Volatile Atmosphere",
+    "prod": {
+     "ORE": 1,
+     "FUEL": 5,
+     "SUP": 1
+    },
+    "rf": "Phy",
+    "rv": 4,
+    "el": "severeAtm",
+    "bonus": {
+     "probe": 5
+    },
+    "lifeB": 0,
+    "img": "Volatile Atmosphere"
+   },
+   {
+    "n": "Water Ice",
+    "prod": {
+     "ORE": 2,
+     "FUEL": 5,
+     "SUP": 5
+    },
+    "rf": "Bio",
+    "rv": 5,
+    "el": "icy",
+    "bonus": {
+     "orbiter": 2
+    },
+    "lifeB": 4,
+    "img": "Water Ice"
+   },
+   {
+    "n": "C-Class Asteroid",
+    "prod": {
+     "ORE": 2,
+     "FUEL": 3,
+     "SUP": 4
+    },
+    "rf": "Phy",
+    "rv": 4,
+    "el": "minimal",
+    "bonus": {
+     "orbiter": 1,
+     "flyby": 1
+    },
+    "lifeB": 0,
+    "img": "C-Class Asteroid"
+   },
+   {
+    "n": "M-Class Asteroid",
+    "prod": {
+     "ORE": 5,
+     "FUEL": 1,
+     "SUP": 1
+    },
+    "rf": "Eng",
+    "rv": 6,
+    "el": "rockyMinimal",
+    "bonus": {
+     "orbiter": 2,
+     "flyby": 2
+    },
+    "lifeB": 0,
+    "img": "M-Class Asteroid"
+   },
+   {
+    "n": "S-Class Asteroid",
+    "prod": {
+     "ORE": 3,
+     "FUEL": 2,
+     "SUP": 2
+    },
+    "rf": "Eng",
+    "rv": 2,
+    "el": "minimal",
+    "bonus": {
+     "spec": 2
+    },
+    "lifeB": 0,
+    "img": "S-Class Asteroid"
+   }
+  ],
+  "TECH": [
+   {
+    "k": "sol",
+    "f": "Bio",
+    "n": "Signs of Life",
+    "c": 10,
+    "r": [],
+    "d": "Earth production +2 Biology"
+   },
+   {
+    "k": "exl",
+    "f": "Bio",
+    "n": "Existing Life",
+    "c": 15,
+    "r": [
+     "sol"
+    ],
+    "d": "Earth production +3 Biology, +2 Physics"
+   },
+   {
+    "k": "ag",
+    "f": "Bio",
+    "n": "Short-Radius Artificial Gravity",
+    "c": 10,
+    "r": [],
+    "d": "CV recall 45%"
+   },
+   {
+    "k": "hab",
+    "f": "Bio",
+    "n": "Space Habitation",
+    "c": 15,
+    "r": [
+     "ag"
+    ],
+    "d": "Base construction cost -1"
+   },
+   {
+    "k": "mine",
+    "f": "Bio",
+    "n": "Space Mining",
+    "c": 15,
+    "r": [
+     "hab"
+    ],
+    "d": "Production CVs can produce resources"
+   },
+   {
+    "k": "ish",
+    "f": "Bio",
+    "n": "Improved Space Habitation",
+    "c": 25,
+    "r": [
+     "mine"
+    ],
+    "d": "Base construction cost -2"
+   },
+   {
+    "k": "terra",
+    "f": "Bio",
+    "n": "Terraforming",
+    "c": 25,
+    "r": [
+     "ish"
+    ],
+    "d": "Terraforming point costs 4 SUP"
+   },
+   {
+    "k": "gen",
+    "f": "Bio",
+    "n": "Genetic Engineering",
+    "c": 30,
+    "r": [
+     "terra"
+    ],
+    "d": "Buy Biology points $1B each, sell 2 for $1B"
+   },
+   {
+    "k": "ref",
+    "f": "Bio",
+    "n": "Space Refining",
+    "c": 25,
+    "r": [
+     "ish"
+    ],
+    "d": "Subtract 1 from CV production roll"
+   },
+   {
+    "k": "ash",
+    "f": "Bio",
+    "n": "Advanced Space Habitation",
+    "c": 30,
+    "r": [
+     "ref"
+    ],
+    "d": "Base construction cost -3"
+   },
+   {
+    "k": "atm",
+    "f": "Bio",
+    "n": "Atmosphere Processing",
+    "c": 35,
+    "r": [
+     "ash",
+     "gen"
+    ],
+    "d": "Terraforming point costs 3 SUP"
+   },
+   {
+    "k": "ops",
+    "f": "Bio",
+    "n": "Space Operations",
+    "c": 20,
+    "r": [
+     "ag"
+    ],
+    "d": "CV recall 40%"
+   },
+   {
+    "k": "iops",
+    "f": "Bio",
+    "n": "Improved Space Operations",
+    "c": 25,
+    "r": [
+     "ops"
+    ],
+    "d": "CV recall 35%"
+   },
+   {
+    "k": "aops",
+    "f": "Bio",
+    "n": "Advanced Space Operations",
+    "c": 25,
+    "r": [
+     "iops"
+    ],
+    "d": "CV recall 30%"
+   },
+   {
+    "k": "ism",
+    "f": "Bio",
+    "n": "Improved Space Medicine",
+    "c": 30,
+    "r": [
+     "aops"
+    ],
+    "d": "CV recall 25%"
+   },
+   {
+    "k": "asm",
+    "f": "Bio",
+    "n": "Advanced Space Medicine",
+    "c": 30,
+    "r": [
+     "ism"
+    ],
+    "d": "CV recall 20%"
+   },
+   {
+    "k": "ich",
+    "f": "Bio",
+    "n": "Interstellar Colonizer Habitation",
+    "c": 50,
+    "r": [
+     "asm",
+     "ash"
+    ],
+    "d": "Victory condition"
+   },
+   {
+    "k": "suit",
+    "f": "Bio",
+    "n": "Improved Space Suits",
+    "c": 10,
+    "r": [],
+    "d": "CV exploration +1"
+   },
+   {
+    "k": "cp",
+    "f": "Bio",
+    "n": "Mechanical Counterpressure Suits",
+    "c": 25,
+    "r": [
+     "suit"
+    ],
+    "d": "CV exploration +2"
+   },
+   {
+    "k": "als",
+    "f": "Bio",
+    "n": "Advanced Life Support",
+    "c": 30,
+    "r": [
+     "cp",
+     "ops",
+     "astro"
+    ],
+    "d": "CV range 2"
+   },
+   {
+    "k": "aec",
+    "f": "Bio",
+    "n": "Advanced Exploration Concepts",
+    "c": 30,
+    "r": [
+     "als"
+    ],
+    "d": "CV exploration +3"
+   },
+   {
+    "k": "ccls",
+    "f": "Bio",
+    "n": "Closed Cycle Life Support",
+    "c": 40,
+    "r": [
+     "aec",
+     "aops",
+     "ldsf"
+    ],
+    "d": "CV range 4"
+   },
+   {
+    "k": "acv",
+    "f": "Bio",
+    "n": "Advanced Crew Vehicles",
+    "c": 40,
+    "r": [
+     "ccls"
+    ],
+    "d": "CV exploration +5"
+   },
+   {
+    "k": "sch",
+    "f": "Bio",
+    "n": "Safe Crew Hibernation",
+    "c": 40,
+    "r": [
+     "acv",
+     "asm",
+     "dse"
+    ],
+    "d": "CV range unlimited"
+   },
+   {
+    "k": "orb",
+    "f": "Phy",
+    "n": "Orbital Rendezvous",
+    "c": 10,
+    "r": [],
+    "d": "CVs can reach the Moon and Near Earth Asteroids"
+   },
+   {
+    "k": "astro",
+    "f": "Phy",
+    "n": "Advanced Astrodynamics",
+    "c": 15,
+    "r": [
+     "orb"
+    ],
+    "d": "CV range 1"
+   },
+   {
+    "k": "tr",
+    "f": "Phy",
+    "n": "Trade Routes",
+    "c": 15,
+    "r": [
+     "astro"
+    ],
+    "d": "Transfer up to 5 resources after production"
+   },
+   {
+    "k": "ldsf",
+    "f": "Phy",
+    "n": "Long Duration Space Flight",
+    "c": 30,
+    "r": [
+     "tr",
+     "als",
+     "ars"
+    ],
+    "d": "CV range 3"
+   },
+   {
+    "k": "psh",
+    "f": "Phy",
+    "n": "Pressure Shell",
+    "c": 30,
+    "r": [
+     "ldsf"
+    ],
+    "d": "Ignore severe atmospheres"
+   },
+   {
+    "k": "dse",
+    "f": "Phy",
+    "n": "Deep Space Exploration",
+    "c": 40,
+    "r": [
+     "psh",
+     "ccls",
+     "itr"
+    ],
+    "d": "CV range 5"
+   },
+   {
+    "k": "ars",
+    "f": "Phy",
+    "n": "Active Radiation Shielding",
+    "c": 20,
+    "r": [
+     "astro",
+     "isw"
+    ],
+    "d": "Ignore severe radiation"
+   },
+   {
+    "k": "itr",
+    "f": "Phy",
+    "n": "Improved Trade Routes",
+    "c": 30,
+    "r": [
+     "ldsf"
+    ],
+    "d": "Transfer up to 10 resources"
+   },
+   {
+    "k": "atr",
+    "f": "Phy",
+    "n": "Advanced Trade Routes",
+    "c": 30,
+    "r": [
+     "itr"
+    ],
+    "d": "Transfer up to 15 resources"
+   },
+   {
+    "k": "isw",
+    "f": "Phy",
+    "n": "Improved Space Weapons",
+    "c": 10,
+    "r": [
+     "ion"
+    ],
+    "d": "+1 to attack roll"
+   },
+   {
+    "k": "asw",
+    "f": "Phy",
+    "n": "Advanced Space Weapons",
+    "c": 20,
+    "r": [
+     "ars"
+    ],
+    "d": "+3 to attack roll"
+   },
+   {
+    "k": "mec",
+    "f": "Phy",
+    "n": "Matter-Energy Conversion",
+    "c": 30,
+    "r": [
+     "asw"
+    ],
+    "d": "Buy Physics points $1B each, sell 2 for $1B"
+   },
+   {
+    "k": "ef",
+    "f": "Phy",
+    "n": "Energy Focusing",
+    "c": 30,
+    "r": [
+     "mec"
+    ],
+    "d": "+5 to attack roll"
+   },
+   {
+    "k": "ice",
+    "f": "Phy",
+    "n": "Interstellar Colonizer Engine",
+    "c": 50,
+    "r": [
+     "ef",
+     "atr",
+     "aam"
+    ],
+    "d": "Victory condition"
+   },
+   {
+    "k": "ion",
+    "f": "Phy",
+    "n": "Ion Engines",
+    "c": 10,
+    "r": [],
+    "d": "Heliocentric transfers x0.9"
+   },
+   {
+    "k": "pm",
+    "f": "Phy",
+    "n": "Plasmadynamic Propulsion",
+    "c": 15,
+    "r": [
+     "ion"
+    ],
+    "d": "Transfers x0.8"
+   },
+   {
+    "k": "ff",
+    "f": "Phy",
+    "n": "Fission-Fragment Engine",
+    "c": 20,
+    "r": [
+     "pm",
+     "isw"
+    ],
+    "d": "Transfers x0.7"
+   },
+   {
+    "k": "fr",
+    "f": "Phy",
+    "n": "Fusion Rockets",
+    "c": 25,
+    "r": [
+     "ff"
+    ],
+    "d": "Transfers x0.6"
+   },
+   {
+    "k": "pam",
+    "f": "Phy",
+    "n": "Practical Anti-Matter",
+    "c": 30,
+    "r": [
+     "fr",
+     "asw"
+    ],
+    "d": "Transfers x0.5"
+   },
+   {
+    "k": "aam",
+    "f": "Phy",
+    "n": "Advanced Anti-Matter",
+    "c": 30,
+    "r": [
+     "pam",
+     "mec"
+    ],
+    "d": "Transfers x0.4"
+   },
+   {
+    "k": "hap",
+    "f": "Phy",
+    "n": "Hyper-advanced Propulsion",
+    "c": 35,
+    "r": [
+     "aam"
+    ],
+    "d": "Transfers x0.2"
+   },
+   {
+    "k": "cv",
+    "f": "Eng",
+    "n": "Crew Vehicles",
+    "c": 10,
+    "r": [],
+    "d": "Build CV-2 and LV-3"
+   },
+   {
+    "k": "lcv",
+    "f": "Eng",
+    "n": "Large Crew Vehicles",
+    "c": 25,
+    "r": [
+     "cv"
+    ],
+    "d": "Build CV-3"
+   },
+   {
+    "k": "frig",
+    "f": "Eng",
+    "n": "Frigates",
+    "c": 30,
+    "r": [
+     "lcv",
+     "uhlv",
+     "pm"
+    ],
+    "d": "Build CV-4; engine failure 3%"
+   },
+   {
+    "k": "dest",
+    "f": "Eng",
+    "n": "Destroyers",
+    "c": 30,
+    "r": [
+     "frig",
+     "ff"
+    ],
+    "d": "Build CV-5"
+   },
+   {
+    "k": "cru",
+    "f": "Eng",
+    "n": "Cruisers",
+    "c": 30,
+    "r": [
+     "dest",
+     "fr"
+    ],
+    "d": "Build CV-6"
+   },
+   {
+    "k": "bat",
+    "f": "Eng",
+    "n": "Battleships",
+    "c": 30,
+    "r": [
+     "cru",
+     "pam"
+    ],
+    "d": "Build CV-7 and larger"
+   },
+   {
+    "k": "ichull",
+    "f": "Eng",
+    "n": "Interstellar Colonizer Hull",
+    "c": 50,
+    "r": [
+     "bat",
+     "sht",
+     "ai"
+    ],
+    "d": "Victory condition"
+   },
+   {
+    "k": "reuse",
+    "f": "Eng",
+    "n": "Reusable Launch Vehicles",
+    "c": 10,
+    "r": [],
+    "d": "LVs survive on an engine roll above 25"
+   },
+   {
+    "k": "uhlv",
+    "f": "Eng",
+    "n": "Ultra-Heavy Launch Vehicles",
+    "c": 20,
+    "r": [
+     "reuse",
+     "cv"
+    ],
+    "d": "Engine failure 4%; build LV-4"
+   },
+   {
+    "k": "elev",
+    "f": "Eng",
+    "n": "Space Elevator",
+    "c": 30,
+    "r": [
+     "dest"
+    ],
+    "d": "Ships in orbit count as on the surface"
+   },
+   {
+    "k": "sht",
+    "f": "Eng",
+    "n": "Space Heavy Transport",
+    "c": 40,
+    "r": [
+     "elev",
+     "cru",
+     "nano"
+    ],
+    "d": "CV and LV cargo x2"
+   },
+   {
+    "k": "icd",
+    "f": "Eng",
+    "n": "Improved Component Design",
+    "c": 15,
+    "r": [],
+    "d": "Malfunction 27%"
+   },
+   {
+    "k": "acd",
+    "f": "Eng",
+    "n": "Advanced Component Design",
+    "c": 20,
+    "r": [
+     "icd"
+    ],
+    "d": "Malfunction 24%"
+   },
+   {
+    "k": "qc",
+    "f": "Eng",
+    "n": "Quantum Computing",
+    "c": 25,
+    "r": [
+     "acd"
+    ],
+    "d": "Malfunction 21%; robotic exploration +1"
+   },
+   {
+    "k": "aqc",
+    "f": "Eng",
+    "n": "Advanced Quantum Computing",
+    "c": 30,
+    "r": [
+     "qc"
+    ],
+    "d": "Malfunction 18%; robotic exploration +2"
+   },
+   {
+    "k": "nano",
+    "f": "Eng",
+    "n": "Nano-Technology",
+    "c": 30,
+    "r": [
+     "aqc"
+    ],
+    "d": "Buy Engineering points $1B each, sell 2 for $1B"
+   },
+   {
+    "k": "ai",
+    "f": "Eng",
+    "n": "Artificial Intelligence",
+    "c": 40,
+    "r": [
+     "nano"
+    ],
+    "d": "Malfunction 15%; robotic exploration +3"
+   },
+   {
+    "k": "msl",
+    "f": "Eng",
+    "n": "Space Missiles",
+    "c": 10,
+    "r": [],
+    "d": "Ships with attack values can fire in strike combat"
+   },
+   {
+    "k": "amsl",
+    "f": "Eng",
+    "n": "Advanced Space Missiles",
+    "c": 10,
+    "r": [
+     "msl"
+    ],
+    "d": "+1 combat tactics points"
+   },
+   {
+    "k": "fd",
+    "f": "Eng",
+    "n": "Fighter Drones",
+    "c": 15,
+    "r": [
+     "amsl"
+    ],
+    "d": "CVs and defense networks use fighter drones"
+   },
+   {
+    "k": "cc",
+    "f": "Eng",
+    "n": "Command & Control",
+    "c": 15,
+    "r": [
+     "fd",
+     "qc"
+    ],
+    "d": "+2 combat tactics points"
+   },
+   {
+    "k": "bd",
+    "f": "Eng",
+    "n": "Bomber Drones",
+    "c": 20,
+    "r": [
+     "cc"
+    ],
+    "d": "CVs and defense networks use bomber drones"
+   }
+  ],
+  "TECH_POS": {
+   "sol": [
+    0,
+    0
+   ],
+   "exl": [
+    0,
+    1
+   ],
+   "terra": [
+    0,
+    5
+   ],
+   "gen": [
+    0,
+    6
+   ],
+   "ag": [
+    1,
+    0
+   ],
+   "hab": [
+    1,
+    1
+   ],
+   "mine": [
+    1,
+    2
+   ],
+   "ish": [
+    1,
+    3
+   ],
+   "ref": [
+    1,
+    4
+   ],
+   "ash": [
+    1,
+    5
+   ],
+   "atm": [
+    1,
+    6
+   ],
+   "ops": [
+    2,
+    1
+   ],
+   "iops": [
+    2,
+    2
+   ],
+   "aops": [
+    2,
+    3
+   ],
+   "ism": [
+    2,
+    4
+   ],
+   "asm": [
+    2,
+    5
+   ],
+   "ich": [
+    2,
+    6
+   ],
+   "suit": [
+    3,
+    0
+   ],
+   "cp": [
+    3,
+    1
+   ],
+   "als": [
+    3,
+    2
+   ],
+   "aec": [
+    3,
+    3
+   ],
+   "ccls": [
+    3,
+    4
+   ],
+   "acv": [
+    3,
+    5
+   ],
+   "sch": [
+    3,
+    6
+   ],
+   "orb": [
+    4,
+    0
+   ],
+   "astro": [
+    4,
+    1
+   ],
+   "tr": [
+    4,
+    2
+   ],
+   "ldsf": [
+    4,
+    3
+   ],
+   "psh": [
+    4,
+    4
+   ],
+   "dse": [
+    4,
+    5
+   ],
+   "ars": [
+    5,
+    2
+   ],
+   "itr": [
+    5,
+    4
+   ],
+   "atr": [
+    5,
+    5
+   ],
+   "isw": [
+    6,
+    1
+   ],
+   "asw": [
+    6,
+    3
+   ],
+   "mec": [
+    6,
+    4
+   ],
+   "ef": [
+    6,
+    5
+   ],
+   "ice": [
+    6,
+    6
+   ],
+   "ion": [
+    7,
+    0
+   ],
+   "pm": [
+    7,
+    1
+   ],
+   "ff": [
+    7,
+    2
+   ],
+   "fr": [
+    7,
+    3
+   ],
+   "pam": [
+    7,
+    4
+   ],
+   "aam": [
+    7,
+    5
+   ],
+   "hap": [
+    7,
+    6
+   ],
+   "cv": [
+    8,
+    0
+   ],
+   "lcv": [
+    8,
+    1
+   ],
+   "frig": [
+    8,
+    2
+   ],
+   "dest": [
+    8,
+    3
+   ],
+   "cru": [
+    8,
+    4
+   ],
+   "bat": [
+    8,
+    5
+   ],
+   "reuse": [
+    9,
+    0
+   ],
+   "uhlv": [
+    9,
+    1
+   ],
+   "elev": [
+    9,
+    4
+   ],
+   "sht": [
+    9,
+    5
+   ],
+   "ichull": [
+    9,
+    6
+   ],
+   "icd": [
+    10,
+    0
+   ],
+   "acd": [
+    10,
+    1
+   ],
+   "qc": [
+    10,
+    2
+   ],
+   "aqc": [
+    10,
+    3
+   ],
+   "nano": [
+    10,
+    4
+   ],
+   "ai": [
+    10,
+    5
+   ],
+   "msl": [
+    11,
+    0
+   ],
+   "amsl": [
+    11,
+    1
+   ],
+   "fd": [
+    11,
+    2
+   ],
+   "cc": [
+    11,
+    3
+   ],
+   "bd": [
+    11,
+    4
+   ]
+  },
+  "SCEN": {
+   "std": {
+    "n": "Standard campaign (2030)",
+    "d": "The full campaign from 2030."
+   },
+   "fut2060": {
+    "n": "Futuristic start (2060)",
+    "d": "Start after the 2060 economic phase. You have every technology in the first two columns of the tree (except Signs of Life and Existing Life), and an extra $40B plus $3B for each technology you would have started a 2030 campaign with. Choose policies for the three missed economic phases. Every world starts with its exploration value reduced by 1."
+   }
+  },
+  "TECHK": {
+   "sol": {
+    "k": "sol",
+    "f": "Bio",
+    "n": "Signs of Life",
+    "c": 10,
+    "r": [],
+    "d": "Earth production +2 Biology"
+   },
+   "exl": {
+    "k": "exl",
+    "f": "Bio",
+    "n": "Existing Life",
+    "c": 15,
+    "r": [
+     "sol"
+    ],
+    "d": "Earth production +3 Biology, +2 Physics"
+   },
+   "ag": {
+    "k": "ag",
+    "f": "Bio",
+    "n": "Short-Radius Artificial Gravity",
+    "c": 10,
+    "r": [],
+    "d": "CV recall 45%"
+   },
+   "hab": {
+    "k": "hab",
+    "f": "Bio",
+    "n": "Space Habitation",
+    "c": 15,
+    "r": [
+     "ag"
+    ],
+    "d": "Base construction cost -1"
+   },
+   "mine": {
+    "k": "mine",
+    "f": "Bio",
+    "n": "Space Mining",
+    "c": 15,
+    "r": [
+     "hab"
+    ],
+    "d": "Production CVs can produce resources"
+   },
+   "ish": {
+    "k": "ish",
+    "f": "Bio",
+    "n": "Improved Space Habitation",
+    "c": 25,
+    "r": [
+     "mine"
+    ],
+    "d": "Base construction cost -2"
+   },
+   "terra": {
+    "k": "terra",
+    "f": "Bio",
+    "n": "Terraforming",
+    "c": 25,
+    "r": [
+     "ish"
+    ],
+    "d": "Terraforming point costs 4 SUP"
+   },
+   "gen": {
+    "k": "gen",
+    "f": "Bio",
+    "n": "Genetic Engineering",
+    "c": 30,
+    "r": [
+     "terra"
+    ],
+    "d": "Buy Biology points $1B each, sell 2 for $1B"
+   },
+   "ref": {
+    "k": "ref",
+    "f": "Bio",
+    "n": "Space Refining",
+    "c": 25,
+    "r": [
+     "ish"
+    ],
+    "d": "Subtract 1 from CV production roll"
+   },
+   "ash": {
+    "k": "ash",
+    "f": "Bio",
+    "n": "Advanced Space Habitation",
+    "c": 30,
+    "r": [
+     "ref"
+    ],
+    "d": "Base construction cost -3"
+   },
+   "atm": {
+    "k": "atm",
+    "f": "Bio",
+    "n": "Atmosphere Processing",
+    "c": 35,
+    "r": [
+     "ash",
+     "gen"
+    ],
+    "d": "Terraforming point costs 3 SUP"
+   },
+   "ops": {
+    "k": "ops",
+    "f": "Bio",
+    "n": "Space Operations",
+    "c": 20,
+    "r": [
+     "ag"
+    ],
+    "d": "CV recall 40%"
+   },
+   "iops": {
+    "k": "iops",
+    "f": "Bio",
+    "n": "Improved Space Operations",
+    "c": 25,
+    "r": [
+     "ops"
+    ],
+    "d": "CV recall 35%"
+   },
+   "aops": {
+    "k": "aops",
+    "f": "Bio",
+    "n": "Advanced Space Operations",
+    "c": 25,
+    "r": [
+     "iops"
+    ],
+    "d": "CV recall 30%"
+   },
+   "ism": {
+    "k": "ism",
+    "f": "Bio",
+    "n": "Improved Space Medicine",
+    "c": 30,
+    "r": [
+     "aops"
+    ],
+    "d": "CV recall 25%"
+   },
+   "asm": {
+    "k": "asm",
+    "f": "Bio",
+    "n": "Advanced Space Medicine",
+    "c": 30,
+    "r": [
+     "ism"
+    ],
+    "d": "CV recall 20%"
+   },
+   "ich": {
+    "k": "ich",
+    "f": "Bio",
+    "n": "Interstellar Colonizer Habitation",
+    "c": 50,
+    "r": [
+     "asm",
+     "ash"
+    ],
+    "d": "Victory condition"
+   },
+   "suit": {
+    "k": "suit",
+    "f": "Bio",
+    "n": "Improved Space Suits",
+    "c": 10,
+    "r": [],
+    "d": "CV exploration +1"
+   },
+   "cp": {
+    "k": "cp",
+    "f": "Bio",
+    "n": "Mechanical Counterpressure Suits",
+    "c": 25,
+    "r": [
+     "suit"
+    ],
+    "d": "CV exploration +2"
+   },
+   "als": {
+    "k": "als",
+    "f": "Bio",
+    "n": "Advanced Life Support",
+    "c": 30,
+    "r": [
+     "cp",
+     "ops",
+     "astro"
+    ],
+    "d": "CV range 2"
+   },
+   "aec": {
+    "k": "aec",
+    "f": "Bio",
+    "n": "Advanced Exploration Concepts",
+    "c": 30,
+    "r": [
+     "als"
+    ],
+    "d": "CV exploration +3"
+   },
+   "ccls": {
+    "k": "ccls",
+    "f": "Bio",
+    "n": "Closed Cycle Life Support",
+    "c": 40,
+    "r": [
+     "aec",
+     "aops",
+     "ldsf"
+    ],
+    "d": "CV range 4"
+   },
+   "acv": {
+    "k": "acv",
+    "f": "Bio",
+    "n": "Advanced Crew Vehicles",
+    "c": 40,
+    "r": [
+     "ccls"
+    ],
+    "d": "CV exploration +5"
+   },
+   "sch": {
+    "k": "sch",
+    "f": "Bio",
+    "n": "Safe Crew Hibernation",
+    "c": 40,
+    "r": [
+     "acv",
+     "asm",
+     "dse"
+    ],
+    "d": "CV range unlimited"
+   },
+   "orb": {
+    "k": "orb",
+    "f": "Phy",
+    "n": "Orbital Rendezvous",
+    "c": 10,
+    "r": [],
+    "d": "CVs can reach the Moon and Near Earth Asteroids"
+   },
+   "astro": {
+    "k": "astro",
+    "f": "Phy",
+    "n": "Advanced Astrodynamics",
+    "c": 15,
+    "r": [
+     "orb"
+    ],
+    "d": "CV range 1"
+   },
+   "tr": {
+    "k": "tr",
+    "f": "Phy",
+    "n": "Trade Routes",
+    "c": 15,
+    "r": [
+     "astro"
+    ],
+    "d": "Transfer up to 5 resources after production"
+   },
+   "ldsf": {
+    "k": "ldsf",
+    "f": "Phy",
+    "n": "Long Duration Space Flight",
+    "c": 30,
+    "r": [
+     "tr",
+     "als",
+     "ars"
+    ],
+    "d": "CV range 3"
+   },
+   "psh": {
+    "k": "psh",
+    "f": "Phy",
+    "n": "Pressure Shell",
+    "c": 30,
+    "r": [
+     "ldsf"
+    ],
+    "d": "Ignore severe atmospheres"
+   },
+   "dse": {
+    "k": "dse",
+    "f": "Phy",
+    "n": "Deep Space Exploration",
+    "c": 40,
+    "r": [
+     "psh",
+     "ccls",
+     "itr"
+    ],
+    "d": "CV range 5"
+   },
+   "ars": {
+    "k": "ars",
+    "f": "Phy",
+    "n": "Active Radiation Shielding",
+    "c": 20,
+    "r": [
+     "astro",
+     "isw"
+    ],
+    "d": "Ignore severe radiation"
+   },
+   "itr": {
+    "k": "itr",
+    "f": "Phy",
+    "n": "Improved Trade Routes",
+    "c": 30,
+    "r": [
+     "ldsf"
+    ],
+    "d": "Transfer up to 10 resources"
+   },
+   "atr": {
+    "k": "atr",
+    "f": "Phy",
+    "n": "Advanced Trade Routes",
+    "c": 30,
+    "r": [
+     "itr"
+    ],
+    "d": "Transfer up to 15 resources"
+   },
+   "isw": {
+    "k": "isw",
+    "f": "Phy",
+    "n": "Improved Space Weapons",
+    "c": 10,
+    "r": [
+     "ion"
+    ],
+    "d": "+1 to attack roll"
+   },
+   "asw": {
+    "k": "asw",
+    "f": "Phy",
+    "n": "Advanced Space Weapons",
+    "c": 20,
+    "r": [
+     "ars"
+    ],
+    "d": "+3 to attack roll"
+   },
+   "mec": {
+    "k": "mec",
+    "f": "Phy",
+    "n": "Matter-Energy Conversion",
+    "c": 30,
+    "r": [
+     "asw"
+    ],
+    "d": "Buy Physics points $1B each, sell 2 for $1B"
+   },
+   "ef": {
+    "k": "ef",
+    "f": "Phy",
+    "n": "Energy Focusing",
+    "c": 30,
+    "r": [
+     "mec"
+    ],
+    "d": "+5 to attack roll"
+   },
+   "ice": {
+    "k": "ice",
+    "f": "Phy",
+    "n": "Interstellar Colonizer Engine",
+    "c": 50,
+    "r": [
+     "ef",
+     "atr",
+     "aam"
+    ],
+    "d": "Victory condition"
+   },
+   "ion": {
+    "k": "ion",
+    "f": "Phy",
+    "n": "Ion Engines",
+    "c": 10,
+    "r": [],
+    "d": "Heliocentric transfers x0.9"
+   },
+   "pm": {
+    "k": "pm",
+    "f": "Phy",
+    "n": "Plasmadynamic Propulsion",
+    "c": 15,
+    "r": [
+     "ion"
+    ],
+    "d": "Transfers x0.8"
+   },
+   "ff": {
+    "k": "ff",
+    "f": "Phy",
+    "n": "Fission-Fragment Engine",
+    "c": 20,
+    "r": [
+     "pm",
+     "isw"
+    ],
+    "d": "Transfers x0.7"
+   },
+   "fr": {
+    "k": "fr",
+    "f": "Phy",
+    "n": "Fusion Rockets",
+    "c": 25,
+    "r": [
+     "ff"
+    ],
+    "d": "Transfers x0.6"
+   },
+   "pam": {
+    "k": "pam",
+    "f": "Phy",
+    "n": "Practical Anti-Matter",
+    "c": 30,
+    "r": [
+     "fr",
+     "asw"
+    ],
+    "d": "Transfers x0.5"
+   },
+   "aam": {
+    "k": "aam",
+    "f": "Phy",
+    "n": "Advanced Anti-Matter",
+    "c": 30,
+    "r": [
+     "pam",
+     "mec"
+    ],
+    "d": "Transfers x0.4"
+   },
+   "hap": {
+    "k": "hap",
+    "f": "Phy",
+    "n": "Hyper-advanced Propulsion",
+    "c": 35,
+    "r": [
+     "aam"
+    ],
+    "d": "Transfers x0.2"
+   },
+   "cv": {
+    "k": "cv",
+    "f": "Eng",
+    "n": "Crew Vehicles",
+    "c": 10,
+    "r": [],
+    "d": "Build CV-2 and LV-3"
+   },
+   "lcv": {
+    "k": "lcv",
+    "f": "Eng",
+    "n": "Large Crew Vehicles",
+    "c": 25,
+    "r": [
+     "cv"
+    ],
+    "d": "Build CV-3"
+   },
+   "frig": {
+    "k": "frig",
+    "f": "Eng",
+    "n": "Frigates",
+    "c": 30,
+    "r": [
+     "lcv",
+     "uhlv",
+     "pm"
+    ],
+    "d": "Build CV-4; engine failure 3%"
+   },
+   "dest": {
+    "k": "dest",
+    "f": "Eng",
+    "n": "Destroyers",
+    "c": 30,
+    "r": [
+     "frig",
+     "ff"
+    ],
+    "d": "Build CV-5"
+   },
+   "cru": {
+    "k": "cru",
+    "f": "Eng",
+    "n": "Cruisers",
+    "c": 30,
+    "r": [
+     "dest",
+     "fr"
+    ],
+    "d": "Build CV-6"
+   },
+   "bat": {
+    "k": "bat",
+    "f": "Eng",
+    "n": "Battleships",
+    "c": 30,
+    "r": [
+     "cru",
+     "pam"
+    ],
+    "d": "Build CV-7 and larger"
+   },
+   "ichull": {
+    "k": "ichull",
+    "f": "Eng",
+    "n": "Interstellar Colonizer Hull",
+    "c": 50,
+    "r": [
+     "bat",
+     "sht",
+     "ai"
+    ],
+    "d": "Victory condition"
+   },
+   "reuse": {
+    "k": "reuse",
+    "f": "Eng",
+    "n": "Reusable Launch Vehicles",
+    "c": 10,
+    "r": [],
+    "d": "LVs survive on an engine roll above 25"
+   },
+   "uhlv": {
+    "k": "uhlv",
+    "f": "Eng",
+    "n": "Ultra-Heavy Launch Vehicles",
+    "c": 20,
+    "r": [
+     "reuse",
+     "cv"
+    ],
+    "d": "Engine failure 4%; build LV-4"
+   },
+   "elev": {
+    "k": "elev",
+    "f": "Eng",
+    "n": "Space Elevator",
+    "c": 30,
+    "r": [
+     "dest"
+    ],
+    "d": "Ships in orbit count as on the surface"
+   },
+   "sht": {
+    "k": "sht",
+    "f": "Eng",
+    "n": "Space Heavy Transport",
+    "c": 40,
+    "r": [
+     "elev",
+     "cru",
+     "nano"
+    ],
+    "d": "CV and LV cargo x2"
+   },
+   "icd": {
+    "k": "icd",
+    "f": "Eng",
+    "n": "Improved Component Design",
+    "c": 15,
+    "r": [],
+    "d": "Malfunction 27%"
+   },
+   "acd": {
+    "k": "acd",
+    "f": "Eng",
+    "n": "Advanced Component Design",
+    "c": 20,
+    "r": [
+     "icd"
+    ],
+    "d": "Malfunction 24%"
+   },
+   "qc": {
+    "k": "qc",
+    "f": "Eng",
+    "n": "Quantum Computing",
+    "c": 25,
+    "r": [
+     "acd"
+    ],
+    "d": "Malfunction 21%; robotic exploration +1"
+   },
+   "aqc": {
+    "k": "aqc",
+    "f": "Eng",
+    "n": "Advanced Quantum Computing",
+    "c": 30,
+    "r": [
+     "qc"
+    ],
+    "d": "Malfunction 18%; robotic exploration +2"
+   },
+   "nano": {
+    "k": "nano",
+    "f": "Eng",
+    "n": "Nano-Technology",
+    "c": 30,
+    "r": [
+     "aqc"
+    ],
+    "d": "Buy Engineering points $1B each, sell 2 for $1B"
+   },
+   "ai": {
+    "k": "ai",
+    "f": "Eng",
+    "n": "Artificial Intelligence",
+    "c": 40,
+    "r": [
+     "nano"
+    ],
+    "d": "Malfunction 15%; robotic exploration +3"
+   },
+   "msl": {
+    "k": "msl",
+    "f": "Eng",
+    "n": "Space Missiles",
+    "c": 10,
+    "r": [],
+    "d": "Ships with attack values can fire in strike combat"
+   },
+   "amsl": {
+    "k": "amsl",
+    "f": "Eng",
+    "n": "Advanced Space Missiles",
+    "c": 10,
+    "r": [
+     "msl"
+    ],
+    "d": "+1 combat tactics points"
+   },
+   "fd": {
+    "k": "fd",
+    "f": "Eng",
+    "n": "Fighter Drones",
+    "c": 15,
+    "r": [
+     "amsl"
+    ],
+    "d": "CVs and defense networks use fighter drones"
+   },
+   "cc": {
+    "k": "cc",
+    "f": "Eng",
+    "n": "Command & Control",
+    "c": 15,
+    "r": [
+     "fd",
+     "qc"
+    ],
+    "d": "+2 combat tactics points"
+   },
+   "bd": {
+    "k": "bd",
+    "f": "Eng",
+    "n": "Bomber Drones",
+    "c": 20,
+    "r": [
+     "cc"
+    ],
+    "d": "CVs and defense networks use bomber drones"
+   }
+  },
+  "POL": [
+   {
+    "k": "set",
+    "n": "Space Settlement",
+    "d": [
+     "Base support limit +1",
+     "Base support limit +2",
+     "Roll an extra die for settlement growth"
+    ]
+   },
+   {
+    "k": "dip",
+    "n": "Space Diplomacy",
+    "d": [
+     "Draw 1 extra politics marker each economic phase",
+     "Draw 2 extra politics markers",
+     "Politics markers are worth 3 tech points"
+    ]
+   },
+   {
+    "k": "mil",
+    "n": "Military Policy",
+    "d": [
+     "You can declare embargoes; +20% initiative",
+     "You can declare wars; +40% initiative",
+     "+2 combat tactics points; +50% initiative"
+    ]
+   },
+   {
+    "k": "hum",
+    "n": "Human Policy",
+    "d": [
+     "Crew vehicle support limit +1",
+     "Crew vehicle support limit +2",
+     "Crew vehicle support limit +3"
+    ]
+   },
+   {
+    "k": "rob",
+    "n": "Robotic Policy",
+    "d": [
+     "Robotic explorer support limit +1",
+     "Robotic explorer support limit +2",
+     "Robotic exploration +1"
+    ]
+   },
+   {
+    "k": "eco",
+    "n": "Space Economics",
+    "d": [
+     "+$2B Earth production",
+     "+$4B Earth production",
+     "+$8B Earth production"
+    ]
+   }
+  ],
+  "POL_LV": [
+   "",
+   "Vigorous ",
+   "Unified "
+  ],
+  "FAC": {
+   "na": {
+    "n": "North America",
+    "pre": "NA",
+    "c": "#5b8fd1",
+    "cash": 20,
+    "lim": [
+     3,
+     1,
+     1
+    ],
+    "pr": [
+     [
+      30,
+      2,
+      3,
+      3
+     ],
+     [
+      33,
+      3,
+      4,
+      3
+     ],
+     [
+      37,
+      4,
+      4,
+      4
+     ],
+     [
+      40,
+      5,
+      6,
+      6
+     ]
+    ],
+    "rel": [
+     [
+      1,
+      6
+     ],
+     [
+      1,
+      4
+     ],
+     [
+      1,
+      4
+     ],
+     [
+      0,
+      2
+     ]
+    ],
+    "ab": "Innovative: subtract 2 from the cost of a technology if you are the first to develop it.",
+    "st": [
+     "suit",
+     "orb",
+     "astro",
+     "ion",
+     "cv",
+     "reuse",
+     "msl"
+    ],
+    "pol": [
+     "eco"
+    ],
+    "lvs": {
+     "13": 1,
+     "14": 1,
+     "24": 3
+    }
+   },
+   "ru": {
+    "n": "Russia",
+    "pre": "Ru",
+    "c": "#d4553a",
+    "cash": 30,
+    "lim": [
+     1,
+     2,
+     2
+    ],
+    "pr": [
+     [
+      28,
+      3,
+      2,
+      4
+     ],
+     [
+      31,
+      3,
+      3,
+      4
+     ],
+     [
+      34,
+      4,
+      4,
+      4
+     ],
+     [
+      36,
+      5,
+      5,
+      6
+     ]
+    ],
+    "rel": [
+     [
+      1,
+      6
+     ],
+     [
+      1,
+      4
+     ],
+     [
+      1,
+      4
+     ],
+     [
+      0,
+      2
+     ]
+    ],
+    "ab": "Robust Crews: crew recall rate -5%.",
+    "st": [
+     "suit",
+     "orb",
+     "ion",
+     "cv",
+     "msl"
+    ],
+    "pol": [
+     "hum"
+    ],
+    "lvs": {
+     "13": 2,
+     "14": 0,
+     "24": 3
+    }
+   },
+   "eu": {
+    "n": "Europe",
+    "pre": "Eu",
+    "c": "#4d7fd6",
+    "cash": 30,
+    "lim": [
+     2,
+     1,
+     1
+    ],
+    "pr": [
+     [
+      28,
+      5,
+      2,
+      2
+     ],
+     [
+      30,
+      5,
+      4,
+      3
+     ],
+     [
+      34,
+      7,
+      4,
+      4
+     ],
+     [
+      36,
+      8,
+      5,
+      5
+     ]
+    ],
+    "rel": [
+     [
+      2,
+      6
+     ],
+     [
+      1,
+      6
+     ],
+     [
+      1,
+      4
+     ],
+     [
+      0,
+      2
+     ]
+    ],
+    "ab": "Astronomy: roll an extra die for space telescope exploration and keep the better.",
+    "st": [
+     "ion"
+    ],
+    "pol": [
+     "dip"
+    ],
+    "lvs": {
+     "13": 2,
+     "14": 0,
+     "24": 3
+    }
+   },
+   "jp": {
+    "n": "Japan",
+    "pre": "Jp",
+    "c": "#e0574a",
+    "cash": 28,
+    "lim": [
+     1,
+     1,
+     1
+    ],
+    "pr": [
+     [
+      27,
+      3,
+      4,
+      2
+     ],
+     [
+      28,
+      4,
+      5,
+      2
+     ],
+     [
+      32,
+      5,
+      6,
+      4
+     ],
+     [
+      35,
+      6,
+      8,
+      5
+     ]
+    ],
+    "rel": [
+     [
+      2,
+      6
+     ],
+     [
+      1,
+      6
+     ],
+     [
+      1,
+      4
+     ],
+     [
+      0,
+      4
+     ]
+    ],
+    "ab": "Robotic Excellence: robotic malfunction rate -2%.",
+    "st": [],
+    "pol": [
+     "rob"
+    ],
+    "lvs": {
+     "13": 2,
+     "14": 0,
+     "24": 3
+    }
+   },
+   "cn": {
+    "n": "China",
+    "pre": "Ci",
+    "c": "#e2b33a",
+    "cash": 27,
+    "lim": [
+     2,
+     2,
+     1
+    ],
+    "pr": [
+     [
+      29,
+      2,
+      3,
+      2
+     ],
+     [
+      32,
+      3,
+      4,
+      4
+     ],
+     [
+      36,
+      4,
+      5,
+      4
+     ],
+     [
+      40,
+      5,
+      7,
+      6
+     ]
+    ],
+    "rel": [
+     [
+      1,
+      6
+     ],
+     [
+      1,
+      4
+     ],
+     [
+      1,
+      4
+     ],
+     [
+      0,
+      2
+     ]
+    ],
+    "ab": "Reverse Engineering: technology costs -4 (instead of -3) per other faction that has it.",
+    "st": [
+     "orb",
+     "cv"
+    ],
+    "pol": [
+     "mil"
+    ],
+    "variants": {
+     "mil": {
+      "n": "Military",
+      "pol": [
+       "mil"
+      ],
+      "d": "Starts with Military Policy: embargoes rivals and builds armed ships."
+     },
+     "rob": {
+      "n": "Robotic",
+      "pol": [
+       "rob"
+      ],
+      "d": "Starts with Robotic Policy: peaceful and versatile, focused on building bases."
+     }
+    },
+    "lvs": {
+     "13": 2,
+     "14": 0,
+     "24": 3
+    }
+   },
+   "as": {
+    "n": "Asia",
+    "pre": "As",
+    "c": "#e38a32",
+    "cash": 25,
+    "lim": [
+     2,
+     3,
+     2
+    ],
+    "pr": [
+     [
+      25,
+      1,
+      2,
+      1
+     ],
+     [
+      28,
+      2,
+      3,
+      3
+     ],
+     [
+      32,
+      3,
+      4,
+      3
+     ],
+     [
+      34,
+      4,
+      5,
+      4
+     ]
+    ],
+    "rel": [
+     [
+      2,
+      6
+     ],
+     [
+      2,
+      6
+     ],
+     [
+      1,
+      6
+     ],
+     [
+      0,
+      4
+     ]
+    ],
+    "ab": "Strategic Resources: +1 resource production at bases.",
+    "st": [
+     "cv"
+    ],
+    "pol": [
+     "eco"
+    ],
+    "lvs": {
+     "13": 2,
+     "14": 0,
+     "24": 3
+    }
+   },
+   "sa": {
+    "n": "South America & Africa",
+    "pre": "SA",
+    "c": "#46a86a",
+    "cash": 26,
+    "lim": [
+     2,
+     2,
+     2
+    ],
+    "pr": [
+     [
+      26,
+      2,
+      2,
+      1
+     ],
+     [
+      29,
+      3,
+      3,
+      3
+     ],
+     [
+      33,
+      4,
+      4,
+      4
+     ],
+     [
+      35,
+      6,
+      5,
+      5
+     ]
+    ],
+    "rel": [
+     [
+      2,
+      6
+     ],
+     [
+      2,
+      4
+     ],
+     [
+      1,
+      6
+     ],
+     [
+      0,
+      4
+     ]
+    ],
+    "ab": "Equatorial Launch Sites: launch vehicles carry one extra resource from Earth.",
+    "st": [],
+    "pol": [
+     "dip"
+    ],
+    "lvs": {
+     "13": 2,
+     "14": 0,
+     "24": 3
+    }
+   }
+  },
+  "FAC_ORDER": [
+   "na",
+   "ru",
+   "eu",
+   "cn",
+   "as",
+   "jp",
+   "sa"
+  ],
+  "REL": [
+   "Alliance",
+   "Collaboration",
+   "Free Trade",
+   "Neutral",
+   "Embargo",
+   "War"
+  ],
+  "BASE_NAMES": {
+   "na": [
+    "Spirit",
+    "Freedom",
+    "Prosperity",
+    "Redstone",
+    "Yosemite",
+    "Independence"
+   ],
+   "ru": [
+    "Mir",
+    "Vostok",
+    "Tselina",
+    "Zastava",
+    "Russkaya",
+    "Glavnaya"
+   ],
+   "eu": [
+    "Alpha",
+    "Legacy",
+    "Unify",
+    "Olympia",
+    "Terranova",
+    "Elysium"
+   ],
+   "jp": [
+    "Hoshi",
+    "Kikai",
+    "Shin Tochi",
+    "Ginga",
+    "Sutakado",
+    "Tengoku"
+   ],
+   "cn": [
+    "Tiangong",
+    "Honse Gongdian",
+    "Jihui",
+    "Kongjian",
+    "Xing",
+    "Xiwang"
+   ],
+   "as": [
+    "Aatma",
+    "Taara",
+    "Asha",
+    "Ekata",
+    "Yaatra",
+    "Tee"
+   ],
+   "sa": [
+    "Unidad",
+    "Progreso",
+    "Roho",
+    "Libertad",
+    "Esperanze",
+    "Tumaini"
+   ]
+  },
+  "SETT": [
+   [
+    1,
+    2,
+    0,
+    0
+   ],
+   [
+    3,
+    4,
+    1,
+    1
+   ],
+   [
+    5,
+    6,
+    1,
+    2
+   ],
+   [
+    8,
+    8,
+    2,
+    3
+   ],
+   [
+    12,
+    10,
+    2,
+    4
+   ],
+   [
+    20,
+    10,
+    3,
+    5
+   ],
+   [
+    30,
+    10,
+    4,
+    6
+   ],
+   [
+    40,
+    10,
+    5,
+    7
+   ],
+   [
+    60,
+    10,
+    6,
+    8
+   ]
+  ],
+  "START": {
+   "na": [
+    [
+     "CV",
+     "Orion",
+     "box:mar:1"
+    ],
+    [
+     "RE",
+     "Sagan",
+     "box:kui:6",
+     2
+    ],
+    [
+     "RE",
+     "Feynman",
+     "orbit:ven"
+    ],
+    [
+     "RE",
+     "Lowell",
+     "orbit:ear"
+    ]
+   ],
+   "ru": [
+    [
+     "CV",
+     "Kliper",
+     "earth"
+    ],
+    [
+     "RE",
+     "Kozlov",
+     "orbit:mar"
+    ],
+    [
+     "RE",
+     "Glushko",
+     "box:jup:4"
+    ],
+    [
+     "RE",
+     "Zasyadko",
+     "box:sat:6"
+    ],
+    [
+     "LV",
+     2,
+     "earth"
+    ]
+   ],
+   "eu": [
+    [
+     "RE",
+     "Da Vinci",
+     "box:jup:2"
+    ],
+    [
+     "RE",
+     "Hawking",
+     "orbit:mer"
+    ],
+    [
+     "RE",
+     "Darwin",
+     "box:sat:5",
+     0,
+     "Curie"
+    ],
+    [
+     "RE",
+     "Kepler",
+     "orbit:ear"
+    ]
+   ],
+   "jp": [
+    [
+     "RE",
+     "Tanaka",
+     "box:jup:3",
+     0,
+     "Ito"
+    ],
+    [
+     "RE",
+     "Kimura",
+     "box:sat:5"
+    ],
+    [
+     "RE",
+     "Yukawa",
+     "box:mer:2"
+    ],
+    [
+     "RE",
+     "Hayashi",
+     "orbit:ear"
+    ]
+   ],
+   "cn": [
+    [
+     "CV",
+     "Shenzhou",
+     "orbit:moo"
+    ],
+    [
+     "RE",
+     "Fei Xin",
+     "box:jup:3"
+    ],
+    [
+     "RE",
+     "Xu Gangqi",
+     "box:sat:2"
+    ],
+    [
+     "RE",
+     "Gan De",
+     "box:mer:2"
+    ]
+   ],
+   "as": [
+    [
+     "CV",
+     "Prayaas",
+     "orbit:ear"
+    ],
+    [
+     "RE",
+     "Rama",
+     "orbit:ven"
+    ],
+    [
+     "RE",
+     "Chakrabarti",
+     "box:jup:4"
+    ],
+    [
+     "RE",
+     "Singh",
+     "box:sat:5"
+    ]
+   ],
+   "sa": [
+    [
+     "RE",
+     "Caldeira",
+     "box:jup:3"
+    ],
+    [
+     "RE",
+     "Gleiser",
+     "box:sat:4"
+    ],
+    [
+     "RE",
+     "Sabato",
+     "box:kui:6"
+    ],
+    [
+     "RE",
+     "Humboldt",
+     "surf:mar"
+    ]
+   ]
+  },
+  "FACIL": {
+   "lab": [
+    {
+     "n": "Small Research Lab",
+     "c": {
+      "ORE": 1,
+      "SUP": 1
+     },
+     "m": "lab_s"
+    },
+    {
+     "n": "Large Research Lab",
+     "c": {
+      "ORE": 2,
+      "SUP": 2
+     },
+     "m": "lab_l"
+    }
+   ],
+   "mine": [
+    {
+     "n": "Small Mining Station",
+     "c": {
+      "ORE": 1,
+      "SUP": 1
+     },
+     "m": "mine_s"
+    },
+    {
+     "n": "Large Mining Station",
+     "c": {
+      "ORE": 2,
+      "SUP": 2
+     },
+     "m": "mine_l"
+    },
+    {
+     "n": "Small Refinery",
+     "c": {
+      "ORE": 3,
+      "SUP": 3
+     },
+     "m": "ref_s"
+    },
+    {
+     "n": "Large Refinery",
+     "c": {
+      "ORE": 4,
+      "SUP": 4
+     },
+     "m": "ref_l"
+    }
+   ],
+   "sup": [
+    {
+     "n": "Small Supply Station",
+     "c": {
+      "ORE": 1,
+      "FUEL": 1
+     },
+     "m": "sup_s"
+    },
+    {
+     "n": "Large Supply Station",
+     "c": {
+      "ORE": 2,
+      "FUEL": 2
+     },
+     "m": "sup_l"
+    },
+    {
+     "n": "Small Spaceport",
+     "c": {
+      "ORE": 3,
+      "FUEL": 3
+     },
+     "m": "port_s"
+    },
+    {
+     "n": "Large Spaceport",
+     "c": {
+      "ORE": 4,
+      "FUEL": 4
+     },
+     "m": "port_l"
+    }
+   ],
+   "def": [
+    {
+     "n": "Small Defense Network",
+     "c": {
+      "ORE": 3
+     },
+     "m": "def_s",
+     "cb": 3,
+     "drones": 1
+    },
+    {
+     "n": "Large Defense Network",
+     "c": {
+      "ORE": 6
+     },
+     "m": "def_l",
+     "cb": 7,
+     "drones": 3
+    }
+   ]
+  },
+  "MINE_BONUS": [
+   0,
+   0,
+   1,
+   3,
+   5
+  ],
+  "SETTLE_COST": {
+   "ORE": 2,
+   "SUP": 2,
+   "FUEL": 1
+  },
+  "MIS": [
+   {
+    "id": 0,
+    "w": "cal",
+    "vp": 3,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Callisto"
+   },
+   {
+    "id": 1,
+    "w": "cer",
+    "vp": 3,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Ceres"
+   },
+   {
+    "id": 2,
+    "w": "eur",
+    "vp": 4,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Europa"
+   },
+   {
+    "id": 3,
+    "w": "gan",
+    "vp": 3,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Ganymede"
+   },
+   {
+    "id": 4,
+    "w": "hyg",
+    "vp": 3,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Hygeia"
+   },
+   {
+    "id": 5,
+    "w": "io",
+    "vp": 4,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Io"
+   },
+   {
+    "id": 6,
+    "w": "jup",
+    "vp": 4,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Jupiter"
+   },
+   {
+    "id": 7,
+    "w": "mar",
+    "vp": 2,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Mars"
+   },
+   {
+    "id": 8,
+    "w": "mer",
+    "vp": 2,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Mercury"
+   },
+   {
+    "id": 9,
+    "w": "mim",
+    "vp": 4,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Mimas"
+   },
+   {
+    "id": 10,
+    "w": "nep",
+    "vp": 4,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Neptune"
+   },
+   {
+    "id": 11,
+    "w": "pho",
+    "vp": 2,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Phobos"
+   },
+   {
+    "id": 12,
+    "w": "plu",
+    "vp": 4,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Pluto"
+   },
+   {
+    "id": 13,
+    "w": "sat",
+    "vp": 4,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Saturn"
+   },
+   {
+    "id": 14,
+    "w": "tit",
+    "vp": 4,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Titan"
+   },
+   {
+    "id": 15,
+    "w": "tri",
+    "vp": 4,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Triton"
+   },
+   {
+    "id": 16,
+    "w": "ura",
+    "vp": 4,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Uranus"
+   },
+   {
+    "id": 17,
+    "w": "ven",
+    "vp": 2,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Venus"
+   },
+   {
+    "id": 18,
+    "w": "ves",
+    "vp": 3,
+    "cv": false,
+    "yr": 0,
+    "mk": "mis_Vesta"
+   },
+   {
+    "id": 19,
+    "w": "cal",
+    "vp": 3,
+    "cv": true,
+    "yr": 2100,
+    "mk": "mis_Callisto CV-2100"
+   },
+   {
+    "id": 20,
+    "w": "cer",
+    "vp": 3,
+    "cv": true,
+    "yr": 2080,
+    "mk": "mis_Ceres CV-2080"
+   },
+   {
+    "id": 21,
+    "w": "cha",
+    "vp": 4,
+    "cv": true,
+    "yr": 2120,
+    "mk": "mis_Chariklo CV-2120"
+   },
+   {
+    "id": 22,
+    "w": "com",
+    "vp": 3,
+    "cv": true,
+    "yr": 2040,
+    "mk": "mis_Comet CV-2040"
+   },
+   {
+    "id": 23,
+    "w": "eri",
+    "vp": 5,
+    "cv": false,
+    "yr": 2060,
+    "mk": "mis_Eris 2060"
+   },
+   {
+    "id": 24,
+    "w": "mar",
+    "vp": 3,
+    "cv": true,
+    "yr": 2040,
+    "mk": "mis_Mars CV-2040"
+   },
+   {
+    "id": 25,
+    "w": "mer",
+    "vp": 4,
+    "cv": true,
+    "yr": 2080,
+    "mk": "mis_Mercury CV-2080"
+   },
+   {
+    "id": 26,
+    "w": "plu",
+    "vp": 5,
+    "cv": true,
+    "yr": 2130,
+    "mk": "mis_Pluto CV-2130"
+   },
+   {
+    "id": 27,
+    "w": "sed",
+    "vp": 5,
+    "cv": false,
+    "yr": 2070,
+    "mk": "mis_Sedna 2070"
+   },
+   {
+    "id": 28,
+    "w": "tit",
+    "vp": 4,
+    "cv": true,
+    "yr": 2110,
+    "mk": "mis_Titan CV-2110"
+   },
+   {
+    "id": 29,
+    "w": "ven",
+    "vp": 4,
+    "cv": true,
+    "yr": 2120,
+    "mk": "mis_Venus CV-2120"
+   }
+  ],
+  "MIS_NAME": {
+   "cal": "Callisto",
+   "cer": "Ceres",
+   "eur": "Europa",
+   "gan": "Ganymede",
+   "hyg": "Hygeia",
+   "io": "Io",
+   "jup": "Jupiter",
+   "mar": "Mars",
+   "mer": "Mercury",
+   "mim": "Mimas",
+   "nep": "Neptune",
+   "pho": "Phobos",
+   "plu": "Pluto",
+   "sat": "Saturn",
+   "tit": "Titan",
+   "tri": "Triton",
+   "ura": "Uranus",
+   "ven": "Venus",
+   "ves": "Vesta",
+   "cha": "Chariklo",
+   "com": "Comet",
+   "eri": "Eris",
+   "sed": "Sedna"
+  },
+  "PIRATE": {
+   "weak": {
+    "size": 2,
+    "cb": 1
+   },
+   "strong": {
+    "size": 4,
+    "cb": 3
+   }
+  },
+  "HARVEST": [
+   null,
+   [
+    "SUP",
+    3
+   ],
+   [
+    "SUP",
+    4
+   ],
+   [
+    "SUP",
+    5
+   ],
+   [
+    "FUEL",
+    3
+   ],
+   [
+    "FUEL",
+    4
+   ],
+   [
+    "FUEL",
+    5
+   ],
+   [
+    "ORE",
+    3
+   ],
+   [
+    "ORE",
+    4
+   ],
+   [
+    "ORE",
+    5
+   ],
+   [
+    "ORE",
+    6
+   ]
+  ],
+  "RAID": [
+   null,
+   [
+    1,
+    4
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    3,
+    2
+   ],
+   [
+    4,
+    2
+   ],
+   [
+    5,
+    2
+   ],
+   [
+    6,
+    1
+   ],
+   [
+    6,
+    1
+   ],
+   [
+    6,
+    1
+   ],
+   [
+    6,
+    0
+   ],
+   [
+    0,
+    0
+   ]
+  ],
+  "EVENTS": [
+   [
+    12,
+    "publicity",
+    "Publicity Campaign",
+    "Raise one non-depleted world's exploration value by 2."
+   ],
+   [
+    17,
+    "budget",
+    "Increased Space Budget",
+    "The player with the fewest earned missions earns $5B extra."
+   ],
+   [
+    21,
+    "miners",
+    "Miner Strikes",
+    "Base resource production is halved; every Mining Station and Refinery takes a damage marker."
+   ],
+   [
+    25,
+    "research",
+    "Research Strikes",
+    "Base research is halved; every Research Lab takes a damage marker."
+   ],
+   [
+    29,
+    "dockyard",
+    "Dockyard Strikes",
+    "Destroy 2 saved resources at every base; every Supply Station and Spaceport takes a damage marker."
+   ],
+   [
+    35,
+    "disaster",
+    "Natural Disaster",
+    "A random world is struck: bases there damage every facility and lose half their resources."
+   ],
+   [
+    40,
+    "race",
+    "Space Race",
+    "The player behind in settlements plus missions draws 5 politics markers."
+   ],
+   [
+    45,
+    "freight",
+    "Private Freight Company",
+    "The player with the fewest settlements may transfer 5 resources this turn."
+   ],
+   [
+    59,
+    "immigration",
+    "Immigration",
+    "The player with the fewest settlements adds 2 settlements to a base."
+   ],
+   [
+    65,
+    "thaw",
+    "Thawing Relations",
+    "All foreign relations move one step toward Neutral."
+   ],
+   [
+    78,
+    "survey",
+    "Survey Error",
+    "A random world draws a world card."
+   ],
+   [
+    83,
+    "swarm",
+    "Pirate Swarm",
+    "Roll to place an extra pirate."
+   ],
+   [
+    90,
+    "harvest",
+    "Bountiful Harvest",
+    "Roll to place an extra asteroid."
+   ],
+   [
+    93,
+    "comet",
+    "Massive Comet",
+    "The comet's exploration value rises by 3."
+   ],
+   [
+    94,
+    "signals",
+    "Extraterrestrial Signals",
+    "Alpha Centauri and Deep Space Astronomy each rise by 4."
+   ],
+   [
+    95,
+    "storm",
+    "Solar Storm",
+    "Every CV away from a base or Earth takes 1 damage; REs away from a base are destroyed on a 1 or 2."
+   ],
+   [
+    100,
+    "optional",
+    "Optional event",
+    "Ruins, First Contact, Artificial Intelligence, Incoming and Invasion need every player to agree; skipped in solo play."
+   ]
+  ],
+  "TERRA": {
+   "ven": 18,
+   "mar": 24,
+   "gan": 18,
+   "cer": 22,
+   "cal": 20,
+   "eur": 20,
+   "tit": 18,
+   "mim": 18
+  },
+  "TECH_POOL": [
+   1,
+   1,
+   1,
+   2,
+   2,
+   2,
+   3,
+   3,
+   3,
+   5
+  ],
+  "RATING": [
+   [
+    100,
+    "Disaster"
+   ],
+   [
+    150,
+    "Defeat"
+   ],
+   [
+    175,
+    "Draw"
+   ],
+   [
+    200,
+    "Minor Victory"
+   ],
+   [
+    225,
+    "Major Victory"
+   ],
+   [
+    250,
+    "Brilliant Victory"
+   ],
+   [
+    1000000000,
+    "Spectacular Victory"
+   ]
+  ]
+ },
+ "UNITS": {
+  "as|Aryabata": {
+   "k": "Flyby",
+   "n": "Aryabata",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 1,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "as|Chakrabarti": {
+   "k": "Flyby",
+   "n": "Chakrabarti",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 2,
+   "spec": true,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "as|Rama": {
+   "k": "Orbiter",
+   "n": "Rama",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 1,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "as|Singh": {
+   "k": "Orbiter",
+   "n": "Singh",
+   "ore": 3,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 3,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "as|Suri": {
+   "k": "Probe",
+   "n": "Suri",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 9,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "as|Battuta": {
+   "k": "Rover",
+   "n": "Battuta",
+   "ore": 3,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "as|Raman": {
+   "k": "Telescope",
+   "n": "Raman",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 1,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "as|Jamnagar": {
+   "k": "CV-2",
+   "n": "Jamnagar",
+   "ore": 4,
+   "sup": 1,
+   "fuel": 2,
+   "ev": 0,
+   "spec": false,
+   "lab": false,
+   "cargo": 4,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "as|Khaj": {
+   "k": "CV-2",
+   "n": "Khaj",
+   "ore": 1,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "as|Prayaas": {
+   "k": "CV-2",
+   "n": "Prayaas",
+   "ore": 3,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 4,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "as|Rakahak": {
+   "k": "CV-2",
+   "n": "Rakahak",
+   "ore": 2,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 3,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 2,
+   "dr": 0
+  },
+  "as|Gujarat": {
+   "k": "CV-3",
+   "n": "Gujarat",
+   "ore": 3,
+   "sup": 5,
+   "fuel": 2,
+   "ev": 6,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 3,
+   "dr": 0
+  },
+  "as|Inaam": {
+   "k": "CV-3",
+   "n": "Inaam",
+   "ore": 5,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 3,
+   "spec": false,
+   "lab": false,
+   "cargo": 4,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "as|Khajaama": {
+   "k": "CV-4",
+   "n": "Khajaama",
+   "ore": 6,
+   "sup": 3,
+   "fuel": 3,
+   "ev": 6,
+   "spec": false,
+   "lab": false,
+   "cargo": 6,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "as|Maharashmi": {
+   "k": "CV-4",
+   "n": "Maharashmi",
+   "ore": 6,
+   "sup": 3,
+   "fuel": 3,
+   "ev": 6,
+   "spec": false,
+   "lab": false,
+   "cargo": 6,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "as|Chakra": {
+   "k": "CV-5",
+   "n": "Chakra",
+   "ore": 6,
+   "sup": 4,
+   "fuel": 3,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 6,
+   "dr": 1
+  },
+  "as|Kalvari": {
+   "k": "CV-5",
+   "n": "Kalvari",
+   "ore": 6,
+   "sup": 4,
+   "fuel": 3,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 6,
+   "dr": 1
+  },
+  "as|Delhi": {
+   "k": "CV-6",
+   "n": "Delhi",
+   "ore": 6,
+   "sup": 4,
+   "fuel": 3,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 2
+  },
+  "as|Ganj-i-sawai": {
+   "k": "CV-6",
+   "n": "Ganj-i-sawai",
+   "ore": 7,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 7,
+   "spec": false,
+   "lab": false,
+   "cargo": 8,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "as|Mumbai": {
+   "k": "CV-6",
+   "n": "Mumbai",
+   "ore": 6,
+   "sup": 4,
+   "fuel": 3,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 2
+  },
+  "as|Brahmaputra": {
+   "k": "CV-7",
+   "n": "Brahmaputra",
+   "ore": 8,
+   "sup": 5,
+   "fuel": 4,
+   "ev": 7,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 7,
+   "dr": 1
+  },
+  "as|Vikrant": {
+   "k": "CV-7",
+   "n": "Vikrant",
+   "ore": 8,
+   "sup": 5,
+   "fuel": 4,
+   "ev": 7,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 7,
+   "dr": 1
+  },
+  "cn|Fei Xin": {
+   "k": "Flyby",
+   "n": "Fei Xin",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 2,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "cn|Gan De": {
+   "k": "Flyby",
+   "n": "Gan De",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 1,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "cn|Jing Fang": {
+   "k": "Orbiter",
+   "n": "Jing Fang",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 2,
+   "spec": true,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "cn|Xu Gangqi": {
+   "k": "Orbiter",
+   "n": "Xu Gangqi",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 1,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "cn|Tao": {
+   "k": "Probe",
+   "n": "Tao",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 9,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "cn|Zheng He": {
+   "k": "Rover",
+   "n": "Zheng He",
+   "ore": 3,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "cn|Qian Xuesan": {
+   "k": "Telescope",
+   "n": "Qian Xuesan",
+   "ore": 3,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 2,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "cn|Jinlong": {
+   "k": "CV-2",
+   "n": "Jinlong",
+   "ore": 3,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 3,
+   "spec": false,
+   "lab": false,
+   "cargo": 3,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "cn|Liwei": {
+   "k": "CV-2",
+   "n": "Liwei",
+   "ore": 1,
+   "sup": 4,
+   "fuel": 2,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "cn|Shenzhou": {
+   "k": "CV-2",
+   "n": "Shenzhou",
+   "ore": 1,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "cn|Song": {
+   "k": "CV-2",
+   "n": "Song",
+   "ore": 2,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 3,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 3,
+   "dr": 0
+  },
+  "cn|Liaoning": {
+   "k": "CV-3",
+   "n": "Liaoning",
+   "ore": 3,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 0
+  },
+  "cn|Lulong": {
+   "k": "CV-3",
+   "n": "Lulong",
+   "ore": 5,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 3,
+   "spec": false,
+   "lab": false,
+   "cargo": 4,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "cn|Honglong": {
+   "k": "CV-4",
+   "n": "Honglong",
+   "ore": 6,
+   "sup": 3,
+   "fuel": 3,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 6,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "cn|Tianlong": {
+   "k": "CV-4",
+   "n": "Tianlong",
+   "ore": 6,
+   "sup": 3,
+   "fuel": 3,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 6,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "cn|Huang He": {
+   "k": "CV-5",
+   "n": "Huang He",
+   "ore": 6,
+   "sup": 5,
+   "fuel": 1,
+   "ev": 6,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 5,
+   "dr": 0
+  },
+  "cn|Yangtze": {
+   "k": "CV-5",
+   "n": "Yangtze",
+   "ore": 6,
+   "sup": 5,
+   "fuel": 1,
+   "ev": 6,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 5,
+   "dr": 0
+  },
+  "cn|Han": {
+   "k": "CV-6",
+   "n": "Han",
+   "ore": 6,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 6,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 6,
+   "dr": 1
+  },
+  "cn|Qing": {
+   "k": "CV-6",
+   "n": "Qing",
+   "ore": 6,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 6,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 6,
+   "dr": 1
+  },
+  "cn|Shang": {
+   "k": "CV-6",
+   "n": "Shang",
+   "ore": 6,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 6,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 6,
+   "dr": 1
+  },
+  "cn|Taizhou": {
+   "k": "CV-7",
+   "n": "Taizhou",
+   "ore": 10,
+   "sup": 5,
+   "fuel": 4,
+   "ev": 7,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 8,
+   "dr": 1
+  },
+  "cn|Baolei": {
+   "k": "CV-7",
+   "n": "Baolei",
+   "ore": 10,
+   "sup": 5,
+   "fuel": 4,
+   "ev": 7,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 8,
+   "dr": 1
+  },
+  "eu|Da Vinci": {
+   "k": "Flyby",
+   "n": "Da Vinci",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 2,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "eu|Herschel": {
+   "k": "Flyby",
+   "n": "Herschel",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 2,
+   "spec": true,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "eu|Hawking": {
+   "k": "Orbiter",
+   "n": "Hawking",
+   "ore": 3,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 3,
+   "spec": true,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "eu|Newton": {
+   "k": "Orbiter",
+   "n": "Newton",
+   "ore": 3,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 3,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "eu|Curie": {
+   "k": "Probe",
+   "n": "Curie",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 9,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "eu|Oberth": {
+   "k": "Probe",
+   "n": "Oberth",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 9,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "eu|Darwin": {
+   "k": "Rover",
+   "n": "Darwin",
+   "ore": 4,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "eu|Einstein": {
+   "k": "Rover",
+   "n": "Einstein",
+   "ore": 4,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 4,
+   "spec": true,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "eu|Copernicus": {
+   "k": "Telescope",
+   "n": "Copernicus",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 1,
+   "spec": true,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "eu|Kepler": {
+   "k": "Telescope",
+   "n": "Kepler",
+   "ore": 3,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 2,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "eu|Odyssey": {
+   "k": "CV-2",
+   "n": "Odyssey",
+   "ore": 3,
+   "sup": 4,
+   "fuel": 2,
+   "ev": 5,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "eu|Friede": {
+   "k": "CV-3",
+   "n": "Friede",
+   "ore": 5,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 5,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "eu|Mistral": {
+   "k": "CV-3",
+   "n": "Mistral",
+   "ore": 3,
+   "sup": 4,
+   "fuel": 2,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 0
+  },
+  "eu|Pegasus": {
+   "k": "CV-3",
+   "n": "Pegasus",
+   "ore": 3,
+   "sup": 4,
+   "fuel": 2,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 0
+  },
+  "eu|Apollo": {
+   "k": "CV-4",
+   "n": "Apollo",
+   "ore": 6,
+   "sup": 4,
+   "fuel": 3,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 6,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "eu|Athena": {
+   "k": "CV-4",
+   "n": "Athena",
+   "ore": 6,
+   "sup": 4,
+   "fuel": 3,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 6,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "eu|Aquila": {
+   "k": "CV-5",
+   "n": "Aquila",
+   "ore": 6,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 6,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 1
+  },
+  "eu|Galicia": {
+   "k": "CV-5",
+   "n": "Galicia",
+   "ore": 6,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 6,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 1
+  },
+  "eu|Courageux": {
+   "k": "CV-6",
+   "n": "Courageux",
+   "ore": 8,
+   "sup": 6,
+   "fuel": 3,
+   "ev": 8,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 2
+  },
+  "eu|Komet": {
+   "k": "CV-7",
+   "n": "Komet",
+   "ore": 8,
+   "sup": 5,
+   "fuel": 4,
+   "ev": 6,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 7,
+   "dr": 2
+  },
+  "eu|Konstellation": {
+   "k": "CV-7",
+   "n": "Konstellation",
+   "ore": 8,
+   "sup": 5,
+   "fuel": 4,
+   "ev": 6,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 7,
+   "dr": 2
+  },
+  "eu|Europa": {
+   "k": "CV-8",
+   "n": "Europa",
+   "ore": 10,
+   "sup": 6,
+   "fuel": 4,
+   "ev": 8,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 10,
+   "dr": 1
+  },
+  "jp|Kimura": {
+   "k": "Flyby",
+   "n": "Kimura",
+   "ore": 3,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 3,
+   "spec": true,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "jp|Kosai": {
+   "k": "Flyby",
+   "n": "Kosai",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 2,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "jp|Tomita": {
+   "k": "Flyby",
+   "n": "Tomita",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 2,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "jp|Yukawa": {
+   "k": "Flyby",
+   "n": "Yukawa",
+   "ore": 3,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 3,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "jp|Kuroda": {
+   "k": "Orbiter",
+   "n": "Kuroda",
+   "ore": 3,
+   "sup": 0,
+   "fuel": 3,
+   "ev": 3,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "jp|Nakamura": {
+   "k": "Orbiter",
+   "n": "Nakamura",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 2,
+   "spec": true,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "jp|Nomura": {
+   "k": "Orbiter",
+   "n": "Nomura",
+   "ore": 3,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 3,
+   "spec": true,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "jp|Ito": {
+   "k": "Probe",
+   "n": "Ito",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 9,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "jp|Sato": {
+   "k": "Probe",
+   "n": "Sato",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 9,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "jp|Tanaka": {
+   "k": "Rover",
+   "n": "Tanaka",
+   "ore": 4,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "jp|Hayashi": {
+   "k": "Telescope",
+   "n": "Hayashi",
+   "ore": 3,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 2,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "jp|Seishin": {
+   "k": "CV-2",
+   "n": "Seishin",
+   "ore": 1,
+   "sup": 5,
+   "fuel": 2,
+   "ev": 6,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "jp|Hakaze": {
+   "k": "CV-3",
+   "n": "Hakaze",
+   "ore": 4,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 3,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 5,
+   "dr": 0
+  },
+  "jp|Kuren": {
+   "k": "CV-3",
+   "n": "Kuren",
+   "ore": 5,
+   "sup": 4,
+   "fuel": 2,
+   "ev": 5,
+   "spec": false,
+   "lab": true,
+   "cargo": 4,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "jp|Hikawa": {
+   "k": "CV-4",
+   "n": "Hikawa",
+   "ore": 6,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 6,
+   "spec": false,
+   "lab": false,
+   "cargo": 6,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "jp|Kansai": {
+   "k": "CV-4",
+   "n": "Kansai",
+   "ore": 6,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 6,
+   "spec": false,
+   "lab": false,
+   "cargo": 6,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "jp|Hiyo": {
+   "k": "CV-5",
+   "n": "Hiyo",
+   "ore": 6,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 6,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 2
+  },
+  "jp|Junyo": {
+   "k": "CV-5",
+   "n": "Junyo",
+   "ore": 6,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 6,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 2
+  },
+  "jp|Myoko": {
+   "k": "CV-6",
+   "n": "Myoko",
+   "ore": 7,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 7,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 7,
+   "dr": 0
+  },
+  "jp|Takao": {
+   "k": "CV-6",
+   "n": "Takao",
+   "ore": 7,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 7,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 7,
+   "dr": 0
+  },
+  "jp|Hiryu": {
+   "k": "CV-7",
+   "n": "Hiryu",
+   "ore": 11,
+   "sup": 5,
+   "fuel": 4,
+   "ev": 7,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 7,
+   "dr": 3
+  },
+  "jp|Yamato": {
+   "k": "CV-9",
+   "n": "Yamato",
+   "ore": 11,
+   "sup": 6,
+   "fuel": 5,
+   "ev": 9,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 12,
+   "dr": 1
+  },
+  "na|Goddard": {
+   "k": "Flyby",
+   "n": "Goddard",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 2,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "na|Sagan": {
+   "k": "Flyby",
+   "n": "Sagan",
+   "ore": 3,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 3,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "na|Feynman": {
+   "k": "Orbiter",
+   "n": "Feynman",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 1,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "na|Shoemaker": {
+   "k": "Orbiter",
+   "n": "Shoemaker",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 2,
+   "spec": true,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "na|Bossart": {
+   "k": "Probe",
+   "n": "Bossart",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 9,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "na|Pathfinder": {
+   "k": "Rover",
+   "n": "Pathfinder",
+   "ore": 4,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "na|Prospector": {
+   "k": "Rover",
+   "n": "Prospector",
+   "ore": 4,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 4,
+   "spec": true,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "na|Lowell": {
+   "k": "Telescope",
+   "n": "Lowell",
+   "ore": 3,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 2,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "na|Artemis": {
+   "k": "CV-2",
+   "n": "Artemis",
+   "ore": 3,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 3,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 3,
+   "dr": 0
+  },
+  "na|Discovery": {
+   "k": "CV-2",
+   "n": "Discovery",
+   "ore": 3,
+   "sup": 4,
+   "fuel": 2,
+   "ev": 5,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "na|Gemini": {
+   "k": "CV-2",
+   "n": "Gemini",
+   "ore": 3,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 3,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "na|Orion": {
+   "k": "CV-2",
+   "n": "Orion",
+   "ore": 3,
+   "sup": 4,
+   "fuel": 2,
+   "ev": 5,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "na|Falcon": {
+   "k": "CV-3",
+   "n": "Falcon",
+   "ore": 3,
+   "sup": 4,
+   "fuel": 2,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 3,
+   "dr": 0
+  },
+  "na|Venture": {
+   "k": "CV-3",
+   "n": "Venture",
+   "ore": 5,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 4,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "na|Andromeda": {
+   "k": "CV-4",
+   "n": "Andromeda",
+   "ore": 7,
+   "sup": 3,
+   "fuel": 3,
+   "ev": 3,
+   "spec": false,
+   "lab": false,
+   "cargo": 7,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "na|Centaurus": {
+   "k": "CV-4",
+   "n": "Centaurus",
+   "ore": 7,
+   "sup": 3,
+   "fuel": 3,
+   "ev": 3,
+   "spec": false,
+   "lab": false,
+   "cargo": 7,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "na|Endeavor": {
+   "k": "CV-5",
+   "n": "Endeavor",
+   "ore": 6,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 6,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 3,
+   "dr": 1
+  },
+  "na|Enterprise": {
+   "k": "CV-5",
+   "n": "Enterprise",
+   "ore": 6,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 6,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 3,
+   "dr": 1
+  },
+  "na|Atlantis": {
+   "k": "CV-6",
+   "n": "Atlantis",
+   "ore": 7,
+   "sup": 4,
+   "fuel": 3,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 7,
+   "dr": 1
+  },
+  "na|Polaris": {
+   "k": "CV-6",
+   "n": "Polaris",
+   "ore": 7,
+   "sup": 4,
+   "fuel": 3,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 7,
+   "dr": 1
+  },
+  "na|Constitution": {
+   "k": "CV-8",
+   "n": "Constitution",
+   "ore": 10,
+   "sup": 6,
+   "fuel": 4,
+   "ev": 8,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 10,
+   "dr": 1
+  },
+  "na|Intrepid": {
+   "k": "CV-8",
+   "n": "Intrepid",
+   "ore": 12,
+   "sup": 6,
+   "fuel": 4,
+   "ev": 9,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 5,
+   "dr": 4
+  },
+  "ru|Tsander": {
+   "k": "Flyby",
+   "n": "Tsander",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 2,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "ru|Zasyadko": {
+   "k": "Flyby",
+   "n": "Zasyadko",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 3,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "ru|Chernykh": {
+   "k": "Orbiter",
+   "n": "Chernykh",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 1,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "ru|Glushko": {
+   "k": "Orbiter",
+   "n": "Glushko",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 1,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "ru|Kozlov": {
+   "k": "Orbiter",
+   "n": "Kozlov",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 2,
+   "spec": true,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "ru|Gamov": {
+   "k": "Probe",
+   "n": "Gamov",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 9,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "ru|Yermak": {
+   "k": "Rover",
+   "n": "Yermak",
+   "ore": 3,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "ru|Sakharov": {
+   "k": "Telescope",
+   "n": "Sakharov",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 1,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "ru|Kliper": {
+   "k": "CV-2",
+   "n": "Kliper",
+   "ore": 5,
+   "sup": 0,
+   "fuel": 2,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 2,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "ru|Komarov": {
+   "k": "CV-2",
+   "n": "Komarov",
+   "ore": 2,
+   "sup": 4,
+   "fuel": 2,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 2,
+   "dr": 0
+  },
+  "ru|Renda": {
+   "k": "CV-2",
+   "n": "Renda",
+   "ore": 2,
+   "sup": 4,
+   "fuel": 2,
+   "ev": 0,
+   "spec": false,
+   "lab": false,
+   "cargo": 6,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "ru|Volkov": {
+   "k": "CV-2",
+   "n": "Volkov",
+   "ore": 2,
+   "sup": 4,
+   "fuel": 2,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 2,
+   "dr": 0
+  },
+  "ru|Leonov": {
+   "k": "CV-3",
+   "n": "Leonov",
+   "ore": 5,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 4,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "ru|Titov": {
+   "k": "CV-3",
+   "n": "Titov",
+   "ore": 3,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 0
+  },
+  "ru|Gagarin": {
+   "k": "CV-4",
+   "n": "Gagarin",
+   "ore": 6,
+   "sup": 3,
+   "fuel": 3,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 6,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "ru|Tereshkova": {
+   "k": "CV-4",
+   "n": "Tereshkova",
+   "ore": 6,
+   "sup": 3,
+   "fuel": 3,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 6,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "ru|Moskva": {
+   "k": "CV-5",
+   "n": "Moskva",
+   "ore": 5,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 6,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 1
+  },
+  "ru|Vladivostok": {
+   "k": "CV-5",
+   "n": "Vladivostok",
+   "ore": 5,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 6,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 1
+  },
+  "ru|Korolev": {
+   "k": "CV-6",
+   "n": "Korolev",
+   "ore": 7,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 7,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 7,
+   "dr": 0
+  },
+  "ru|Tsiolkovsky": {
+   "k": "CV-6",
+   "n": "Tsiolkovsky",
+   "ore": 7,
+   "sup": 5,
+   "fuel": 3,
+   "ev": 7,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 7,
+   "dr": 0
+  },
+  "ru|Kuznetsov": {
+   "k": "CV-7",
+   "n": "Kuznetsov",
+   "ore": 9,
+   "sup": 4,
+   "fuel": 4,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 6,
+   "dr": 3
+  },
+  "ru|Pyotr Velikiy": {
+   "k": "CV-8",
+   "n": "Pyotr Velikiy",
+   "ore": 11,
+   "sup": 4,
+   "fuel": 4,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 9,
+   "dr": 3
+  },
+  "sa|Barbosa": {
+   "k": "Flyby",
+   "n": "Barbosa",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 2,
+   "spec": true,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "sa|Caldeira": {
+   "k": "Flyby",
+   "n": "Caldeira",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 3,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "sa|Sabato": {
+   "k": "Flyby",
+   "n": "Sabato",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 1,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "sa|Candotti": {
+   "k": "Orbiter",
+   "n": "Candotti",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 2,
+   "spec": true,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "sa|Gleiser": {
+   "k": "Orbiter",
+   "n": "Gleiser",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 1,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "sa|Veldt": {
+   "k": "Probe",
+   "n": "Veldt",
+   "ore": 1,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 9,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "sa|Humboldt": {
+   "k": "Rover",
+   "n": "Humboldt",
+   "ore": 4,
+   "sup": 0,
+   "fuel": 1,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "sa|Ptolemy": {
+   "k": "Telescope",
+   "n": "Ptolemy",
+   "ore": 2,
+   "sup": 0,
+   "fuel": 0,
+   "ev": 1,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "sa|Empressa": {
+   "k": "CV-2",
+   "n": "Empressa",
+   "ore": 1,
+   "sup": 4,
+   "fuel": 2,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "sa|Estrella": {
+   "k": "CV-2",
+   "n": "Estrella",
+   "ore": 3,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 4,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "sa|Amazon": {
+   "k": "CV-3",
+   "n": "Amazon",
+   "ore": 6,
+   "sup": 3,
+   "fuel": 2,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 5,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "sa|Barroso": {
+   "k": "CV-3",
+   "n": "Barroso",
+   "ore": 5,
+   "sup": 2,
+   "fuel": 2,
+   "ev": 2,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 1
+  },
+  "sa|Helios": {
+   "k": "CV-3",
+   "n": "Helios",
+   "ore": 5,
+   "sup": 4,
+   "fuel": 2,
+   "ev": 4,
+   "spec": false,
+   "lab": true,
+   "cargo": 4,
+   "prod": false,
+   "cb": 0,
+   "dr": 0
+  },
+  "sa|Bantu": {
+   "k": "CV-4",
+   "n": "Bantu",
+   "ore": 6,
+   "sup": 3,
+   "fuel": 3,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 6,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "sa|Maghreb": {
+   "k": "CV-4",
+   "n": "Maghreb",
+   "ore": 6,
+   "sup": 3,
+   "fuel": 3,
+   "ev": 4,
+   "spec": false,
+   "lab": false,
+   "cargo": 6,
+   "prod": true,
+   "cb": 0,
+   "dr": 0
+  },
+  "sa|Jupiter": {
+   "k": "CV-5",
+   "n": "Jupiter",
+   "ore": 5,
+   "sup": 4,
+   "fuel": 3,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 1
+  },
+  "sa|Neptuno": {
+   "k": "CV-5",
+   "n": "Neptuno",
+   "ore": 5,
+   "sup": 4,
+   "fuel": 3,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 1
+  },
+  "sa|Saturno": {
+   "k": "CV-5",
+   "n": "Saturno",
+   "ore": 5,
+   "sup": 4,
+   "fuel": 3,
+   "ev": 5,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 4,
+   "dr": 1
+  },
+  "sa|Nebula": {
+   "k": "CV-6",
+   "n": "Nebula",
+   "ore": 6,
+   "sup": 6,
+   "fuel": 3,
+   "ev": 8,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 5,
+   "dr": 0
+  },
+  "sa|Nova": {
+   "k": "CV-6",
+   "n": "Nova",
+   "ore": 6,
+   "sup": 6,
+   "fuel": 3,
+   "ev": 8,
+   "spec": false,
+   "lab": true,
+   "cargo": 0,
+   "prod": false,
+   "cb": 5,
+   "dr": 0
+  },
+  "sa|Cosmos": {
+   "k": "CV-7",
+   "n": "Cosmos",
+   "ore": 8,
+   "sup": 5,
+   "fuel": 4,
+   "ev": 7,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 7,
+   "dr": 2
+  },
+  "sa|Galaxia": {
+   "k": "CV-7",
+   "n": "Galaxia",
+   "ore": 8,
+   "sup": 5,
+   "fuel": 4,
+   "ev": 7,
+   "spec": false,
+   "lab": false,
+   "cargo": 0,
+   "prod": false,
+   "cb": 7,
+   "dr": 2
+  }
+ }
+}

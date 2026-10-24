@@ -10,6 +10,9 @@ python3 -m http.server 8000
 # then visit http://localhost:8000/
 ```
 
+## Godot version
+`godot/` holds the game as a stand-alone Godot 4 application, with the rules engine and bots ported to GDScript. Seeded games play out identically in both engines (`tools/godot_parity.sh`). See [godot/README.md](godot/README.md).
+
 ## Layout
 - `index.html` — title screen, pause menu, board renderer (canvas + WebGL planet spin), all UI.
 - `layout25.js` — places each system's board area on its orbit ring (pure geometry, runs in Node too).
