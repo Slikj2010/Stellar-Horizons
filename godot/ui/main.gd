@@ -20,11 +20,12 @@ extends Node
 @onready var dialog_box: VBoxContainer = $HUD/Root/Dialog/Box
 @onready var menu: ColorRect = $HUD/Root/Menu
 @onready var menu_box: VBoxContainer = $HUD/Root/Menu/Center/Panel/Box
+@onready var fboard: Control = $HUD/Root/FactionBoard
 
 const PHASE_HELP := {
 	"econ": "Once a decade: politics and events, diplomacy, production, resource transport, bases, asteroids and pirates, technologies, settlement growth and policy.",
 	"build": "Build robotic explorers, crew vehicles and launch vehicles; unreserve and repair crew vehicles.",
-	"move": "Select a ship (outlined in blue) and pick a destination on the map or in the Selected tab. Launches need a launch vehicle and an engine roll.",
+	"move": "Select a ship (outlined in blue) and pick a destination on the map or in the Selected tab. Ships waiting on Earth are on the faction board (Faction tab): drag one onto the launch pad to launch it. Launches need a launch vehicle and an engine roll.",
 	"combat": "Attack pirates, blockade or raid bases of factions you are at embargo or war with.",
 	"explore": "Select a ship that can explore (outlined in blue) and choose what to explore.",
 	"trade": "Found bases with crew vehicles carrying supplies, build facilities and settlements, trade.",
@@ -53,6 +54,9 @@ func _ready() -> void:
 	tabs.set_tab_title(1, "Selected")
 	tabs.set_tab_title(2, "Faction")
 	tabs.set_tab_title(3, "Log")
+	Game.board_node = board
+	fboard.main = self
+	tabs.tab_changed.connect(func(_i): _sync_fboard())
 	show_menu("start")
 	refresh()
 
@@ -63,6 +67,7 @@ func _process(dt: float) -> void:
 
 func _on_started() -> void:
 	menu.visible = false
+	fboard.visible = false
 	_log_seen = 0
 	tabs.current_tab = 0
 	var ep: Vector2 = board.world_center("ear")
@@ -159,6 +164,15 @@ func refresh() -> void:
 	next_btn.disabled = G.over or G.ask.size() > 0
 	next_btn.text = "Campaign over" if G.over else ("Answer the question first" if G.ask.size() else "Next: " + _next_name(G))
 	build_dialog()
+	_sync_fboard()
+
+## the faction board covers the map while the Faction tab is open
+func _sync_fboard() -> void:
+	var show: bool = Game.G != null and tabs.current_tab == 2 and not menu.visible
+	var was := fboard.visible
+	fboard.visible = show
+	if show: fboard.refresh()
+	elif was: board.queue_redraw()
 
 func _next_name(G) -> String:
 	if G.phase == "econ":
@@ -466,6 +480,7 @@ func _sel_ship_panel(box, G, s) -> void:
 				cargo_spin = UIK.spin(hh, 0, s.cap * E.cargoMul(G) - E.sum(s.cargo), 0)
 			var by_sys := {}
 			for m in mv:
+				if m.dest == s.loc: continue
 				var sy = E.sysOf(m.dest)
 				if not by_sys.has(sy): by_sys[sy] = []
 				if not by_sys[sy].any(func(x): return x.dest == m.dest): by_sys[sy].append(m)
@@ -661,6 +676,7 @@ func _ask_title(a: Dictionary) -> String:
 # ---------------- menus ----------------
 func show_menu(mode: String) -> void:
 	menu.visible = true
+	fboard.visible = false
 	UIK.clear(menu_box)
 	UIK.title(menu_box, "Stellar Horizons", 34)
 	if mode == "pause":

@@ -35,11 +35,11 @@ static func title(box: Node, txt: String, size := 20) -> Label:
 	box.add_child(l)
 	return l
 
-static func para(box: Node, txt: String, col = null, size := 14) -> Label:
+static func para(box: Node, txt: String, col = null, size := 14, minw := 120) -> Label:
 	var l := Label.new()
 	l.text = txt
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size.x = 120
+	l.custom_minimum_size.x = minw
 	l.add_theme_font_size_override("font_size", size)
 	if col != null: l.add_theme_color_override("font_color", col)
 	box.add_child(l)

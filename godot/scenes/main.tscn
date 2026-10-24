@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://ui/main.gd" id="1"]
 [ext_resource type="Script" path="res://ui/board.gd" id="2"]
 [ext_resource type="Script" path="res://ui/board_camera.gd" id="3"]
 [ext_resource type="Theme" path="res://ui/theme.tres" id="4"]
+[ext_resource type="Script" path="res://ui/faction_board.gd" id="5"]
 
 [node name="Main" type="Node"]
 script = ExtResource("1")
@@ -25,6 +26,20 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 theme = ExtResource("4")
+
+[node name="FactionBoard" type="Control" parent="HUD/Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 62.0
+offset_right = -460.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("5")
 
 [node name="TopBar" type="PanelContainer" parent="HUD/Root"]
 layout_mode = 1

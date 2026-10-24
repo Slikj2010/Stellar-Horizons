@@ -19,6 +19,11 @@ The first import takes a minute while Godot converts the map and counter images.
 - **Moving a ship:** in the Movement phase, ships that can move are outlined in blue. Click one: its legal destinations
   light up on the map. Click a zone to move there, or use the buttons in the **Selected** tab, which also let you
   choose the launch vehicle and load supplies at launch.
+- **Faction board:** opening the **Faction** tab covers the map with your faction board, a digital copy of the
+  printed sheet using its flag and base artwork. It shows relations, Earth production, resources and launch-vehicle
+  counters, base population, your six base slots, victory points, missions, politics, the shipyard and technologies.
+  Ships built and waiting on Earth appear only here, in **New builds**. Drag one onto the **launch pad** (or click it),
+  then in the Movement step pick a destination to launch it. **Show the printed faction sheet** opens the original sheet.
 - **Side panel:** **Turn** shows what the current phase or step offers (building, research, policies, diplomacy,
   exploring, bases and trade). **Selected** shows the ship, base or world you clicked. **Faction** shows your faction,
   missions, relations, policies, technologies and score. **Log** shows the game log.
@@ -37,6 +42,7 @@ The first import takes a minute while Godot converts the map and counter images.
 | `engine/rng.gd` | A seeded random number generator, used for tests and repeatable games. |
 | `ui/board.gd` | Draws the map, counters, markers and move targets, and works out what a click hit. |
 | `ui/board_camera.gd` | Pan, zoom and camera jumps. |
+| `ui/faction_board.gd` | The faction board screen, with drag-and-drop between New builds and the launch pad. |
 | `ui/main.gd` | The HUD: top bar, side panel tabs, question dialog and menus. |
 | `ui/ui_kit.gd`, `ui/theme.tres` | Helpers and the look of the panels and buttons. |
 | `scenes/main.tscn` | The main scene. |
@@ -76,7 +82,6 @@ In the editor, open **Editor → Manage Export Templates** and download the temp
 
 ## Not in the Godot version yet
 
-- The faction board screen with drag-and-drop and the launch pad.
 - The tech and policy tree overlay, and the 2.5D view.
 - Assigning combat damage and base hits by hand (they are assigned automatically for now).
 - Sound and music.

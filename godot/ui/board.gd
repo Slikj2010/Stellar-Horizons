@@ -175,6 +175,7 @@ func base_key(b: Dictionary, f: String) -> String:
 	var fr: Dictionary = atl[f].fr
 	var pre: String = "H Go" if b.name == "Honse Gongdian" else String(b.name).substr(0, 4)
 	var keys := fr.keys().filter(func(k): return String(k).begins_with("Base|" + pre))
+	if not keys.size(): keys = fr.keys().filter(func(k): return String(k).begins_with("Base|" + pre.substr(0, 3)))  # Asia's Aatma is 'Aatama' on the counter
 	if not keys.size(): return ""
 	var rx := RegEx.create_from_string("(?i) (b|rv|bi|orbit)$")
 	var plain = SHRules._find(keys, func(k): return rx.search(k) == null)

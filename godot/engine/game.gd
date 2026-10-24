@@ -12,6 +12,8 @@ var data: Dictionary
 var E: SHRules
 var AI: SHAI
 var G = null  ## the human faction's state (Dictionary), or null before a campaign starts
+var pad = null  ## id of the ship staged on the faction board's launch pad
+var board_node: Node = null  ## the map board (the faction board borrows its base-counter lookup)
 var sel = null  ## what is selected on the board: {t: 'ship'|'base'|'world'|'npf'|'oship', id|k}
 
 func _ready() -> void:
@@ -25,6 +27,7 @@ func multi() -> bool: return G != null and G.world != null
 ## start a campaign. opts: {scenario, variant, scrapRE, enhTrade, rerolls}; bots: [{f, variant}] (empty = solo)
 func new_campaign(f: String, opts: Dictionary, bots: Array) -> void:
 	sel = null
+	pad = null
 	if bots.size():
 		var o := opts.duplicate()
 		o.human = f
@@ -95,6 +98,7 @@ func load_game(path := SAVE_PATH) -> bool:
 	var blob = str_to_var(fh.get_as_text())
 	if not (blob is Dictionary): return false
 	sel = null
+	pad = null
 	if blob.get("v") == 3:
 		for f in blob.facs: blob.facs[f].world = null
 		G = E.attachWorld(blob.facs, blob.meta)

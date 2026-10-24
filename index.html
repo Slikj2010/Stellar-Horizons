@@ -456,7 +456,7 @@ function paintExplore() {
 const STATION_ALT = { as: true, sa: true }; // factions whose alternate base image is the station
 function baseKey(b, f) {
   f = f || G.f;
-  const fr = ATL[f].fr, pre = b.name === 'Honse Gongdian' ? 'H Go' : b.name.slice(0, 4), keys = Object.keys(fr).filter(k => k.startsWith('Base|' + pre));
+  const fr = ATL[f].fr, pre = b.name === 'Honse Gongdian' ? 'H Go' : b.name.slice(0, 4), keys0 = Object.keys(fr).filter(k => k.startsWith('Base|' + pre)), keys = keys0.length ? keys0 : Object.keys(fr).filter(k => k.startsWith('Base|' + pre.slice(0, 3)));
   const plain = keys.find(k => !/ (b|rv|bi|orbit)$/i.test(k)) || keys[0], alt = keys.find(k => k !== plain) || plain;
   const station = E.basePos(b) === 'orbit';
   return (station !== !!STATION_ALT[f]) ? plain : alt;
@@ -1561,7 +1561,7 @@ function bigCounter(f, key, size) {
 }
 // the two counter faces of a base for this faction: surface and orbital art (the same pick as baseKey)
 function baseArt(f, name, orbital) {
-  const fr = ATL[f].fr, keys = Object.keys(fr).filter(k => k.startsWith('Base|' + (name === 'Honse Gongdian' ? 'H Go' : name.slice(0, 4))));
+  const fr = ATL[f].fr, pre = name === 'Honse Gongdian' ? 'H Go' : name.slice(0, 4), keys0 = Object.keys(fr).filter(k => k.startsWith('Base|' + pre)), keys = keys0.length ? keys0 : Object.keys(fr).filter(k => k.startsWith('Base|' + pre.slice(0, 3)));
   const plain = keys.find(k => !/ (b|rv|bi|orbit)$/i.test(k)) || keys[0], alt = keys.find(k => k !== plain) || plain;
   return (orbital !== !!STATION_ALT[f]) ? plain : alt;
 }
