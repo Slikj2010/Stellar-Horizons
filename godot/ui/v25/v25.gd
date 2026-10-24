@@ -23,6 +23,7 @@ var on := false
 var main: Node
 var board: Node2D
 var paint: V25Paint
+var _sky_ok := false
 var C := {"tx": 1500.0, "tz": 900.0, "yaw": 0.0, "pitch": .98, "dist": 2400.0}
 var cam: Camera3D
 var eye := Vector3.ZERO
@@ -193,8 +194,20 @@ func setup(m: Node) -> void:
 	cam.far = FAR
 	add_child(cam)
 	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(.008, .014, .03)
+	# the sky is a panorama of the galaxy (tools/make_sky.py), wrapped round the scene: stars stay sharp at any zoom
+	var sky_tex: Texture2D = load("res://assets/sky_pano.png")
+	_sky_ok = sky_tex != null
+	if sky_tex != null:
+		var pm := PanoramaSkyMaterial.new()
+		pm.panorama = sky_tex
+		var sky := Sky.new()
+		sky.sky_material = pm
+		env.background_mode = Environment.BG_SKY
+		env.sky = sky
+		env.sky_rotation = Vector3(0, 0, PI / 2)  # the panorama's poles lie on the horizon, where the camera rarely looks
+	else:
+		env.background_mode = Environment.BG_COLOR
+		env.background_color = Color(.008, .014, .03)
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_DISABLED
 	var we := WorldEnvironment.new()
@@ -364,10 +377,10 @@ func ringOf(k: String) -> Dictionary: return board.ring_of(k)
 
 func ensure() -> void:
 	if LAY != null: return
-	var m: Array = board.geo.maps[sunJ.map]
+	var m: Array = board.geo_std.maps[sunJ.map]
 	var sc := [m[0] + sunJ.cx * .4, m[1] + sunJ.cy * .4]
 	LAY = V25Layout.new()
-	LAY.build(board.geo, Game.data.D, sc)
+	LAY.build(board.geo_std, Game.data.D, sc)
 	sunRing = {"c": Vector2(sc[0], sc[1]), "r": LAY.sunR * 1.12 / LAY.S}
 	board.v25_ring = sunRing
 	board.reset_rings()
@@ -418,8 +431,8 @@ class Mulb:
 # ---------------- transfer and flyby boxes ----------------
 func boxPolys() -> Array:
 	var out := []
-	for k in board.geo.sys:
-		var sy: Dictionary = board.geo.sys[k]
+	for k in board.geo_std.sys:
+		var sy: Dictionary = board.geo_std.sys[k]
 		for n in sy.boxPoly: out.append({"k": k, "n": n, "id": "box:" + k + ":" + n, "pts": sy.boxPoly[n], "fly": false})
 		var fp: Array = FLYQ[k] if FLYQ.has(k) else Array(board.hull(sy.flybyPoly)).map(func(v): return [v.x, v.y])
 		out.append({"k": k, "n": "fly", "id": "fly:" + k, "pts": fp, "fly": true})
@@ -647,7 +660,7 @@ static func circR(r: Array, c: Array, rad: float) -> bool:
 
 func placeAsm(S: float) -> Dictionary:
 	var D: Dictionary = Game.data.D
-	var GEO: Dictionary = board.geo
+	var GEO: Dictionary = board.geo_std
 	var circ := []
 	var polys := []
 	var ks := []
@@ -792,10 +805,10 @@ func _link_paths(S: float) -> Array:
 		var hk: String = SATH[k]
 		var hp = LAY.pods.get(hk)
 		var sp = LAY.pods.get(k)
-		if hp == null or sp == null or not board.geo.worlds.has(k): continue
+		if hp == null or sp == null or not board.geo_std.worlds.has(k): continue
 		var A: Vector2
 		var ra: float
-		if board.geo.worlds.has(hk):
+		if board.geo_std.worlds.has(hk):
 			var R := ringOf(hk)
 			A = mapP(R.c.x, R.c.y, hp)
 			ra = R.r * S + 12
@@ -865,7 +878,7 @@ var _lanes = null
 func drawWorlds(S: float, px: float) -> void:
 	var G = Game.G
 	var D: Dictionary = Game.data.D
-	var GEO: Dictionary = board.geo
+	var GEO: Dictionary = board.geo_std
 	var ks := []
 	for k in GEO.worlds:
 		if G.w.get(k) != null and D.W.has(k) and podOfW(k) != null: ks.append(k)
@@ -1319,7 +1332,7 @@ func frame() -> void:
 	var S := LAY.S
 	var G = Game.G
 	var D: Dictionary = Game.data.D
-	var GEO: Dictionary = board.geo
+	var GEO: Dictionary = board.geo_std
 	setupCam()
 	if _rec_ver != _ver:
 		board.record(self)
@@ -1332,17 +1345,8 @@ func frame() -> void:
 	var px := pxw(C.dist)
 	picks = []
 	# 1 sky
-	flush("q", _static.sky, null, 4, {"PT": 2.4}, Mesh.PRIMITIVE_POINTS)
-	if not _static.has("deep"):
-		var a := VB.new()
-		flatQuad(a, 0, 0, 64000, 64000 * .5, 0, -9500, UV1, Color(1, 1, 1, .5))
-		_static.deep = a.mesh()
-		var b := VB.new()
-		var rep := 200000 / 9000.0
-		flatQuad(b, 0, 0, 200000, 200000, 0, -9000, [0, 0, rep, rep], Color(1, 1, 1, .55))
-		_static.neb = b.mesh()
-	flush("q", _static.deep, _tex.deep_bg, 0)
-	flush("q", _static.neb, _tex.neb_wash, 0)
+	if not _sky_ok:
+		flush("q", _static.sky, null, 4, {"PT": 2.4}, Mesh.PRIMITIVE_POINTS)
 	# 2 belts, orbit rings, spokes
 	for b in LAY.BELTS: flush("q", _static["belt_" + b.k], null, 4, {"PT": clampf(9000 / maxf(900, C.dist), 1.8, 7)}, Mesh.PRIMITIVE_POINTS)
 	var rw := maxf(9, px * 1.5)

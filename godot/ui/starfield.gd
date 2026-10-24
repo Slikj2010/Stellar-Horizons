@@ -9,11 +9,12 @@ var stars: Array = []  ## [x, y, r, alpha, phase, speed, parallax, colour]
 var nebula: Array = []  ## [x, y, radius, colour]
 var t := 0.0
 var _glow: Texture2D
+var _bg: Texture2D  ## the galaxy backdrop (tools/make_sky.py)
 
 func _ready() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20300
-	for L in [[700, 0.06, 0.5, 1.1], [380, 0.14, 0.8, 1.6], [140, 0.28, 1.1, 2.3]]:
+	for L in [[220, 0.06, 0.45, 1.0], [120, 0.14, 0.7, 1.4], [46, 0.28, 1.0, 2.0]]:
 		for i in L[0]:
 			var hue := Color.WHITE
 			if rng.randf() < 0.12: hue = Color("#ffd9a8") if rng.randf() < 0.5 else Color("#a8c8ff")
@@ -23,6 +24,7 @@ func _ready() -> void:
 			var col: Color = c[0]
 			col.a = c[1]
 			nebula.append([rng.randf() * 1024.0, rng.randf() * 1024.0, 180.0 + rng.randf() * 320.0, col])
+	_bg = load("res://assets/sky_flat.png")
 	var g := Gradient.new()
 	g.set_color(0, Color(1, 1, 1, 1))
 	g.set_color(1, Color(1, 1, 1, 0))
@@ -47,17 +49,25 @@ func _draw() -> void:
 	if cam == null: return
 	# the world origin's position on screen
 	var o: Vector2 = -cam.get_screen_center_position() * cam.zoom + vs / 2.0
-	# nebula, repeating every 1024 px, drifting slowly with the camera
-	var nox := fposmod(o.x * 0.04, 1024.0)
-	var noy := fposmod(o.y * 0.04, 1024.0)
-	for tx in range(-1, int(vs.x / 1024.0) + 2):
-		for ty in range(-1, int(vs.y / 1024.0) + 2):
-			var base := Vector2(nox + tx * 1024.0, noy + ty * 1024.0)
-			for nb in nebula:
-				var c: Vector2 = base + Vector2(nb[0], nb[1])
-				var r: float = nb[2]
-				if c.x + r < 0 or c.y + r < 0 or c.x - r > vs.x or c.y - r > vs.y: continue
-				draw_texture_rect(_glow, Rect2(c - Vector2(r, r), Vector2(r, r) * 2), false, nb[3])
+	# the galaxy backdrop drifts slowly against the camera, so it reads as far away
+	if _bg != null:
+		var ts := _bg.get_size()
+		var sc := maxf(vs.x / ts.x, vs.y / ts.y) * 1.14
+		var size := ts * sc
+		var margin := (size - vs) / 2.0
+		var drift := Vector2(tanh(o.x * 0.00035), tanh(o.y * 0.00035)) * margin
+		draw_texture_rect(_bg, Rect2(-margin + drift, size), false, Color(0.8, 0.82, 0.85))
+	else:
+		var nox := fposmod(o.x * 0.04, 1024.0)
+		var noy := fposmod(o.y * 0.04, 1024.0)
+		for tx in range(-1, int(vs.x / 1024.0) + 2):
+			for ty in range(-1, int(vs.y / 1024.0) + 2):
+				var base := Vector2(nox + tx * 1024.0, noy + ty * 1024.0)
+				for nb in nebula:
+					var c: Vector2 = base + Vector2(nb[0], nb[1])
+					var r: float = nb[2]
+					if c.x + r < 0 or c.y + r < 0 or c.x - r > vs.x or c.y - r > vs.y: continue
+					draw_texture_rect(_glow, Rect2(c - Vector2(r, r), Vector2(r, r) * 2), false, nb[3])
 	# stars
 	for st in stars:
 		var par: float = st[6]

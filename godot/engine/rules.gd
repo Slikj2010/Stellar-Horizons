@@ -1500,6 +1500,10 @@ func move(G, s, dest: String, opt = null):
 	if t(gi(opt, "lvSize", null)): mv = _find(m, func(x): return x.get("lv") != null and x.lv.n == opt.lvSize)
 	if mv == null: mv = m[0]
 	var mlv = mv.get("lv")
+	# a crew vehicle leaving Earth can be paired with any launch vehicle big enough (chosen on the faction board)
+	if s.cls == "CV" and s.loc == "earth" and t(gi(opt, "lvSize", null)) and (mlv == null or mlv.n != opt.lvSize):
+		var alt = _find(launchLVs(G, "earth", s.sz), func(x): return x.n == opt.lvSize)
+		if alt != null: mlv = alt
 	# pay for LV if buying
 	var lvPaid = null
 	var loadPaid = null

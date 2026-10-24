@@ -32,6 +32,11 @@ class ShipTile extends PanelContainer:
 	var ship_id = null
 	var tex: Texture2D
 	var on_click: Callable
+	var on_lv: Callable
+	func _can_drop_data(_p: Vector2, data) -> bool:
+		return ship_id != null and on_lv.is_valid() and data is Dictionary and data.has("lv")
+	func _drop_data(_p: Vector2, data) -> void:
+		on_lv.call(data.lv)
 	func _get_drag_data(_p: Vector2):
 		if ship_id == null: return null
 		var pv := TextureRect.new()
@@ -50,18 +55,43 @@ class ShipTile extends PanelContainer:
 			on_click.call()
 			accept_event()
 
-## a place a ship can be dropped: the launch pad or the tray
+## a launch vehicle counter: drag it onto a ship (in New builds or on the pad) to pair them for the launch
+class LvCounter extends TextureRect:
+	var lv_n := 0
+	var buy := false
+	var on_click: Callable
+	func _get_drag_data(_p: Vector2):
+		if lv_n == 0 or modulate.a < 0.99 and not buy: return null
+		var pv := TextureRect.new()
+		pv.texture = texture
+		pv.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pv.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		pv.size = Vector2(64, 64)
+		pv.position = -pv.size / 2
+		pv.modulate = Color(1, 1, 1, 0.9)
+		var holder := Control.new()
+		holder.add_child(pv)
+		set_drag_preview(holder)
+		return {"lv": lv_n}
+	func _gui_input(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and not ev.pressed and on_click.is_valid():
+			on_click.call()
+			accept_event()
+
+## a place a ship can be dropped: the launch pad or the tray (the pad also takes launch vehicles)
 class DropZone extends PanelContainer:
 	var on_drop: Callable
+	var on_lv: Callable
 	var normal: StyleBox
 	var hover: StyleBox
 	func _can_drop_data(_p: Vector2, data) -> bool:
-		var ok: bool = data is Dictionary and data.has("ship")
+		var ok: bool = data is Dictionary and (data.has("ship") or (data.has("lv") and on_lv.is_valid()))
 		if ok and hover: add_theme_stylebox_override("panel", hover)
 		return ok
 	func _drop_data(_p: Vector2, data) -> void:
 		if normal: add_theme_stylebox_override("panel", normal)
-		on_drop.call(data.ship)
+		if data.has("lv"): on_lv.call(data.lv)
+		else: on_drop.call(data.ship)
 	func _notification(what: int) -> void:
 		if what == NOTIFICATION_DRAG_END or what == NOTIFICATION_MOUSE_EXIT:
 			if normal: add_theme_stylebox_override("panel", normal)
@@ -131,6 +161,36 @@ func _cell(grid: GridContainer, txt: String, col = null, right := false) -> void
 
 func _counter(f: String, key: String, size: float, box: Node, tip := "") -> TextureRect:
 	return UIK.image(box, UIK.atlas_tex("atlas_" + f, key), size, tip)
+
+func _lv_counter(G, z: int, size: float, box: Node, tip: String, buy := false) -> LvCounter:
+	var c := LvCounter.new()
+	c.texture = UIK.atlas_tex("atlas_" + G.f, "LV-%d" % z)
+	c.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	c.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	c.custom_minimum_size = Vector2(size, size)
+	c.tooltip_text = tip
+	c.lv_n = z
+	c.buy = buy
+	c.mouse_default_cursor_shape = Control.CURSOR_DRAG
+	box.add_child(c)
+	return c
+
+## pair a launch vehicle with a ship: the ship is staged on the pad, and launches with that vehicle
+func _pair(id, z: int) -> void:
+	var G = Game.G
+	var s = SHRules._find(G.ships, func(x): return SHRules.eq(x.id, id))
+	if s == null: return
+	var need: int = int(s.sz) if s.cls == "CV" else 1
+	var opt = SHRules._find(E.launchLVs(G, "earth", need), func(o): return o.n == z)
+	if opt == null:
+		Game.pad_msg = "LV-%d cannot carry %s%s." % [z, s.name, (" (it needs LV-%d or bigger)" % need) if z < need else " now"]
+		Game.pad_lv = {}
+	else:
+		Game.pad_msg = ""
+		Game.pad_lv = {"id": id, "n": z}
+	Game.pad = id
+	Game.sel = {"t": "ship", "id": id}
+	Game.changed.emit()
 
 # ---------------- build the board ----------------
 func refresh() -> void:
@@ -205,18 +265,26 @@ func refresh() -> void:
 
 	UIK.head(r2[1], "Earth resources")
 	UIK.rich(r2[1], UIK.res_bb(E.estock(G)) + " [color=#8fa3b8]on the faction board[/color]", 14)
-	UIK.head(r2[1], "Launch vehicles on Earth")
+	UIK.head(r2[1], "Launch vehicles on Earth · drag one onto a ship to pair them")
 	var lvs := UIK.flow(r2[1])
 	var any_lv := false
 	for z in [1, 2, 3, 4]:
 		for i in int(SHRules.gi(G.lv.earth, z, 0)):
-			_counter(G.f, "LV-%d" % z, 58, lvs, "LV-%d" % z)
+			_lv_counter(G, z, 58, lvs, "LV-%d: drag it onto a ship to launch it with this vehicle" % z)
 			any_lv = true
 		for i in int(SHRules.gi(SHRules.gi(G.get("lvCool", {}), "earth", {}), z, 0)):
 			var t := _counter(G.f, "LV-%d" % z, 58, lvs, "LV-%d: recovered, ready next turn" % z)
 			t.modulate = Color(1, 1, 1, 0.4)
 			any_lv = true
-	if not any_lv: _p(lvs, "None: build one in the Build step.", UIK.DIM, 13)
+	if not any_lv: _p(lvs, "None in stock: build one in the Build step, or buy one at launch (shown below).", UIK.DIM, 13)
+	# vehicles that can be bought at launch (ORE + FUEL on Earth) are dragged the same way
+	var buyable: Array = E.launchLVs(G, "earth", 1).filter(func(o): return SHRules.t(o.get("buy")))
+	if buyable.size() and G.phase == "move":
+		_p(r2[1], "Buy at launch (pays when the ship launches):", UIK.DIM, 12)
+		var bl := UIK.flow(r2[1])
+		for o in buyable:
+			var c := _lv_counter(G, o.n, 46, bl, "LV-%d: buy at launch for %s. Drag it onto a ship." % [o.n, o.txt], true)
+			c.modulate = Color(1, 1, 1, 0.6)
 	_pad(r2[1], G, pad)
 
 	UIK.head(r2[2], "Base population")
@@ -340,10 +408,12 @@ func _tag(box: Node, txt: String, col: Color, tip := "") -> void:
 func _ship_tile(box: Node, G, s, size: float, click: Callable) -> ShipTile:
 	var tile := ShipTile.new()
 	tile.ship_id = s.id
+	var sid = s.id
+	tile.on_lv = func(z): _pair(sid, z)
 	tile.tex = UIK.atlas_tex("atlas_" + G.f, s.img + "|back" if SHRules.t(s.res) else s.img)
 	tile.on_click = click
 	tile.mouse_default_cursor_shape = Control.CURSOR_DRAG
-	tile.tooltip_text = "Drag to the launch pad (or click)"
+	tile.tooltip_text = "Drag to the launch pad (or click). Drop a launch vehicle on it to pair them."
 	var sb := StyleBoxEmpty.new()
 	tile.add_theme_stylebox_override("panel", sb)
 	var v := UIK.vbox(tile, 2)
@@ -393,6 +463,8 @@ func _tray(box: Node, G, ships: Array, pad) -> void:
 	if not any: _p(f, "Nothing waiting on Earth. Build units from the shipyard.", UIK.DIM, 13)
 
 func _stage(id) -> void:
+	Game.pad_msg = ""
+	if not SHRules.eq(Game.pad_lv.get("id"), id): Game.pad_lv = {}
 	Game.pad = null if SHRules.eq(Game.pad, id) else id
 	Game.sel = {"t": "ship", "id": id}
 	Game.changed.emit()
@@ -400,6 +472,9 @@ func _stage(id) -> void:
 func _pad(box: Node, G, pad) -> void:
 	UIK.head(box, "Launch pad")
 	var z := _drop_zone(box, UIK.AMBER if pad != null else Color("#33506b"), func(id): _stage_on(id))
+	if pad != null:
+		var pid = pad.id
+		z.on_lv = func(n): _pair(pid, n)
 	var photo := crop(G.f, SHEET_PHOTO)
 	for st in [[z.normal, 0.32 if pad == null else 0.22], [z.hover, 0.5]]:
 		var t := StyleBoxTexture.new()
@@ -425,13 +500,30 @@ func _pad(box: Node, G, pad) -> void:
 		return
 	_ship_tile(inner, G, pad, 76, func(): _stage(pad.id))
 	var mv := E.moves(G, pad)
-	var lv = mv[0].get("lv") if mv.size() else null
+	var paired := -1
+	if Game.pad_lv.get("id") != null and SHRules.eq(Game.pad_lv.id, pad.id): paired = int(Game.pad_lv.n)
+	# a robotic explorer's trip time depends on its launch vehicle, so only that vehicle's routes are offered
+	if paired > 0 and pad.cls == "RE":
+		var only := mv.filter(func(m): return m.get("lv") == null or m.lv.n == paired)
+		if only.size(): mv = only
+	var lv = null
+	if mv.size(): lv = mv[0].get("lv")
+	if paired > 0:
+		var po = SHRules._find(E.launchLVs(G, "earth", int(pad.sz) if pad.cls == "CV" else 1), func(o): return o.n == paired)
+		if po != null: lv = po
 	var info := UIK.vbox(inner, 4)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UIK.title(info, pad.name, 18)
 	UIK.rich(info, "[color=#8fa3b8]%s%s[/color]" % [("Crew vehicle CV-%d" % pad.sz) if pad.cls == "CV" else pad.kind, (" · cargo " + UIK.res_bb(pad.cargo)) if E.sum(pad.cargo) else ""], 13)
-	if lv != null: _p(info, "Launch vehicle LV-%d %s" % [lv.n, "from stock" if SHRules.t(lv.get("stock")) else "(bought at launch: " + String(lv.txt) + ")"], UIK.DIM, 13)
-	if lv != null: _counter(G.f, "LV-%d" % lv.n, 64, inner, "The launch vehicle that will carry it")
+	if lv != null:
+		_p(info, "Launch vehicle LV-%d %s%s" % [lv.n, "from stock" if SHRules.t(lv.get("stock")) else "(bought at launch: " + String(lv.txt) + ")", " · paired by you" if paired > 0 else ""], UIK.DIM, 13)
+		var lc := _lv_counter(G, lv.n, 64, inner, "The launch vehicle that will carry it. Click to go back to the automatic choice.")
+		lc.on_click = func():
+			Game.pad_lv = {}
+			Game.pad_msg = ""
+			Game.changed.emit()
+	_p(info, "Drag a launch vehicle here to choose which one carries it.", UIK.DIM, 11)
+	if Game.pad_msg != "": _p(info, Game.pad_msg, Color("#ef6b5b"), 13)
 	if G.phase != "move":
 		_p(box, "Launches happen in the Movement step.", UIK.DIM, 13)
 		return
@@ -451,9 +543,11 @@ func _pad(box: Node, G, pad) -> void:
 		var f := UIK.flow(box)
 		for m in by_sys[sy]:
 			UIK.button(f, m.label + ((" · %dt" % m.eta) if SHRules.t(m.get("eta")) else ""), func():
-				Game.act(E.move(G, pad, m.dest, {"probe": SHRules._first(G.probes.get("earth", []))})))
+				Game.act(E.move(G, pad, m.dest, {"probe": SHRules._first(G.probes.get("earth", [])), "lvSize": paired if paired > 0 else null})))
 
 func _stage_on(id) -> void:
+	Game.pad_msg = ""
+	if not SHRules.eq(Game.pad_lv.get("id"), id): Game.pad_lv = {}
 	Game.pad = id
 	Game.sel = {"t": "ship", "id": id}
 	Game.changed.emit()

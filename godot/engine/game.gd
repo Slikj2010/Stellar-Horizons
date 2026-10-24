@@ -20,6 +20,8 @@ var E: SHRules
 var AI: SHAI
 var G = null  ## the human faction's state (Dictionary), or null before a campaign starts
 var pad = null  ## id of the ship staged on the faction board's launch pad
+var pad_lv := {}  ## the launch vehicle paired with it on the faction board: {id: ship id, n: LV size}
+var pad_msg := ""  ## why the last pairing was refused
 var board_node: Node = null  ## the map board (the faction board borrows its base-counter lookup)
 var sel = null  ## what is selected on the board: {t: 'ship'|'base'|'world'|'npf'|'oship', id|k}
 
@@ -175,6 +177,40 @@ func save_slot(i: int) -> bool:
 	return true
 
 func load_slot(i: int) -> bool: return load_game(SLOTS[i])
+
+## every slot in one JSON file
+func export_saves(path: String) -> bool:
+	var saves := {}
+	for i in SLOTS.size():
+		if not has_slot(i): continue
+		var a := FileAccess.open(SLOTS[i], FileAccess.READ)
+		var b := FileAccess.open(SLOTS[i] + ".info", FileAccess.READ)
+		saves[str(i)] = {"data": a.get_as_text() if a else "", "info": b.get_as_text() if b else ""}
+	var fh := FileAccess.open(path, FileAccess.WRITE)
+	if fh == null: return false
+	fh.store_string(JSON.stringify({"app": "stellar-horizons-godot-saves", "v": 1, "exported": Time.get_datetime_string_from_system(), "saves": saves}, "\t"))
+	return true
+
+## returns a sentence for the player
+func import_saves(path: String) -> String:
+	var fh := FileAccess.open(path, FileAccess.READ)
+	if fh == null: return "Could not read that file."
+	var o = JSON.parse_string(fh.get_as_text())
+	if not (o is Dictionary) or o.get("app") != "stellar-horizons-godot-saves" or not (o.get("saves") is Dictionary): return "That is not a Stellar Horizons saves file."
+	var ok: Array = []
+	for k in o.saves:
+		var i := int(k)
+		if i < 0 or i >= SLOTS.size(): continue
+		var blob = str_to_var(String(o.saves[k].get("data", "")))
+		if not (blob is Dictionary): continue
+		var a := FileAccess.open(SLOTS[i], FileAccess.WRITE)
+		if a == null: continue
+		a.store_string(String(o.saves[k].data))
+		a.close()
+		var b := FileAccess.open(SLOTS[i] + ".info", FileAccess.WRITE)
+		if b: b.store_string(String(o.saves[k].get("info", "")))
+		ok.append(slot_name(i))
+	return ("Imported: " + ", ".join(ok) + ". Existing saves in those slots were replaced.") if ok.size() else "No readable saves in that file."
 
 func delete_slot(i: int) -> void:
 	DirAccess.remove_absolute(SLOTS[i])

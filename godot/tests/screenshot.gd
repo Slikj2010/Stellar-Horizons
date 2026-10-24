@@ -51,6 +51,19 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 		a.append(["call", func(): main.cam.setup(main.board.map_rect())])
 		a.append(["wait", 30])
 		a.append(["shot", "05_whole_map"])
+	if plan == "flat":
+		a.append(["call", func(): main.tabs.current_tab = 0; main.cam.setup(main.board.map_rect())])
+		a.append(["wait", 40])
+		a.append(["shot", "10_whole"])
+		a.append(["call", func(): main.cam.fly_to(main.board.world_center("jup"), 0.35)])
+		a.append(["wait", 60])
+		a.append(["shot", "11_jup"])
+		a.append(["call", func(): main.toggle_3d()])
+		a.append(["wait", 60])
+		a.append(["shot", "12_25d"])
+		a.append(["call", func(): main.toggle_3d()])
+		a.append(["wait", 40])
+		a.append(["shot", "13_back"])
 	if plan == "move":
 		a.append(["call", func():
 			var s = SHRules._find(Game.G.ships, func(x): return Game.E.moves(Game.G, x).size() > 0)
@@ -97,6 +110,36 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 		a.append(["call", func(): main.fboard._show_sheet(Game.G.f)])
 		a.append(["wait", 20])
 		a.append(["shot", "06_sheet"])
+	if plan == "lvpair":
+		a.append(["call", func():
+			var G = Game.G
+			while G.phase != "build" and not G.over:
+				while G.ask.size(): Game.AI.answerAsks(G)
+				Game.next()
+			var o = SHRules._find(Game.E.buildOptions(G, "earth"), func(x): return x.why == null and x.kind == "Orbiter")
+			Game.act(Game.E.buildUnit(G, o.key, "earth"))
+			Game.act(Game.E.buildLV(G, 1, "earth"))
+			Game.act(Game.E.buildLV(G, 2, "earth"))
+			while G.phase != "move" and not G.over:
+				while G.ask.size(): Game.AI.answerAsks(G)
+				Game.next()
+			main.tabs.current_tab = 2])
+		a.append(["wait", 20])
+		a.append(["call", func(): main.fboard.scroll.scroll_vertical = 0])
+		a.append(["wait", 6])
+		a.append(["shot", "lv_01_before"])
+		a.append(["dragtype", "lv", "ship"])
+		a.append(["wait", 16])
+		a.append(["call", func(): print("pad_lv: ", Game.pad_lv, " pad ", Game.pad, " msg ", Game.pad_msg)])
+		a.append(["shot", "lv_02_paired"])
+		a.append(["call", func():
+			var fb = main.fboard
+			var btn = _find_node(fb, func(n): return n is Button and n.text.begins_with("Orbit") or (n is Button and n.text.contains("·")))
+			print("launch button: ", btn.text if btn else null)
+			if btn: btn.pressed.emit()])
+		a.append(["wait", 20])
+		a.append(["call", func(): for s in Game.G.ships: print(s.name, " ", s.loc, " lv ", Game.G.lv.earth)])
+		a.append(["shot", "lv_03_launched"])
 	if plan == "bases":
 		a.append(["call", func():
 			for i in 260:
@@ -254,6 +297,21 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 						_mouse(Vector2(x, y), false)])
 			a.append(["wait", 5])
 			a.append(["shot", "sc_" + k])
+	if plan == "planets":
+		a.append(["call", func(): main.toggle_3d()])
+		a.append(["wait", 20])
+		for k in ["ear", "jup", "sat", "mar", "mer", "ven", "ura", "nep", "moo", "tit", "gan", "cer"]:
+			a.append(["call", func():
+				var q: Vector2 = main.v25.sheetToScene(main.board.world_center(k))
+				main.v25.C.tx = q.x
+				main.v25.C.tz = q.y + 10
+				main.v25.C.dist = 420
+				main.v25.C.pitch = 1.1
+				main.v25.C.yaw = 0.0
+				main.v25.clampCam()
+				main.v25.touch()])
+			a.append(["wait", 14])
+			a.append(["shot", "pl_" + k])
 	if plan == "3d" or plan == "3dbots":
 		if plan == "3dbots":
 			a.append(["call", func():
@@ -301,6 +359,25 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 				main.cam.zoom = Vector2(spot[2], spot[2])])
 			a.append(["wait", 30])
 			a.append(["shot", spot[0]])
+	if plan == "dev":
+		a.append(["call", func(): main.dev.open()])
+		a.append(["wait", 10])
+		a.append(["call", func():
+			main.dev.run("give me cash 20")
+			main.dev.run("tech me all")
+			main.dev.run("show me")
+			main.dev.run("rel me na alliance")])
+		a.append(["wait", 10])
+		a.append(["shot", "40_dev"])
+		a.append(["call", func():
+			main.dev.close()
+			Game.G = null
+			main.show_menu("title")
+			main.show_menu("start")
+			main._setup.bots = true
+			main.show_menu("start")])
+		a.append(["wait", 12])
+		a.append(["shot", "41_picker"])
 	if plan == "menus":
 		a.append(["call", func():
 			Game.next()
@@ -444,6 +521,17 @@ func _process(_dt: float) -> void:
 			img.save_png(out.path_join(act[1] + ".png"))
 			print("shot ", act[1])
 		"call": act[1].call()
+		"dragtype":
+			var fb = main.fboard
+			var src = _find_node(fb, func(n): return n.has_method("_get_drag_data") and "lv_n" in n and n.lv_n > 0 and not n.buy)
+			var dst = _find_node(fb, func(n): return n.has_method("_drop_data") and "ship_id" in n and n.ship_id != null)
+			if src == null or dst == null: print("dragtype: missing ", src, " ", dst)
+			else:
+				var a := (src as Control).get_global_rect().get_center()
+				var b := (dst as Control).get_global_rect().get_center()
+				_mouse(a, true)
+				for i in 12: _move(a.lerp(b, (i + 1) / 12.0))
+				_mouse(b, false)
 		"drag":
 			var fb = main.fboard
 			var src = _find_node(fb, func(n): return n.has_method("_get_drag_data") and n.ship_id != null and _inside(n, fb, "tray"))

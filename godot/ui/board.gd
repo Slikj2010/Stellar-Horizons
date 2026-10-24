@@ -15,6 +15,13 @@ const WB := {"LS": 56.0, "BS": CS + 10, "TS": 50.0, "GAP": 14.0}
 const RING_LABEL := {"jup": [-PI / 2, .2]}
 
 var geo: Dictionary
+var geo_std: Dictionary  ## the printed sheet layout (the 2.5D view is built on it)
+var geo_flat: Dictionary  ## the same map with the sections laid out as a winding path
+var flat_on := false
+var _sprites := {}
+const LAYOUT_GAP := 330.0
+const LAYOUT_AMP := 560.0
+const LAYOUT_FREQ := 0.9
 var markers_tex: Texture2D
 var markers_fr: Dictionary
 var life_tex: Texture2D
@@ -36,7 +43,9 @@ var R = null  ## the recorder during paint_objects(), or null when drawing
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	geo = _json("res://data/geo.json")
+	geo_std = _json("res://data/geo.json")
+	geo = geo_std
+	geo_flat = _make_flat(geo_std)
 	font = V25Paint.font(600)
 	expb = _json("res://assets/expbox.json")
 	for k in geo.maps:
@@ -47,6 +56,7 @@ func _ready() -> void:
 		sp.position = Vector2(r[0], r[1])
 		sp.z_index = -10
 		add_child(sp)
+		_sprites[k] = sp
 	markers_tex = load("res://assets/markers.webp")
 	markers_fr = _json("res://assets/markers.json")
 	life_tex = load("res://assets/lifemk.webp")
@@ -57,6 +67,7 @@ func _ready() -> void:
 	fx.z_index = -5
 	add_child(fx)
 	fx.setup(self)
+	set_layout(true)
 
 static func _json(path: String) -> Dictionary:
 	var f := FileAccess.open(path, FileAccess.READ)
@@ -332,10 +343,117 @@ func _mode(m: String, l: float) -> void:
 		R.mode = m
 		R.lift = l
 
+
+# ---------------- the flat layout: sections in a semi-linear progression ----------------
+func _tile_of(maps: Dictionary, p) -> String:
+	var best := "A"
+	var bd := INF
+	for k in maps:
+		var m: Array = maps[k]
+		var dx := maxf(maxf(m[0] - p[0], 0.0), p[0] - m[0] - m[2])
+		var dy := maxf(maxf(m[1] - p[1], 0.0), p[1] - m[1] - m[3])
+		var d := dx * dx + dy * dy
+		if d < bd:
+			bd = d
+			best = k
+	return best
+
+## tile -> where its top-left corner goes in the flat layout (in order A..I, left to right, on a gentle S-curve)
+func flat_origins(maps: Dictionary) -> Dictionary:
+	var out := {}
+	var x := 0.0
+	var i := 0
+	for k in maps.keys():
+		var m: Array = maps[k]
+		out[k] = Vector2(x, roundf(LAYOUT_AMP * sin(i * LAYOUT_FREQ)))
+		x += m[2] + LAYOUT_GAP
+		i += 1
+	return out
+
+func _make_flat(g: Dictionary) -> Dictionary:
+	var f: Dictionary = g.duplicate(true)
+	var org := flat_origins(g.maps)
+	var dl := {}
+	for k in g.maps:
+		var m: Array = g.maps[k]
+		dl[k] = org[k] - Vector2(m[0], m[1])
+		f.maps[k] = [org[k].x, org[k].y, m[2], m[3]]
+	var tp := func(a: Array, d: Vector2) -> Array: return [a[0] + d.x, a[1] + d.y]
+	var tl := func(a: Array, d: Vector2) -> Array:
+		var r := []
+		for q in a: r.append([q[0] + d.x, q[1] + d.y])
+		return r
+	for k in f.worlds:
+		var w: Dictionary = f.worlds[k]
+		var d: Vector2 = dl[_tile_of(g.maps, w.orbit)]
+		for key in ["orbit", "surf", "exp"]:
+			if w.has(key): w[key] = tp.call(w[key], d)
+		for key in ["poly", "spoly"]:
+			if w.has(key): w[key] = tl.call(w[key], d)
+		if w.has("wcard"):
+			var c: Array = w.wcard.duplicate()
+			c[0] += d.x
+			c[1] += d.y
+			w.wcard = c
+	for k in f.sys:
+		var S: Dictionary = f.sys[k]
+		var d0: Vector2 = dl[_tile_of(g.maps, S.flyby)]
+		S.flyby = tp.call(S.flyby, d0)
+		S.flybyPoly = tl.call(S.flybyPoly, d0)
+		for n in S.box:
+			var d: Vector2 = dl[_tile_of(g.maps, g.sys[k].box[n])]
+			S.box[n] = tp.call(S.box[n], d)
+			S.boxPoly[n] = tl.call(S.boxPoly[n], d)
+			if S.get("boxFit", {}).has(n):
+				var bf: Array = S.boxFit[n].duplicate()
+				bf[0] += d.x
+				bf[1] += d.y
+				S.boxFit[n] = bf
+	return f
+
+## switch between the winding-path layout (flat view) and the printed sheet layout (the 2.5D view)
+func set_layout(flat: bool) -> void:
+	flat_on = flat
+	geo = geo_flat if flat else geo_std
+	for k in _sprites:
+		var m: Array = geo.maps[k]
+		_sprites[k].position = Vector2(m[0], m[1])
+	_rings.clear()
+	_boxf.clear()
+	_block.clear()
+	_wrects = null
+	if fx != null: fx.relayout()
+	queue_redraw()
+
+## glowing dashed lanes between consecutive sections, drawn only on the flat map
+func _paint_lanes() -> void:
+	if not flat_on: return
+	var ks: Array = geo.maps.keys()
+	for i in range(ks.size() - 1):
+		var a: Array = geo.maps[ks[i]]
+		var b: Array = geo.maps[ks[i + 1]]
+		var p0 := Vector2(a[0] + a[2] - 40, a[1] + a[3] * 0.5)
+		var p3 := Vector2(b[0] + 40, b[1] + b[3] * 0.5)
+		var dx := (p3.x - p0.x) * 0.5
+		var p1 := p0 + Vector2(dx, 0)
+		var p2 := p3 - Vector2(dx, 0)
+		var pts := PackedVector2Array()
+		for j in range(41):
+			var t := j / 40.0
+			var u := 1.0 - t
+			pts.append(u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3)
+		for j in range(0, 40, 2):
+			draw_line(pts[j], pts[j + 1], Color(0.45, 0.8, 0.95, 0.16), 14.0, true)
+			draw_line(pts[j], pts[j + 1], Color(0.7, 0.92, 1.0, 0.75), 4.0, true)
+		var dir := (pts[40] - pts[38]).normalized()
+		var n := Vector2(-dir.y, dir.x)
+		draw_colored_polygon(PackedVector2Array([pts[40] + dir * 8, pts[40] - dir * 52 + n * 30, pts[40] - dir * 52 - n * 30]), Color(0.7, 0.92, 1.0, 0.85))
+
 # ---------------- the board ----------------
 func _draw() -> void:
 	if v25 != null: return
 	R = null
+	_paint_lanes()
 	_paint_orbit_rings()
 	paint_objects()
 

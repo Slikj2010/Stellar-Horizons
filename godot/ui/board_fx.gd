@@ -8,7 +8,9 @@ const FIELD_GLOW := {"Phy": Color(90 / 255.0, 170 / 255.0, 1.0), "Eng": Color(20
 
 var board: Node2D
 var t := 0.0
-var bodies: Array = []  ## [node, spd]
+var bodies: Array = []  ## [node, spd, map, cx, cy]
+var _sun_node: Node2D
+var _sun_j: Dictionary
 var sun_mat: ShaderMaterial
 var exp: Dictionary = {}
 var _prev := {}
@@ -45,23 +47,9 @@ func setup(b: Node2D) -> void:
 		n.material = mat
 		n.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		add_child(n)
-		bodies.append([n, float(o.spd)])
-	# the sun
-	var S: Dictionary = board._json("res://data/sun.json")
-	if not S.is_empty():
-		var m: Array = maps[S.map]
-		var c := Vector2(m[0] + S.cx * 0.4, m[1] + S.cy * 0.4)
-		var r: float = S.r * 0.4
-		var edge: float = m[1] + m[3]
-		var o := Vector2(c.x - r * 1.25, c.y - r * 1.18)
-		var sz := Vector2(r * 2.5, edge + 170 - o.y)
-		var sn := _Rect.new()
-		sn.rect = Rect2(o, sz)
-		sun_mat = ShaderMaterial.new()
-		sun_mat.shader = load("res://ui/shaders/sun.gdshader")
-		for kv in [["origin", o], ["size", sz], ["center", c], ["r", r], ["edge", edge]]: sun_mat.set_shader_parameter(kv[0], kv[1])
-		sn.material = sun_mat
-		add_child(sn)
+		bodies.append([n, float(o.spd), o.map, float(o.cx), float(o.cy)])
+	_sun_j = board._json("res://data/sun.json")
+	_make_sun()
 	# exploration boxes
 	exp = board._json("res://assets/expbox.json")
 	var g := Gradient.new()
@@ -82,6 +70,33 @@ func setup(b: Node2D) -> void:
 	top = Node2D.new()
 	top.draw.connect(_draw_top)
 	add_child(top)
+
+func _make_sun() -> void:
+	var S: Dictionary = _sun_j
+	if S.is_empty(): return
+	if _sun_node != null:
+		_sun_node.queue_free()
+	var m: Array = board.geo.maps[S.map]
+	var c := Vector2(m[0] + S.cx * 0.4, m[1] + S.cy * 0.4)
+	var r: float = S.r * 0.4
+	var edge: float = m[1] + m[3]
+	var o := Vector2(c.x - r * 1.25, c.y - r * 1.18)
+	var sz := Vector2(r * 2.5, edge + 170 - o.y)
+	var sn := _Rect.new()
+	sn.rect = Rect2(o, sz)
+	sun_mat = ShaderMaterial.new()
+	sun_mat.shader = load("res://ui/shaders/sun.gdshader")
+	for kv in [["origin", o], ["size", sz], ["center", c], ["r", r], ["edge", edge]]: sun_mat.set_shader_parameter(kv[0], kv[1])
+	sn.material = sun_mat
+	add_child(sn)
+	_sun_node = sn
+
+## the board's layout changed: put the planets and the sun on their (moved) map sections
+func relayout() -> void:
+	for b in bodies:
+		var m: Array = board.geo.maps[b[2]]
+		b[0].position = Vector2(m[0] + b[3] * 0.4, m[1] + b[4] * 0.4)
+	_make_sun()
 
 func _process(dt: float) -> void:
 	if Game.settings.get("anim", true): t += dt

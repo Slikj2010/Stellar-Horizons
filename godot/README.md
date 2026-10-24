@@ -25,6 +25,17 @@ The first import takes a minute while Godot converts the map and counter images.
 - **Animated board:** stars drift behind the map, the planets and moons turn, the sun's corona flares, and the
   exploration boxes glow in their research colour (changed values are repainted, with a flash). This can be turned
   off in Settings.
+- **Flat map layout:** the nine printed map sections are laid out left to right along a gentle winding path
+  (Mercury/Venus through Alpha Centauri), joined by dashed lanes with arrowheads. The 2.5D view keeps the printed
+  sheet layout. The spacing and wave are `LAYOUT_GAP`, `LAYOUT_AMP` and `LAYOUT_FREQ` at the top of `ui/board.gd`.
+- **Launch pad pairing:** on the Faction tab, drag a launch-vehicle counter (from your stock, or the faded "Buy at
+  launch" row) onto a ship to pair them, or onto the pad. Click the paired counter to unpair.
+- **Title screen, developer console and saves:** the illustrated title screen opens first. The developer console opens
+  with the backtick key or from the pause menu. The load screen can export and import all saves as one file
+  (Godot save format; not interchangeable with the web version's saves).
+- **Backdrop and planets:** the galaxy backdrop is `assets/sky_flat.png` (flat view) and `assets/sky_pano.png` (2.5D
+  sky). The planet maps are procedural (`tools/make_bodies.py`, `tools/make_sky.py`). After changing images run
+  `godot --headless --path . --import`.
 - **Faction board:** opening the **Faction** tab covers the map with your faction board, a digital copy of the
   printed sheet using its flag and base artwork. It shows relations, Earth production, resources and launch-vehicle
   counters, base population, your six base slots, victory points, missions, politics, the shipyard and technologies.

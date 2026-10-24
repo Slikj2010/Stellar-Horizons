@@ -67,7 +67,7 @@ func _ready() -> void:
 	Game.rolled.connect(show_roll)
 	Game.campaign_started.connect(_on_started)
 	next_btn.pressed.connect(func(): next_click())
-	$HUD/Root/TopBar/Row/MenuBtn.pressed.connect(func(): show_menu("pause" if Game.G != null else "start"))
+	$HUD/Root/TopBar/Row/MenuBtn.pressed.connect(func(): show_menu("pause" if Game.G != null else "title"))
 	tabs.set_tab_title(0, "Turn")
 	tabs.set_tab_title(1, "Selected")
 	tabs.set_tab_title(2, "Faction")
@@ -93,7 +93,18 @@ func _ready() -> void:
 	add_child(v25)
 	v25.setup(self)
 	_make_v25_controls()
-	show_menu("start")
+	title = TitleScene.new()
+	title.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(title)
+	root.move_child(title, menu.get_index())
+	title.action.connect(_title_action)
+	dev = DevConsole.new()
+	dev.set_anchors_preset(Control.PRESET_CENTER)
+	dev.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	dev.grow_vertical = Control.GROW_DIRECTION_BOTH
+	dev.z_index = 60
+	root.add_child(dev)
+	show_menu("title")
 	refresh()
 
 func _process(dt: float) -> void:
@@ -103,6 +114,7 @@ func _process(dt: float) -> void:
 
 func _on_started() -> void:
 	menu.visible = false
+	title.visible = false
 	fboard.visible = false
 	_log_seen = 0
 	tabs.current_tab = 0
@@ -118,11 +130,18 @@ func _unhandled_input(ev: InputEvent) -> void:
 			elif (kk == KEY_ENTER or kk == KEY_KP_ENTER) and _modal_enter.is_valid(): _modal_enter.call()
 			get_viewport().set_input_as_handled()
 			return
+		if kk == KEY_QUOTELEFT and Game.G != null:
+			if dev.visible: dev.close()
+			else:
+				menu.visible = false
+				dev.open()
+			get_viewport().set_input_as_handled()
+			return
 		if kk == KEY_ESCAPE:
 			if menu.visible:
 				if Game.G != null: _close_menu()
 			elif Game.sel != null: Game.select(null)
-			else: show_menu("pause" if Game.G != null else "start")
+			else: show_menu("pause" if Game.G != null else "title")
 			get_viewport().set_input_as_handled()
 			return
 	if menu.visible: return
@@ -207,6 +226,7 @@ func stage_rect() -> Rect2:
 ## the 2.5D view on or off (toggle25 in the web version)
 func toggle_3d() -> void:
 	var want: bool = not v25.on
+	board.set_layout(not want)
 	v25.enable(want)
 	board.visible = not want
 	bg.visible = not want
@@ -1342,8 +1362,34 @@ func _ask_title(a: Dictionary) -> String:
 	return "Decision"
 
 # ---------------- menus ----------------
+var title: TitleScene
+var dev: DevConsole
 var _menu_from := "start"
+
+func _title_action(k: String) -> void:
+	match k:
+		"new": show_menu("start")
+		"load":
+			_menu_from = "title"
+			show_menu("load")
+		"settings":
+			_menu_from = "title"
+			show_menu("settings")
+		"quit": Game.quit()
+
 func show_menu(mode: String) -> void:
+	if mode == "title" and Game.G != null: mode = "pause"
+	if mode == "title":
+		_menu_from = "title"
+		menu.visible = false
+		modal.visible = false
+		fboard.visible = false
+		ttree.visible = false
+		title.visible = true
+		return
+	# behind the menus the title picture stays visible until a campaign is running
+	title.visible = Game.G == null
+	menu.color.a = 0.82 if Game.G == null else 0.94
 	menu.visible = true
 	modal.visible = false
 	fboard.visible = false
@@ -1358,7 +1404,9 @@ func show_menu(mode: String) -> void:
 		UIK.para(menu_box, "Campaign paused: %s, %d." % [D.FAC[Game.G.f].n, int(Game.G.y)], UIK.DIM)
 		var col := UIK.vbox(menu_box, 8)
 		for it in [["Resume", func(): _close_menu()], ["Save game", func(): show_menu("save")], ["Load game", func(): show_menu("load")],
-				["Settings", func(): show_menu("settings")], ["New campaign", func(): show_menu("start")], ["Quit", func(): Game.quit()]]:
+				["Settings", func(): show_menu("settings")], ["Developer console", func():
+					_close_menu()
+					dev.open()], ["New campaign", func(): show_menu("start")], ["Quit", func(): Game.quit()]]:
 			var b := UIK.button(col, it[0], it[1], it[0] == "Load game" and not Game.any_slot())
 			b.custom_minimum_size = Vector2(260, 40)
 		return
@@ -1376,13 +1424,23 @@ func show_menu(mode: String) -> void:
 	var bots := CheckButton.new()
 	bots.text = "Other factions played by bots"
 	bots.button_pressed = _setup.bots
-	bots.toggled.connect(func(on): _setup.bots = on)
+	bots.toggled.connect(func(on):
+		_setup.bots = on
+		show_menu("start"))
 	opts.add_child(bots)
 	var scen := UIK.pick(opts, ["Standard campaign (2030)", "Futuristic start (2060)"], 1 if _setup.scenario == "fut2060" else 0)
 	scen.item_selected.connect(func(i): _setup.scenario = "fut2060" if i == 1 else "std")
 	if _setup.f == "cn":
 		var vr := UIK.pick(opts, ["Military policy", "Robotic policy"], 1 if _setup.variant == "rob" else 0)
 		vr.item_selected.connect(func(i): _setup.variant = "rob" if i == 1 else "mil")
+	if _setup.bots:
+		UIK.head(menu_box, "The other factions play as bots")
+		for k in D.FAC_ORDER:
+			if k == _setup.f: continue
+			var row := UIK.hbox(menu_box, 8)
+			var nm := UIK.para(row, D.FAC[k].n, Color(D.FAC[k].c).lightened(0.25), 12, 0)
+			nm.custom_minimum_size.x = 120
+			UIK.para(row, _bot_blurb(k), UIK.DIM, 12, 560)
 	var on: Array = []
 	for k in [["rerolls", "engine rerolls"], ["scrapRE", "scrap explorers and LVs"], ["enhTrade", "enhanced trading"]]:
 		if Game.settings[k[0]]: on.append(k[1])
@@ -1394,13 +1452,45 @@ func show_menu(mode: String) -> void:
 	UIK.button(go, "Load game", func(): show_menu("load"), not Game.any_slot())
 	UIK.button(go, "Settings", func(): show_menu("settings"))
 	if Game.G != null: UIK.button(go, "Back", func(): _close_menu())
+	else: UIK.button(go, "Title screen", func(): show_menu("title"))
 	UIK.button(go, "Quit", func(): Game.quit())
+
+func _bot_blurb(f: String) -> String:
+	match f:
+		"na": return "Versatile: strong robots and crews, leans robotic; explores Engineering and Biology worlds."
+		"ru": return "Crewed-vehicle power: Biology worlds like Mars, Europa and Titan, bases and crew technology."
+		"eu": return "Robotics and telescopes; Physics research; trades with other factions."
+		"jp": return "Robotic explorers; Engineering worlds and the component-design / computing line."
+		"cn": return "Military China (embargoes rivals, builds armed ships, hunts pirates) or, with the robotic policy, peaceful and focused on bases."
+		"as": return "Base builder: many cheap crew vehicles, mining bases and Biology research."
+		"sa": return "Versatile; bases kept stocked by cargo flights; diplomacy and trade."
+	return ""
 
 func _close_menu() -> void:
 	menu.visible = false
 	_sync_fboard()
 
 func _menu_back() -> void: show_menu(_menu_from)
+
+## export every save slot to one file, or import such a file (so saves can move between computers)
+var _fd: FileDialog
+func _file_dialog(export: bool) -> void:
+	if _fd == null:
+		_fd = FileDialog.new()
+		_fd.use_native_dialog = true
+		_fd.access = FileDialog.ACCESS_FILESYSTEM
+		_fd.filters = PackedStringArray(["*.json ; Stellar Horizons saves"])
+		add_child(_fd)
+		_fd.file_selected.connect(func(path: String):
+			if _fd.file_mode == FileDialog.FILE_MODE_SAVE_FILE:
+				show_toast("Saves exported." if Game.export_saves(path) else "Could not write that file.")
+			else:
+				show_toast(Game.import_saves(path))
+			show_menu("load"))
+	_fd.file_mode = FileDialog.FILE_MODE_SAVE_FILE if export else FileDialog.FILE_MODE_OPEN_FILE
+	_fd.title = "Export saves" if export else "Import saves"
+	_fd.current_file = "stellar-horizons-saves.json" if export else ""
+	_fd.popup_centered_ratio(0.6)
 
 ## the save slots: autosave plus three manual slots
 func _slots_menu(mode: String) -> void:
@@ -1431,7 +1521,11 @@ func _slots_menu(mode: String) -> void:
 				Game.delete_slot(i)
 				show_menu(mode))
 	UIK.para(menu_box, "Saves are kept in " + ProjectSettings.globalize_path("user://"), UIK.DIM, 12, 460)
-	UIK.button(UIK.flow(menu_box), "Back", func(): _menu_back())
+	var bar := UIK.flow(menu_box)
+	if mode == "load":
+		UIK.button(bar, "Export saves…", func(): _file_dialog(true), not Game.any_slot())
+		UIK.button(bar, "Import saves…", func(): _file_dialog(false))
+	UIK.button(bar, "Back", func(): _menu_back())
 
 func _settings_menu() -> void:
 	UIK.title(menu_box, "Settings", 28)
