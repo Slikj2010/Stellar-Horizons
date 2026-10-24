@@ -43,7 +43,6 @@ const PHASE_HELP := {
 	"explore": "Select a ship that can explore (outlined in blue) and choose what to explore.",
 	"trade": "Found bases with crew vehicles carrying supplies, build facilities and settlements, trade.",
 }
-const HOTKEYS := {KEY_1: "mer", KEY_2: "ven", KEY_SPACE: "ear", KEY_3: "mar", KEY_4: "bel", KEY_5: "jup", KEY_6: "sat", KEY_7: "ura", KEY_8: "nep", KEY_9: "kui", KEY_0: "sca", KEY_A: "alp"}
 
 var E: SHRules
 var D: Dictionary
@@ -76,6 +75,13 @@ func _ready() -> void:
 	tabs.tab_changed.connect(func(_i): _sync_fboard())
 	_make_modal()
 	_make_log_filter()
+	_make_tip()
+	var bg := CanvasLayer.new()
+	bg.layer = -1
+	add_child(bg)
+	var stars = preload("res://ui/starfield.gd").new()
+	stars.cam = cam
+	bg.add_child(stars)
 	show_menu("start")
 	refresh()
 
@@ -117,19 +123,189 @@ func _unhandled_input(ev: InputEvent) -> void:
 			_press = mb.position
 			_dragging = true
 			_drag_btn = mb.button_index
+			_drag_ship = null
+			_tip.visible = false
+			# pressing on one of your ships that can move starts dragging it (instead of panning the map)
+			if mb.button_index == MOUSE_BUTTON_LEFT and Game.G != null and Game.G.phase == "move" and not Game.G.ask.size():
+				var h: Dictionary = board.pick_at(_world(mb.position))
+				if h.get("t") == "ship":
+					var s = E._shipById(Game.G, h.id)
+					if s != null and E.moves(Game.G, s).size(): _drag_ship = s
 		elif _dragging and mb.button_index == _drag_btn:
 			_dragging = false
-			if mb.button_index == MOUSE_BUTTON_LEFT and mb.position.distance_to(_press) < 6: _click(board.get_global_mouse_position())
-	elif ev is InputEventMouseMotion and _dragging:
-		cam.pan_screen((ev as InputEventMouseMotion).relative)
+			var wp: Vector2 = _world(mb.position)
+			if board.ghost != null:
+				var dest: String = board.dest_at(wp)
+				var s = _drag_ship
+				board.ghost = null
+				_drag_ship = null
+				board.queue_redraw()
+				if dest != "" and s != null: do_move(s, dest)
+				elif s != null: show_toast("Drop the counter on a highlighted destination to move it.")
+				return
+			_drag_ship = null
+			if mb.position.distance_to(_press) < 6:
+				if mb.button_index == MOUSE_BUTTON_LEFT: _click(wp)
+				elif mb.button_index == MOUSE_BUTTON_RIGHT: _zoom_counter(board.pick_at(wp))
+	elif ev is InputEventMouseMotion:
+		var mm := ev as InputEventMouseMotion
+		if _dragging and _drag_ship != null and _drag_btn == MOUSE_BUTTON_LEFT:
+			if board.ghost == null and mm.position.distance_to(_press) >= 6:
+				if Game.sel == null or Game.sel.t != "ship" or not SHRules.eq(Game.sel.get("id"), _drag_ship.id): Game.select({"t": "ship", "id": _drag_ship.id})
+				board.ghost = {"f": Game.G.f, "img": _drag_ship.img}
+			if board.ghost != null:
+				var wp: Vector2 = _world(mm.position)
+				board.ghost.p = wp
+				board.ghost.dest = board.dest_at(wp)
+				board.queue_redraw()
+		elif _dragging:
+			cam.pan_screen(mm.relative)
+		else:
+			_hover(mm.position)
 	elif ev is InputEventMagnifyGesture:
 		cam.zoom_at((ev as InputEventMagnifyGesture).factor, (ev as InputEventMagnifyGesture).position)
 	elif ev is InputEventPanGesture:
 		cam.pan_screen(-(ev as InputEventPanGesture).delta * 20)
 	elif ev is InputEventKey and ev.pressed and not ev.echo:
 		var k: int = (ev as InputEventKey).keycode
-		if HOTKEYS.has(k): _jump(HOTKEYS[k])
+		if JUMP.has(k): _jump_key(k)
 		elif k == KEY_ENTER or k == KEY_KP_ENTER: next_click()
+
+## a screen point on the map, in board coordinates
+func _world(sp: Vector2) -> Vector2: return board.get_canvas_transform().affine_inverse() * sp
+
+# ---------------- camera hotkeys: belts cycle through their satellites on repeated presses ----------------
+const JUMP := {KEY_1: ["mer"], KEY_2: ["ven"], KEY_SPACE: ["ear"], KEY_3: ["mar"], KEY_4: ["bel", "cer", "ves", "hyg"], KEY_5: ["jup"], KEY_6: ["sat"],
+	KEY_7: ["ura"], KEY_8: ["nep"], KEY_9: ["kui", "plu", "hau"], KEY_0: ["sca", "eri", "sed"], KEY_A: ["alp"]}
+var _jump_last := -1
+var _jump_i := 0
+func _jump_key(key: int) -> void:
+	var list: Array = JUMP[key]
+	_jump_i = (_jump_i + 1) % list.size() if _jump_last == key else 0
+	_jump_last = key
+	var k: String = list[_jump_i]
+	if D.SYS.has(k): _jump(k)
+	elif board.geo.worlds.has(k): cam.fly_to(board.world_center(k), maxf(cam.zoom.x, 0.6))
+
+# ---------------- hover tips and the counter zoom ----------------
+var _drag_ship = null
+var _tip: PanelContainer
+var _tip_lbl: RichTextLabel
+func _make_tip() -> void:
+	_tip = PanelContainer.new()
+	_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tip.visible = false
+	_tip.z_index = 50
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.04, 0.07, 0.11, 0.96)
+	sb.border_color = Color(0.25, 0.36, 0.48)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(6)
+	sb.set_content_margin_all(8)
+	_tip.add_theme_stylebox_override("panel", sb)
+	_tip_lbl = RichTextLabel.new()
+	_tip_lbl.bbcode_enabled = true
+	_tip_lbl.fit_content = true
+	_tip_lbl.scroll_active = false
+	_tip_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_tip_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tip_lbl.add_theme_font_size_override("normal_font_size", 13)
+	_tip_lbl.add_theme_font_size_override("bold_font_size", 13)
+	_tip.add_child(_tip_lbl)
+	root.add_child(_tip)
+
+func _hover(sp: Vector2) -> void:
+	var G = Game.G
+	var txt := ""
+	if G != null and not modal.visible and not fboard.visible and not ttree.visible:
+		txt = _tip_text(G, board.pick_at(_world(sp)))
+	if txt == "":
+		_tip.visible = false
+		return
+	_tip_lbl.text = txt
+	_tip.visible = true
+	_tip.reset_size()
+	var vs := get_viewport().get_visible_rect().size
+	var p := sp + Vector2(18, 18)
+	var sz := _tip.get_combined_minimum_size()
+	if p.x + sz.x > vs.x - 470: p.x = sp.x - sz.x - 12
+	if p.y + sz.y > vs.y - 8: p.y = sp.y - sz.y - 12
+	_tip.position = p
+
+func _tip_text(G, h: Dictionary) -> String:
+	var dim := "[color=#8fa3b8]%s[/color]"
+	match h.get("t"):
+		"ship":
+			var s = E._shipById(G, h.id)
+			if s == null: return ""
+			var t := "[b]%s[/b] %s\n%s" % [s.name, dim % s.kind, E.locName(s.loc)]
+			var extra := []
+			if SHRules.t(s.get("res")): extra.append("reserved")
+			if SHRules.t(s.dmg): extra.append("%d damage" % s.dmg)
+			if E.sum(s.cargo): extra.append("cargo " + UIK.res_bb(s.cargo))
+			if SHRules.t(s.get("probe")): extra.append("carries probe " + s.probe)
+			if G.phase == "move" and E.moves(G, s).size(): extra.append("[color=#4fc3d9]can move: drag it, or click it[/color]")
+			if G.phase == "explore" and E.exploreOptions(G, s).size(): extra.append("[color=#4fc3d9]can explore[/color]")
+			if extra.size(): t += "\n" + " · ".join(extra)
+			return t + "\n" + dim % "Right-click to enlarge"
+		"oship":
+			for s in G.world.facs[h.f].ships:
+				if SHRules.eq(s.id, h.id): return "[b]%s[/b] %s\n%s\n%s" % [s.name, dim % s.kind, D.FAC[h.f].n, dim % "Right-click to enlarge"]
+			return ""
+		"base":
+			var b = E._baseById(G, h.id)
+			if b == null: return ""
+			var fac := []
+			for c in [["lab", "lab"], ["mine", "mine"], ["sup", "supply"], ["def", "defense"]]:
+				if SHRules.t(b.fac[c[0]]): fac.append("%s %d" % [c[1], b.fac[c[0]]])
+			return "[b]%s[/b] %s\n%s\nStock %s%s" % [b.name, dim % D.W[b.w].n, ", ".join(fac) if fac.size() else "no facilities", UIK.res_bb(b.stock), ("\n%d settlement%s" % [b.set, "s" if b.set > 1 else ""]) if b.set else ""]
+		"obase": return "[b]%s[/b] %s\n%s" % [h.name, dim % D.W[h.w].n, D.FAC[h.f].n]
+		"npf": return "[b]%s[/b]\n%s" % [str(E.npfName(G, h.k)), dim % "Non-player faction base"]
+		"dest":
+			for m in board.targets:
+				if m.dest == h.dest: return "Move here: [b]%s[/b]%s" % [m.label, (" · %d turns" % m.eta) if SHRules.t(m.get("eta")) else ""]
+		"world":
+			var k: String = h.k
+			var w: Dictionary = D.W[k]
+			var ws = G.w.get(k)
+			if ws == null: return ""
+			var t := "[b]%s[/b]" % w.n
+			if k != "alp": t += " [color=#%s]%s[/color]" % [UIK.FIELD_COL.get(w.f, UIK.DIM).to_html(false), SHRules.FN[w.f]]
+			t += "\nExploration value [b]%d[/b]%s" % [int(ws.v), (" (printed %d)" % int(w.v)) if int(ws.v) != int(w.v) else ""]
+			if SHRules.t(w.get("life")): t += " · life chance %d%%" % int(w.life)
+			if SHRules.t(ws.get("card")): t += "\nWorld card: " + str(ws.card)
+			if SHRules.t(ws.get("life")): t += "\n[color=#5fcf8a]Life found[/color]"
+			for x in E.missionsAt(G, k): t += "\nMission: " + E.misTxt(x.id)
+			return t
+	return ""
+
+## right-click on a counter: show it large, front and back
+func _zoom_counter(h: Dictionary) -> void:
+	if not h.has("img") or not h.has("f"): return
+	var f: String = h.f
+	var key: String = h.img
+	UIK.clear(modal_box)
+	_modal_enter = func(): modal.visible = false
+	var name := ""
+	if h.t == "ship":
+		var s = E._shipById(Game.G, h.id)
+		if s != null: name = "%s (%s)" % [s.name, s.kind]
+	elif h.t == "oship": name = D.FAC[f].n + " counter"
+	else: name = str(h.get("name", "Base counter"))
+	UIK.title(modal_box, name if name != "" else "Counter")
+	var row := UIK.hbox(modal_box, 24)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var sheet := "atlas_" + f
+	var base_key: String = key.trim_suffix("|back")
+	for k2 in [base_key, base_key + "|back"]:
+		var tex = UIK.atlas_tex(sheet, k2)
+		if tex == null: continue
+		var v := UIK.vbox(row, 4)
+		UIK.image(v, tex, 240)
+		var l := UIK.para(v, "Back (reserved side)" if k2.ends_with("|back") else "Front", UIK.DIM, 12, 0)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UIK.button(UIK.flow(modal_box), "Close", func(): modal.visible = false)
+	modal.visible = true
 
 func _jump(sy: String) -> void:
 	var hub = D.SYS[sy].hub

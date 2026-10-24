@@ -16,9 +16,15 @@ The first import takes a minute while Godot converts the map and counter images.
 - **Start screen:** pick your faction, choose solo or with the other factions played by bots, then **Start campaign**.
 - **Map:** drag to pan, mouse wheel (or pinch) to zoom. Hotkeys jump the camera: `1` Mercury, `2` Venus, `Space` Earth,
   `3` Mars, `4` Main Belt, `5` Jupiter, `6` Saturn, `7` Uranus, `8` Neptune, `9` Kuiper Belt, `0` Scattered Disk, `A` Alpha Centauri.
-- **Moving a ship:** in the Movement phase, ships that can move are outlined in blue. Click one: its legal destinations
-  light up on the map. Click a zone to move there, or use the buttons in the **Selected** tab, which also let you
-  choose the launch vehicle and load supplies at launch.
+  Pressing `4`, `9` or `0` again cycles through that belt's worlds (Ceres, Vesta, Hygiea; Pluto, Haumea; Eris, Sedna).
+- **Hover and zoom:** hovering over a counter, base, world or destination shows a short description. Right-click a
+  counter to see it large, front and back.
+- **Moving a ship:** in the Movement phase, ships that can move are outlined in blue. Drag one onto a highlighted
+  destination, or click it to light up its destinations and then click one. The buttons in the **Selected** tab also
+  let you choose the launch vehicle and load supplies at launch.
+- **Animated board:** stars drift behind the map, the planets and moons turn, the sun's corona flares, and the
+  exploration boxes glow in their research colour (changed values are repainted, with a flash). This can be turned
+  off in Settings.
 - **Faction board:** opening the **Faction** tab covers the map with your faction board, a digital copy of the
   printed sheet using its flag and base artwork. It shows relations, Earth production, resources and launch-vehicle
   counters, base population, your six base slots, victory points, missions, politics, the shipyard and technologies.
@@ -57,6 +63,8 @@ The first import takes a minute while Godot converts the map and counter images.
 | `engine/rng.gd` | A seeded random number generator, used for tests and repeatable games. |
 | `ui/board.gd` | Draws the map, counters, markers and move targets, and works out what a click hit. |
 | `ui/board_camera.gd` | Pan, zoom and camera jumps. |
+| `ui/board_fx.gd`, `ui/shaders/` | Spinning planets, the sun and the animated exploration boxes. |
+| `ui/starfield.gd` | The starfield and nebula behind the map. |
 | `ui/faction_board.gd` | The faction board screen, with drag-and-drop between New builds and the launch pad. |
 | `ui/main.gd` | The HUD: top bar, side panel tabs, question dialog, Next check, menus, save slots and settings. |
 | `ui/tech_tree.gd` | The technology and policy tree overlays. |

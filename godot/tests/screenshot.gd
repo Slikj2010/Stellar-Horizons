@@ -131,6 +131,63 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 		a.append(["call", func(): main.tabs.current_tab = main.TAB_POL])
 		a.append(["wait", 20])
 		a.append(["shot", "12_pol"])
+	if plan == "mapdrag":
+		a.append(["call", func():
+			for i in 120:
+				var G = Game.G
+				while G.ask.size(): Game.AI.answerAsks(G)
+				if G.phase == "move" and _mover(G) != null: break
+				if not G.over: Game.AI.botPhase(G)
+				Game.next()
+			var mv = _mover(Game.G)
+			print("mover: ", mv[0].name if mv != null else "none", " ", Game.G.y)
+			if mv != null:
+				main.cam.fly_to((main.board.pos_of(mv[0].loc) + main.board.pos_of(mv[1])) / 2.0, 0.42)])
+		a.append(["wait", 50])
+		a.append(["call", func():
+			print("cam ", main.cam.position, " ", main.cam.get_screen_center_position(), " ", main.cam.zoom, " ", main.cam.is_current())
+			var mv = _mover(Game.G)
+			print("ship hit ", _hit_of(mv[0].id), " scr ", _scr(_hit_of(mv[0].id)), " dest ", main.board.pos_of(mv[1]))
+			var sp := _scr(_hit_of(mv[0].id))
+			var dp := _scr(main.board.pos_of(mv[1]))
+			_mouse(sp, true)
+			for i in 10: _move(sp.lerp(dp, (i + 1) / 10.0))])
+		a.append(["wait", 10])
+		a.append(["shot", "50_dragging"])
+		a.append(["call", func():
+			var mv = _mover(Game.G)
+			var dp := _scr(main.board.pos_of(mv[1]))
+			_mouse(dp, false)
+			print("after drop: ", SHRules._find(Game.G.ships, func(x): return x.id == mv[0].id).loc, " (target ", mv[1], ")")])
+		a.append(["wait", 20])
+		a.append(["shot", "51_dropped"])
+		a.append(["call", func():
+			var s = Game.G.ships[0]
+			var e := InputEventMouseMotion.new()
+			e.position = _scr(_hit_of(s.id))
+			e.global_position = e.position
+			get_viewport().push_input(e)])
+		a.append(["wait", 10])
+		a.append(["shot", "52_hover"])
+		a.append(["call", func():
+			var s = Game.G.ships[0]
+			for down in [true, false]:
+				var e := InputEventMouseButton.new()
+				e.button_index = MOUSE_BUTTON_RIGHT
+				e.pressed = down
+				e.position = _scr(_hit_of(s.id))
+				e.global_position = e.position
+				get_viewport().push_input(e)])
+		a.append(["wait", 10])
+		a.append(["shot", "53_zoom"])
+	if plan == "fx":
+		for spot in [["40_earth", "ear", 0.8], ["41_sun", "mer", 0.45], ["42_jupiter", "jup", 0.6], ["43_far", "ear", 0.12]]:
+			a.append(["call", func():
+				var p: Vector2 = main.board.world_center(spot[1]) if spot[1] != "mer" else Vector2(351, 1340)
+				main.cam.position = p
+				main.cam.zoom = Vector2(spot[2], spot[2])])
+			a.append(["wait", 30])
+			a.append(["shot", spot[0]])
 	if plan == "menus":
 		a.append(["call", func():
 			Game.next()
@@ -204,6 +261,19 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 			a.append(["shot", "%d_%s" % [23 + i, q.k]])
 			a.append(["call", func(): Game.G.ask.pop_front()])
 	return a
+
+func _mover(G):
+	for s in G.ships:
+		if s.loc == "earth": continue
+		for m in Game.E.moves(G, s):
+			if m.dest != s.loc and m.dest != "earth": return [s, m.dest]
+	return null
+func _hit_of(id) -> Vector2:
+	for h in main.board.hits:
+		if h.t == "ship" and SHRules.eq(h.id, id): return h.c
+	return Vector2.ZERO
+func _scr(wp: Vector2) -> Vector2:
+	return (wp - main.cam.get_screen_center_position()) * main.cam.zoom + get_viewport().get_visible_rect().size / 2.0
 
 func _explorer(G):
 	for s in G.ships:

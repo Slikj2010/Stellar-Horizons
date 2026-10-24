@@ -21,6 +21,8 @@ var font: Font
 var _rings := {}
 var _boxf := {}
 var _hulls := {}
+var fx: Node2D  ## animated planets, sun and exploration boxes (board_fx.gd)
+var ghost = null  ## {f, img, p, dest}: a counter being dragged on the map
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
@@ -40,6 +42,10 @@ func _ready() -> void:
 	for f in Game.data.D.FAC:
 		atl[f] = {"tex": load("res://assets/atlas_%s.webp" % f), "fr": _json("res://assets/atlas_%s.json" % f)}
 	Game.changed.connect(queue_redraw)
+	fx = preload("res://ui/board_fx.gd").new()
+	fx.z_index = -5
+	add_child(fx)
+	fx.setup(self)
 
 static func _json(path: String) -> Dictionary:
 	var f := FileAccess.open(path, FileAccess.READ)
@@ -208,11 +214,7 @@ func _draw() -> void:
 				closed.append(h[0])
 				draw_polyline(closed, C_SEL, 5)
 			else: draw_arc(wc, 60, 0, TAU, 48, C_SEL, 5)
-		if g.has("exp"):
-			var ep := v2(g.exp)
-			draw_circle(ep, 26, Color(0.03, 0.05, 0.08, 0.92))
-			draw_arc(ep, 26, 0, TAU, 32, Color("#f2a93b") if ws.v > 0 else Color(0.4, 0.45, 0.5), 3)
-			text(str(ws.v), ep, 26, Color.WHITE if ws.v > 0 else Color(0.5, 0.55, 0.6))
+		# the exploration value is painted by board_fx.gd over the printed box when it has changed
 		var i := 0
 		for x in E.missionsAt(G, k):
 			var fr = markers_fr.get(D.MIS[x.id].mk)
@@ -268,6 +270,14 @@ func _draw() -> void:
 			if SHRules.t(m.get("eta")): lbl += " · %dt" % m.eta
 			var zc: Vector2 = pos_of(m.dest)
 			text(lbl, zc + Vector2(0, 46), 15, C_READY)
+	# a counter being dragged to a destination
+	if ghost != null:
+		if ghost.get("dest", "") != "":
+			var z := zone(ghost.dest)
+			if z.has("poly"): draw_colored_polygon(z.poly, Color(C_SEL, 0.25))
+			else: draw_circle(z.c, z.r, Color(C_SEL, 0.25))
+		draw_box(ghost.p, CS * 1.2 + 6, C_SEL, 3)
+		draw_frame(atl[ghost.f].tex, unit_frame(ghost.f, ghost.img), ghost.p, CS * 1.2, 0, Color(1, 1, 1, 0.9))
 
 func _draw_world_boxes(G, D: Dictionary) -> void:
 	const LS := 56.0
@@ -305,13 +315,15 @@ func _draw_world_boxes(G, D: Dictionary) -> void:
 			i += 1
 			draw_frame(atl[bf].tex, unit_frame(bf, base_key(b, bf)), p, BS, F.a)
 			if SHRules.t(b.get("npf")):
-				hits.append({"t": "npf", "k": k, "c": p, "r": BS / 2})
+				hits.append({"t": "npf", "k": k, "c": p, "r": BS / 2, "f": bf, "img": base_key(b, bf)})
 				if Game.sel != null and Game.sel.t == "npf" and Game.sel.k == k: draw_box(p, BS + 6, C_SEL, 3, F.a)
 				if SHRules.t(b.trade): draw_frame(markers_tex, markers_fr.get(("buy_" if b.trade.side == "buy" else "sell_") + b.trade.type), wat(F, lx + BS / 2 + 8 + TS / 2, row_y), TS, F.a)
 				if SHRules.t(b.blk): text("BLOCKADED", wat(F, lx, row_y + BS / 2 + 12), 11, Color("#ef6b5b"))
 				continue
-			if bf != G.f: draw_box(p, BS + 4, Color(D.FAC[bf].c), 3, F.a)
-			else: hits.append({"t": "base", "id": b.id, "c": p, "r": BS / 2})
+			if bf != G.f:
+				draw_box(p, BS + 4, Color(D.FAC[bf].c), 3, F.a)
+				hits.append({"t": "obase", "f": bf, "name": b.name, "w": b.w, "c": p, "r": BS / 2, "img": base_key(b, bf)})
+			else: hits.append({"t": "base", "id": b.id, "c": p, "r": BS / 2, "f": bf, "img": base_key(b, bf)})
 			if Game.sel != null and Game.sel.t == "base" and SHRules.eq(Game.sel.get("id"), b.id): draw_box(p, BS + 6, C_SEL, 3, F.a)
 			if SHRules.t(b.get("trade")) and bf == G.f: draw_frame(markers_tex, markers_fr.get(("buy_" if b.trade.side == "buy" else "sell_") + b.trade.type), wat(F, lx + BS / 2 + 8 + TS / 2, row_y), TS, F.a)
 			if b.set > 0: text("%d settl." % b.set, wat(F, lx, row_y + BS / 2 + 12), 12, Color("#5fcf8a"))
@@ -343,7 +355,7 @@ func _draw_stack(G, E: SHRules, loc: String, lst: Array) -> void:
 		if of != "":
 			draw_box(c, CS + 6, Color(Game.data.D.FAC[of].c), 3, rot)
 			draw_frame(atl[of].tex, unit_frame(of, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
-			hits.append({"t": "oship", "f": of, "id": s.id, "c": c, "r": CS / 2})
+			hits.append({"t": "oship", "f": of, "id": s.id, "c": c, "r": CS / 2, "img": s.img})
 			continue
 		var ready: bool = (G.phase == "move" and E.moves(G, s).size() > 0) or (G.phase == "explore" and E.exploreOptions(G, s).size() > 0)
 		var is_sel: bool = Game.sel != null and Game.sel.t == "ship" and SHRules.eq(Game.sel.get("id"), s.id)
@@ -352,7 +364,14 @@ func _draw_stack(G, E: SHRules, loc: String, lst: Array) -> void:
 		if SHRules.t(s.dmg): text("▼%d" % s.dmg, c + Vector2(22, -24), 13, Color("#ef6b5b"))
 		if SHRules.t(s.hold): text("+%d" % s.hold, c + Vector2(22, 24), 13, C_SEL)
 		if SHRules.t(s.probe): draw_frame(atl[G.f].tex, unit_frame(G.f, "Probe|" + s.probe), c + Vector2(-24, 24), 24)
-		hits.append({"t": "ship", "id": s.id, "c": c, "r": CS / 2})
+		hits.append({"t": "ship", "id": s.id, "c": c, "r": CS / 2, "f": G.f, "img": s.img})
+
+## the move target under a map point, or ""
+func dest_at(pt: Vector2) -> String:
+	var ordered := SHRules.ssort(targets, func(a, b): return (0 if Game.E.P(a.dest).t != "orbit" else 1) - (0 if Game.E.P(b.dest).t != "orbit" else 1))
+	for m in ordered:
+		if in_zone(zone(m.dest), pt): return m.dest
+	return ""
 
 ## what is under a map point: a counter first, then a move target, then a world
 func pick_at(pt: Vector2) -> Dictionary:
