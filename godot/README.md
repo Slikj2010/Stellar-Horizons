@@ -24,12 +24,27 @@ The first import takes a minute while Godot converts the map and counter images.
   counters, base population, your six base slots, victory points, missions, politics, the shipyard and technologies.
   Ships built and waiting on Earth appear only here, in **New builds**. Drag one onto the **launch pad** (or click it),
   then in the Movement step pick a destination to launch it. **Show the printed faction sheet** opens the original sheet.
+- **Technology and policy trees:** the **Tech** and **Policy** tabs cover the map with the full trees. Cards you can
+  develop or adopt now are highlighted; click one to confirm. In a multi-faction game the research turns (develop one
+  or pass) are shown in the Tech tab.
+- **Exploring:** choosing Explore opens a confirmation with the value and the odds, then a result screen with the
+  dice, the markers earned, the recall or malfunction check and any search for life. Producing and harvesting work the
+  same way.
+- **Combat:** searches, ship combat and pirate fights open a screen with both sides, the dice, the strike and
+  direct-fire table and your tactics-point plan (direct fire, extra damage, less damage taken, picking targets, or
+  calling the combat off). Damage on units and hits on a base can be assigned by hand or left to the game.
 - **Side panel:** **Turn** shows what the current phase or step offers (building, research, policies, diplomacy,
   exploring, bases and trade). **Selected** shows the ship, base or world you clicked. **Faction** shows your faction,
-  missions, relations, policies, technologies and score. **Log** shows the game log.
-- **Next** (or `Enter`) ends the current phase or step.
+  missions, relations, policies, technologies and score. **Log** shows the game log, with filters (yours, bots,
+  highlights) and a search box.
+- **Next** (or `Enter`) ends the current phase or step. It first lists anything you have not used yet (ships that can
+  still move or explore, affordable technologies and so on); `Enter` again confirms. This check can be turned off.
 - **Questions** (pirates, world cards, flyby transfers, combat and so on) pop up in the middle of the screen.
-- **Menu:** save, load and start a new campaign. The save is kept in Godot's user folder (`user://campaign.save`).
+- **Menu** (or `Esc`): save to one of three slots, load, settings and a new campaign. The game also autosaves each
+  time you press Next and when you quit. Saves are kept in Godot's user folder
+  (on Windows `%APPDATA%\Godot\app_userdata\Stellar Horizons`).
+- **Settings:** the Next check, autosave, animations, and the optional rules (engine rerolls, scrapping explorers and
+  launch vehicles, enhanced trading).
 
 ## Project layout
 
@@ -43,7 +58,9 @@ The first import takes a minute while Godot converts the map and counter images.
 | `ui/board.gd` | Draws the map, counters, markers and move targets, and works out what a click hit. |
 | `ui/board_camera.gd` | Pan, zoom and camera jumps. |
 | `ui/faction_board.gd` | The faction board screen, with drag-and-drop between New builds and the launch pad. |
-| `ui/main.gd` | The HUD: top bar, side panel tabs, question dialog and menus. |
+| `ui/main.gd` | The HUD: top bar, side panel tabs, question dialog, Next check, menus, save slots and settings. |
+| `ui/tech_tree.gd` | The technology and policy tree overlays. |
+| `ui/screens.gd` | The exploration and combat screens (dice, results, combat plans, assigning damage). |
 | `ui/ui_kit.gd`, `ui/theme.tres` | Helpers and the look of the panels and buttons. |
 | `scenes/main.tscn` | The main scene. |
 | `assets/` | Maps, counter sheets, markers and fonts, copied from the web version. |
@@ -82,6 +99,5 @@ In the editor, open **Editor → Manage Export Templates** and download the temp
 
 ## Not in the Godot version yet
 
-- The tech and policy tree overlay, and the 2.5D view.
-- Assigning combat damage and base hits by hand (they are assigned automatically for now).
+- The 2.5D view.
 - Sound and music.

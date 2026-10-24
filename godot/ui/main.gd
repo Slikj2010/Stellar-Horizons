@@ -33,6 +33,7 @@ const TAB_POL := 4
 const TAB_LOG := 5
 var modal: ColorRect
 var modal_box: VBoxContainer
+var _modal_enter := Callable()  ## what Enter does while the modal is open
 
 const PHASE_HELP := {
 	"econ": "Once a decade: politics and events, diplomacy, production, resource transport, bases, asteroids and pirates, technologies, settlement growth and policy.",
@@ -51,7 +52,7 @@ var _dragging := false
 var _drag_btn := 0
 var _toast_t := 0.0
 var _log_seen := 0
-var _setup := {"f": "eu", "bots": false, "scenario": "std", "variant": "mil", "scrapRE": false, "enhTrade": false}
+var _setup := {"f": "eu", "bots": false, "scenario": "std", "variant": "mil"}
 
 func _ready() -> void:
 	E = Game.E
@@ -59,9 +60,10 @@ func _ready() -> void:
 	cam.setup(board.map_rect())
 	Game.changed.connect(refresh)
 	Game.toast.connect(show_toast)
+	Game.rolled.connect(show_roll)
 	Game.campaign_started.connect(_on_started)
-	next_btn.pressed.connect(func(): Game.next())
-	$HUD/Root/TopBar/Row/MenuBtn.pressed.connect(func(): show_menu("pause"))
+	next_btn.pressed.connect(func(): next_click())
+	$HUD/Root/TopBar/Row/MenuBtn.pressed.connect(func(): show_menu("pause" if Game.G != null else "start"))
 	tabs.set_tab_title(0, "Turn")
 	tabs.set_tab_title(1, "Selected")
 	tabs.set_tab_title(2, "Faction")
@@ -73,6 +75,7 @@ func _ready() -> void:
 	ttree.main = self
 	tabs.tab_changed.connect(func(_i): _sync_fboard())
 	_make_modal()
+	_make_log_filter()
 	show_menu("start")
 	refresh()
 
@@ -91,6 +94,20 @@ func _on_started() -> void:
 
 # ---------------- input on the board ----------------
 func _unhandled_input(ev: InputEvent) -> void:
+	if ev is InputEventKey and ev.pressed and not ev.echo:
+		var kk: int = (ev as InputEventKey).keycode
+		if modal.visible:
+			if kk == KEY_ESCAPE: modal.visible = false
+			elif (kk == KEY_ENTER or kk == KEY_KP_ENTER) and _modal_enter.is_valid(): _modal_enter.call()
+			get_viewport().set_input_as_handled()
+			return
+		if kk == KEY_ESCAPE:
+			if menu.visible:
+				if Game.G != null: _close_menu()
+			elif Game.sel != null: Game.select(null)
+			else: show_menu("pause" if Game.G != null else "start")
+			get_viewport().set_input_as_handled()
+			return
 	if menu.visible: return
 	if ev is InputEventMouseButton:
 		var mb := ev as InputEventMouseButton
@@ -112,8 +129,7 @@ func _unhandled_input(ev: InputEvent) -> void:
 	elif ev is InputEventKey and ev.pressed and not ev.echo:
 		var k: int = (ev as InputEventKey).keycode
 		if HOTKEYS.has(k): _jump(HOTKEYS[k])
-		elif k == KEY_ESCAPE: Game.select(null)
-		elif k == KEY_ENTER or k == KEY_KP_ENTER: Game.next()
+		elif k == KEY_ENTER or k == KEY_KP_ENTER: next_click()
 
 func _jump(sy: String) -> void:
 	var hub = D.SYS[sy].hub
@@ -180,7 +196,7 @@ func refresh() -> void:
 	build_pol_panel()
 	build_log()
 	next_btn.disabled = G.over or G.ask.size() > 0
-	next_btn.text = "Campaign over" if G.over else ("Answer the question first" if G.ask.size() else "Next: " + _next_name(G))
+	next_btn.text = "Campaign over" if G.over else ("Answer the question first" if G.ask.size() else _next_label(G))
 	build_dialog()
 	_sync_fboard()
 
@@ -207,7 +223,79 @@ func _next_name(G) -> String:
 		return E.PHASE_NAME.build
 	if G.phase == "trade": return "next year"
 	var j := E.PHASES.find(G.phase)
-	return E.PHASE_NAME[E.PHASES[j + 1]]
+	var nx: String = E.PHASES[j + 1]
+	if nx == "combat" and not E.combatPossible(G): nx = "explore"  # nothing to fight: combat is skipped
+	return E.PHASE_NAME[nx]
+
+# ---------------- Next, with a check for unused options ----------------
+func _next_label(G) -> String: return ("End %d" % int(G.y)) if G.phase == "trade" else "Next: " + _next_name(G)
+
+func next_click() -> void:
+	var G = Game.G
+	if G == null or G.over: return
+	if G.ask.size():
+		show_toast("Answer the open question first.")
+		return
+	if not Game.settings.confirmNext:
+		Game.next()
+		return
+	var warn := unused_actions(G)
+	var where: String = E.ESTEP_NAME[G.estep] if G.phase == "econ" and G.estep != null else E.PHASE_NAME[G.phase]
+	var body: String
+	if warn.size(): body = "You still have unused options in %s:\n\n• %s" % [where, "\n• ".join(warn)]
+	else: body = "Nothing left to do in %s." % where
+	body += "\n\n(Turn this check off in Settings. Enter confirms.)"
+	confirm(_next_label(G) + "?", body, func():
+		Game.next()
+		return null, "Continue anyway" if warn.size() else "Continue")
+
+func unused_actions(G) -> Array:
+	var out := []
+	var names := func(a: Array) -> String: return ", ".join(a.map(func(x): return x.name))
+	var add := func(a: Array, f: Callable):
+		if a.size(): out.append(f.call(a))
+	var ph: String = G.phase
+	if ph == "move":
+		add.call(G.ships.filter(func(s): return s.cls == "RE" and not SHRules.t(s.get("launched")) and E.moves(G, s).size()), func(a): return "Not launched yet: %s." % names.call(a))
+		add.call(G.ships.filter(func(s): return (s.kind == "Orbiter" or s.kind == "Rover") and not SHRules.t(s.get("fixed")) and SHRules.t(s.get("launched")) and E.P(s.loc).t == "fly" and E.moves(G, s).size()), func(a): return "Waiting in a flyby box for their final move: %s." % names.call(a))
+		add.call(G.ships.filter(func(s): return s.cls == "CV" and not SHRules.t(s.get("res")) and E.moves(G, s).size()), func(a): return "Crew vehicles that can still move: %s." % names.call(a))
+	if ph == "explore":
+		add.call(G.ships.filter(func(s): return E.exploreOptions(G, s).any(func(o): return o.kind == "explore" or o.kind == "probe")), func(a): return "Ships that can still explore: %s." % names.call(a))
+		add.call(G.ships.filter(func(s): return E.exploreOptions(G, s).any(func(o): return o.kind == "produce" or o.kind == "harvest")), func(a): return "Crew vehicles that can still produce or harvest: %s." % names.call(a))
+		add.call(G.ships.filter(func(s): return s.kind == "Flyby" and E.P(s.loc).t == "fly" and not SHRules.t(G.turn.acted.get(s.id))), func(a): return "Flybys in a flyby box will be sent outward automatically: %s." % names.call(a))
+	if ph == "combat":
+		add.call(E.combatOptions(G), func(a): return "Combat available: %s." % "; ".join(a.map(func(o): return o.label)))
+	if ph == "build":
+		add.call(G.ships.filter(func(s): return s.cls == "CV" and SHRules.t(s.get("res")) and s.loc == "earth"), func(a): return "Reserved crew vehicles on Earth you could unreserve: %s." % names.call(a))
+		add.call(G.ships.filter(func(s): return s.cls == "CV" and SHRules.t(s.get("dmg")) and s.loc == "earth"), func(a): return "Damaged crew vehicles you could repair: %s." % names.call(a))
+		var pe: Array = G.probes.get("earth", [])
+		if pe.size() and not G.ships.any(func(s): return s.cls == "RE" and not SHRules.t(s.get("launched")) and s.kind != "Telescope"):
+			out.append("Probe%s %s %s no unlaunched flyby, orbiter or rover to ride on." % ["s" if pe.size() > 1 else "", ", ".join(pe), "have" if pe.size() > 1 else "has"])
+	if ph == "trade":
+		add.call(G.ships.filter(func(s):
+			var c = E.canFoundBase(G, s)
+			return c != null and s.cargo.SUP >= c.cost), func(a): return "Crew vehicles that can found a base now: %s." % names.call(a))
+		var afford := func(stock, cost) -> bool:
+			for r in ["ORE", "SUP", "FUEL"]:
+				if int(SHRules.gi(stock, r, 0)) < int(SHRules.gi(cost, r, 0)): return false
+			return true
+		add.call(G.bases.filter(func(b): return E.upgradeOptions(G, b).any(func(o): return o.why == null and afford.call(b.stock, o.next.c)) or (not SHRules.t(E.builtThisTurn(G, b).get("set")) and afford.call(b.stock, D.SETTLE_COST))), func(a): return "Bases that can still build this turn: %s." % names.call(a))
+		add.call(G.bases.filter(func(b): return SHRules.t(b.get("trade")) and E.tradeLimitOwn(b)), func(a): return "Unused trade markers at: %s." % names.call(a))
+	if ph == "econ":
+		if G.estep == "diplomacy" and E.dipCost(G): out.append("Planned diplomacy attempts (%d politics markers) will now be rolled." % E.dipCost(G))
+		if G.estep == "transport" and SHRules.t(G.get("transferLeft")): out.append("%d resource transfer(s) left unused." % int(G.transferLeft))
+		if G.estep == "tech":
+			var rt = ttree.rt_info(G)
+			if rt == null or not rt.passed:
+				add.call(D.TECH.filter(func(t): return E.techState(G, t) == "open" and G.bank[t.f] >= E.techCost(G, t)), func(a): return "Technologies you can afford: %s." % ", ".join(a.map(func(t): return t.n)))
+			if rt != null and not rt.passed: out.append("Continuing passes your research turn; the other factions finish their research turns.")
+			if G.polm: out.append("%d politics marker(s) not converted will be discarded." % int(G.polm))
+			out.append("Banked tech points will be halved (now %s)." % ", ".join(SHRules.FIELDS.map(func(f): return "%s %s" % [SHRules.n(G.bank[f]), SHRules.FN[f]])))
+		if G.estep == "policy" and not SHRules.t(G.get("policyPicked")):
+			out.append(("%d missed %s not adopted yet." % [int(G.policyLeft), "policies" if int(G.policyLeft) > 1 else "policy"]) if int(SHRules.gi(G, "policyLeft", 0)) > 0 else "No policy adopted this decade.")
+		if G.estep == "production":
+			add.call(G.bases.filter(func(b): return SHRules.t(b.get("out")) and not SHRules.t(E.baseOutput(G, b))), func(a): return "Bases set to produce nothing: %s." % names.call(a))
+	return out
 
 func show_toast(t: String) -> void:
 	toast_lbl.text = t
@@ -411,7 +499,19 @@ func _explore_btn(box, G, s, o) -> void:
 		"produce": lbl = "Produce %s at %s (value %d)" % [o.res, D.W[o.w].n, o.value]
 		"harvest": lbl = "Harvest the asteroid"
 		_: lbl = o.kind
-	UIK.button(box, lbl, func(): Game.act(E.explore(G, s, o)))
+	UIK.button(box, lbl, func(): _explore_click(G, s, o))
+
+func _explore_click(G, s, o) -> void:
+	if o.kind == "explore" or o.kind == "probe":
+		show_explore(G, s, o)
+		return
+	var room: int = int(s.cap * E.cargoMul(G)) - int(E.sum(s.cargo))
+	var fn := func(): return E.explore(G, s, o)
+	if o.kind == "produce":
+		var v: int = int(o.value)
+		confirm("Produce %s at %s?" % [o.res, D.W[o.w].n], "%s produces 1 %s automatically. Then roll a d10%s: %d or less adds 1 more, and a 1 adds another.\n\nProduction value %d. Cargo room %d. Then a recall check (%d%%)." % [s.name, o.res, " (−1 for Space Refining)" if E.has(G, "ref") else "", v % 10 if v % 10 else v, v, room, E.recall(G)], fn, "Produce")
+	else:
+		confirm("Harvest the asteroid?", "%s rolls a d10 on the asteroid harvest table: 1–3 SUP, 4–6 Fuel, 7–10 Ore (3 to 6 units), and earns 1 victory marker.\n\nCargo room %d. Then a recall check (%d%%)." % [s.name, room, E.recall(G)], fn, "Harvest")
 
 func _turn_trade(box, G) -> void:
 	var founders: Array = G.ships.filter(func(s): return E.canFoundBase(G, s) != null)
@@ -666,11 +766,30 @@ func choose(title: String, body: String, opts: Array) -> void:
 	UIK.title(modal_box, title)
 	UIK.para(modal_box, body, null, 14, 400)
 	var f := UIK.flow(modal_box)
+	_modal_enter = Callable()
 	for o in opts:
 		var cb = o[1]
-		UIK.button(f, o[0], func():
+		var run := func():
 			modal.visible = false
-			if cb != null: Game.act(cb.call()))
+			if cb != null: Game.roll_act(cb)
+		UIK.button(f, o[0], run)
+		if not _modal_enter.is_valid(): _modal_enter = run
+	modal.visible = true
+
+## the explore confirmation, and the result of the last roll
+func show_explore(G, s, o) -> void:
+	UIK.clear(modal_box)
+	_modal_enter = func():
+		modal.visible = false
+		Game.roll_act(func(): return E.explore(G, s, o), true)
+	SHScreens.explore_confirm(self, modal_box, G, s, o)
+	modal.visible = true
+func show_roll() -> void:
+	var L = Game.G.get("lastRoll") if Game.G != null else null
+	if not (L is Dictionary): return
+	UIK.clear(modal_box)
+	_modal_enter = func(): modal.visible = false
+	SHScreens.roll_result(self, modal_box, L)
 	modal.visible = true
 
 # ---------------- Log tab ----------------
@@ -682,14 +801,61 @@ func _log_col(c):
 		"e": return UIK.CYAN
 		"bot": return Color("#b39ddb")
 	return null
+var _log_filter := "all"
+const LOG_FILTERS := [["all", "All"], ["mine", "Yours"], ["bots", "Bots"], ["key", "Highlights"]]
+var _log_btns := {}
+var _log_search: LineEdit
+
+## filter buttons and a search box above the log text
+func _make_log_filter() -> void:
+	var sc := log_text.get_parent()
+	sc.remove_child(log_text)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_theme_constant_override("separation", 8)
+	sc.add_child(v)
+	var f := UIK.flow(v)
+	var grp := ButtonGroup.new()
+	for lf in LOG_FILTERS:
+		var b := Button.new()
+		b.text = lf[1]
+		b.toggle_mode = true
+		b.button_group = grp
+		b.focus_mode = Control.FOCUS_NONE
+		b.button_pressed = lf[0] == _log_filter
+		var key: String = lf[0]
+		b.pressed.connect(func():
+			_log_filter = key
+			build_log())
+		f.add_child(b)
+		_log_btns[key] = b
+	_log_search = LineEdit.new()
+	_log_search.placeholder_text = "Search the log"
+	_log_search.clear_button_enabled = true
+	_log_search.text_changed.connect(func(_t): build_log())
+	v.add_child(_log_search)
+	v.add_child(log_text)
+
+func _log_keep(l: Dictionary) -> bool:
+	var c = l.get("c", "")
+	match _log_filter:
+		"mine": if c == "bot": return false
+		"bots": if c != "bot": return false
+		"key": if not (c in ["g", "x", "h", "e"]): return false
+	var q: String = _log_search.text.strip_edges().to_lower() if _log_search != null else ""
+	return q == "" or String(l.t).to_lower().contains(q)
+
 func build_log() -> void:
 	var G = Game.G
+	if G == null: return
 	var lines := []
-	for l in G.log.slice(0, 160):
+	for l in G.log:
+		if not _log_keep(l): continue
 		var col = _log_col(l.c)
 		var t: String = String(l.t).replace("[", "[lb]")
 		lines.append(("[color=#%s]%s[/color]" % [col.to_html(false), t]) if col != null else t)
-	log_text.text = "\n".join(lines)
+		if lines.size() >= 300: break
+	log_text.text = "\n".join(lines) if lines.size() else "[color=#8fa3b8]No log lines match.[/color]"
 
 # ---------------- questions (G.ask) ----------------
 func build_dialog() -> void:
@@ -701,7 +867,10 @@ func build_dialog() -> void:
 	dialog.visible = true
 	var a: Dictionary = G.ask[0]
 	UIK.title(dialog_box, _ask_title(a))
-	UIK.para(dialog_box, a.get("text", ""))
+	_fit_dialog.call_deferred()
+	var screen: bool = a.k in ["search", "battle", "pbattle", "assign"]
+	dialog.custom_minimum_size.x = 720 if screen or a.k == "basehit" else 0
+	if not screen: UIK.para(dialog_box, a.get("text", ""))
 	var f := UIK.flow(dialog_box)
 	match a.k:
 		"pirate":
@@ -719,23 +888,11 @@ func build_dialog() -> void:
 			UIK.button(f, "Accept", func(): Game.answer("accept"))
 			if SHRules.t(a.canDeny): UIK.button(f, "Refuse and fight", func(): Game.answer("deny"))
 			if SHRules.t(a.split): UIK.button(f, "Fight the ships first", func(): Game.answer("exclude"))
-		"search":
-			UIK.para(dialog_box, "Search rolls: " + ", ".join(a.rolls.map(func(r): return "%s %d" % [r.n, r.r])) + " (%d or less finds)." % a.T, UIK.DIM)
-			UIK.button(f, "OK", func(): Game.answer("ok"))
-		"pbattle":
-			UIK.para(dialog_box, "Your total %d, the pirate's %d. Tactics points %d to %d (%d to spend). Strike: you deal %d, take %d. Direct fire: you deal %d, take %d." % [a.myTot, a.pTot, a.myTP, a.pTP, a.extra, a.strike.deal, a.strike.take, a.direct.deal, a.direct.take], UIK.DIM)
-			UIK.button(f, "Fight (best use of tactics)", func(): Game.answer("auto"))
-			UIK.button(f, "Strike", func(): Game.answer("plan", {"mode": "strike", "inc": floori(a.extra / 2.0)}))
-			if a.extra >= 1: UIK.button(f, "Direct fire", func(): Game.answer("plan", {"mode": "direct", "inc": floori((a.extra - 1) / 2.0)}))
-			if a.extra >= 3: UIK.button(f, "Call it off (3 points)", func(): Game.answer("avoid"))
-		"assign", "basehit": UIK.button(f, "Assign automatically", func(): Game.answer("auto"))
-		"battle":
-			UIK.para(dialog_box, "Tactics points %d to %d. Strike: you deal %d, take %d. Direct fire: you deal %d, take %d." % [a.tp, a.opp, a.strike.dealt, a.strike.taken, a.direct.dealt, a.direct.taken], UIK.DIM)
-			UIK.button(f, "Fight (automatic plan)", func(): Game.answer("auto"))
-			if a.rem > 0 and not a.lose:
-				UIK.button(f, "Strike", func(): Game.answer("strike"))
-				UIK.button(f, "Direct fire", func(): Game.answer("direct"))
-				if a.rem >= 3: UIK.button(f, "Call it off", func(): Game.answer("avoid"))
+		"search": SHScreens.search(dialog_box, a)
+		"pbattle": SHScreens.pirate(dialog_box, a)
+		"assign": SHScreens.assign(dialog_box, a)
+		"basehit": SHScreens.basehit(dialog_box, a)
+		"battle": SHScreens.battle(dialog_box, a)
 		"card":
 			for o in a.opts: UIK.button(f, "Place " + o, func(): Game.answer(o))
 			UIK.button(f, "Return to the deck", func(): Game.answer(null))
@@ -752,13 +909,30 @@ func build_dialog() -> void:
 		_:
 			UIK.button(f, "OK", func(): Game.answer("ok"))
 
+## size the question dialog to its contents, centred over the map (left of the side panel)
+func _fit_dialog() -> void:
+	if not dialog.visible: return
+	var w: float = maxf(dialog.get_combined_minimum_size().x, 560.0)
+	dialog.offset_left = -230.0 - w / 2.0
+	dialog.offset_right = -230.0 + w / 2.0
+	dialog.offset_top = -60.0
+	dialog.offset_bottom = 60.0
+	# rich text measures its height only once it has a width: wait for the layout, then fit the height
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not dialog.visible: return
+	var h: float = dialog.get_combined_minimum_size().y
+	dialog.offset_top = -h / 2.0
+	dialog.offset_bottom = h / 2.0
+
 func _ask_title(a: Dictionary) -> String:
 	match a.k:
 		"pirate": return "Pirate!"
 		"intercept": return "Interception"
 		"surrender": return "Surrender offered"
 		"search": return "Search"
-		"pbattle", "battle": return "Combat"
+		"pbattle": return "Combat with the pirate"
+		"battle": return "Combat with " + str(a.get("foe", "the enemy"))
 		"assign": return "Assign the damage"
 		"basehit": return "Base hit"
 		"card": return "World card"
@@ -769,22 +943,25 @@ func _ask_title(a: Dictionary) -> String:
 	return "Decision"
 
 # ---------------- menus ----------------
+var _menu_from := "start"
 func show_menu(mode: String) -> void:
 	menu.visible = true
+	modal.visible = false
 	fboard.visible = false
 	ttree.visible = false
 	UIK.clear(menu_box)
+	if mode == "start" or mode == "pause": _menu_from = mode
+	match mode:
+		"load", "save": return _slots_menu(mode)
+		"settings": return _settings_menu()
 	UIK.title(menu_box, "Stellar Horizons", 34)
 	if mode == "pause":
-		UIK.para(menu_box, "Campaign paused.", UIK.DIM)
-		var f := UIK.flow(menu_box)
-		UIK.button(f, "Resume", func(): menu.visible = false)
-		UIK.button(f, "Save", func():
-			show_toast("Campaign saved." if Game.save_game() else "Could not save.")
-			menu.visible = false)
-		UIK.button(f, "Load", func(): _load(), not Game.has_save())
-		UIK.button(f, "New campaign", func(): show_menu("start"))
-		UIK.button(f, "Quit", func(): get_tree().quit())
+		UIK.para(menu_box, "Campaign paused: %s, %d." % [D.FAC[Game.G.f].n, int(Game.G.y)], UIK.DIM)
+		var col := UIK.vbox(menu_box, 8)
+		for it in [["Resume", func(): _close_menu()], ["Save game", func(): show_menu("save")], ["Load game", func(): show_menu("load")],
+				["Settings", func(): show_menu("settings")], ["New campaign", func(): show_menu("start")], ["Quit", func(): Game.quit()]]:
+			var b := UIK.button(col, it[0], it[1], it[0] == "Load game" and not Game.any_slot())
+			b.custom_minimum_size = Vector2(260, 40)
 		return
 	UIK.para(menu_box, "Lead a space program from 2030: explore the solar system, found bases and grow settlements.", UIK.DIM)
 	UIK.head(menu_box, "Your faction")
@@ -807,23 +984,86 @@ func show_menu(mode: String) -> void:
 	if _setup.f == "cn":
 		var vr := UIK.pick(opts, ["Military policy", "Robotic policy"], 1 if _setup.variant == "rob" else 0)
 		vr.item_selected.connect(func(i): _setup.variant = "rob" if i == 1 else "mil")
-	var scrap := CheckButton.new()
-	scrap.text = "Optional: scrap explorers and LVs"
-	scrap.button_pressed = _setup.scrapRE
-	scrap.toggled.connect(func(on): _setup.scrapRE = on)
-	opts.add_child(scrap)
+	var on: Array = []
+	for k in [["rerolls", "engine rerolls"], ["scrapRE", "scrap explorers and LVs"], ["enhTrade", "enhanced trading"]]:
+		if Game.settings[k[0]]: on.append(k[1])
+	UIK.para(menu_box, "Optional rules: " + (", ".join(on) if on.size() else "none") + " (change them in Settings).", UIK.DIM, 13)
 	var go := UIK.flow(menu_box)
 	var start := UIK.button(go, "Start campaign", func(): _start())
 	start.custom_minimum_size = Vector2(220, 44)
-	if Game.has_save(): UIK.button(go, "Continue saved campaign", func(): _load())
-	if Game.G != null: UIK.button(go, "Back", func(): menu.visible = false)
-	UIK.button(go, "Quit", func(): get_tree().quit())
+	if Game.has_slot(0): UIK.button(go, "Continue (autosave)", func(): _load(0))
+	UIK.button(go, "Load game", func(): show_menu("load"), not Game.any_slot())
+	UIK.button(go, "Settings", func(): show_menu("settings"))
+	if Game.G != null: UIK.button(go, "Back", func(): _close_menu())
+	UIK.button(go, "Quit", func(): Game.quit())
 
-func _load() -> void:
-	if not Game.load_game(): show_toast("Could not load the saved campaign.")
+func _close_menu() -> void:
+	menu.visible = false
+	_sync_fboard()
+
+func _menu_back() -> void: show_menu(_menu_from)
+
+## the save slots: autosave plus three manual slots
+func _slots_menu(mode: String) -> void:
+	UIK.title(menu_box, "Save game" if mode == "save" else "Load game", 28)
+	UIK.para(menu_box, ("Choose a slot. The autosave is written each time you press Next and when you quit." if mode == "save" else "Pick a saved campaign. The autosave is written each time you press Next."), UIK.DIM, 13, 460)
+	for i in Game.SLOTS.size():
+		if mode == "save" and i == 0: continue
+		var c := UIK.card(menu_box)
+		var h := UIK.hbox(c, 10)
+		var v := UIK.vbox(h, 2)
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		UIK.rich(v, "[b]%s[/b]" % Game.slot_name(i), 15)
+		UIK.para(v, Game.slot_info(i), UIK.DIM, 12, 0)
+		var has := Game.has_slot(i)
+		if mode == "save":
+			UIK.button(h, "Overwrite" if has else "Save", func():
+				var ok := Game.save_slot(i)
+				show_toast(("Saved to %s." % Game.slot_name(i)) if ok else "Could not save.")
+				show_menu("save"))
+		else:
+			UIK.button(h, "Load", func(): _load(i), not has)
+		if has and i > 0:
+			var del: Button
+			del = UIK.button(h, "Delete", func():
+				if del.text == "Delete":
+					del.text = "Click again to delete"
+					return
+				Game.delete_slot(i)
+				show_menu(mode))
+	UIK.para(menu_box, "Saves are kept in " + ProjectSettings.globalize_path("user://"), UIK.DIM, 12, 460)
+	UIK.button(UIK.flow(menu_box), "Back", func(): _menu_back())
+
+func _settings_menu() -> void:
+	UIK.title(menu_box, "Settings", 28)
+	var rows := [
+		["confirmNext", "Confirm before Next", "Ask before ending a phase or step, and list what you have not used yet."],
+		["autosave", "Autosave", "Save the campaign to the autosave slot each time you press Next."],
+		["anim", "Animated board", "Rolling dice and other small animations."],
+		["rerolls", "Improved engine reliability", "Optional rule: two engine-failure rerolls per campaign (applies to new games)."],
+		["scrapRE", "Scrap explorers and launch vehicles", "Optional rule: telescopes, orbiters over your bases, rovers on your base's surface and stocked launch vehicles can be scrapped at your bases and on Earth like crew vehicles (applies to new games%s)." % (" and this one" if Game.G != null else "")],
+		["enhTrade", "Enhanced trading", "Optional rule: a trade marker at a non-player faction's base stays until every faction in play has traded there once; markers still there in the next economic phase are replaced (applies to new games, loaded saves%s)." % (" and this one" if Game.G != null else "")]]
+	for r in rows:
+		var c := UIK.card(menu_box)
+		var h := UIK.hbox(c, 12)
+		var v := UIK.vbox(h, 2)
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		UIK.rich(v, "[b]%s[/b]" % r[1], 15)
+		UIK.para(v, r[2], UIK.DIM, 12, 380)
+		var cb := CheckButton.new()
+		cb.button_pressed = Game.settings[r[0]]
+		cb.focus_mode = Control.FOCUS_NONE
+		cb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var key: String = r[0]
+		cb.toggled.connect(func(on): Game.set_setting(key, on))
+		h.add_child(cb)
+	UIK.button(UIK.flow(menu_box), "Back", func(): _menu_back())
+
+func _load(i := 0) -> void:
+	if not Game.load_slot(i): show_toast("Could not load that saved campaign.")
 
 func _start() -> void:
-	var opts := {"scenario": _setup.scenario, "variant": _setup.variant, "scrapRE": _setup.scrapRE, "enhTrade": _setup.enhTrade}
+	var opts := {"scenario": _setup.scenario, "variant": _setup.variant}
 	var bots := []
 	if _setup.bots:
 		for k in D.FAC_ORDER:

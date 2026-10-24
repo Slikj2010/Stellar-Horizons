@@ -5,8 +5,14 @@ extends Node
 signal changed  ## the game state changed (redraw everything)
 signal toast(text: String)  ## a short message for the player (an action was refused, and why)
 signal campaign_started
+signal rolled  ## a die roll worth showing happened (G.lastRoll): exploring, producing, harvesting, a search for life
 
-const SAVE_PATH := "user://campaign.save"
+const SAVE_PATH := "user://campaign.save"  ## the autosave (slot 0)
+const SLOTS := ["user://campaign.save", "user://slot1.save", "user://slot2.save", "user://slot3.save"]
+const SETTINGS_PATH := "user://settings.cfg"
+
+## player settings, kept in user://settings.cfg. rerolls/scrapRE apply to new games, enhTrade to every game
+var settings := {"rerolls": true, "scrapRE": false, "enhTrade": false, "confirmNext": true, "autosave": true, "anim": true}
 
 var data: Dictionary
 var E: SHRules
@@ -20,6 +26,40 @@ func _ready() -> void:
 	data = SHData.load_game_data()
 	E = SHRules.new(data.D, data.UNITS)
 	AI = SHAI.new(E)
+	load_settings()
+	get_tree().set_auto_accept_quit(false)
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		autosave()
+		get_tree().quit()
+
+func quit() -> void:
+	autosave()
+	get_tree().quit()
+
+# ---------------- settings ----------------
+func load_settings() -> void:
+	var cf := ConfigFile.new()
+	if cf.load(SETTINGS_PATH) != OK: return
+	for k in settings: settings[k] = cf.get_value("game", k, settings[k])
+
+func set_setting(k: String, v) -> void:
+	settings[k] = v
+	var cf := ConfigFile.new()
+	for key in settings: cf.set_value("game", key, settings[key])
+	cf.save(SETTINGS_PATH)
+	if G != null and (k == "enhTrade" or k == "scrapRE"):
+		if k == "enhTrade": apply_settings(G)
+		else: G.opts.scrapRE = v
+		changed.emit()
+
+## optional rules that follow the settings in every game, saved ones included
+func apply_settings(g) -> void:
+	var gs: Array = g.world.facs.values() if g.world != null else [g]
+	for x in gs:
+		if x.get("opts") == null: x.opts = {}
+		x.opts.enhTrade = settings.enhTrade
 
 func D() -> Dictionary: return data.D
 func multi() -> bool: return G != null and G.world != null
@@ -28,6 +68,10 @@ func multi() -> bool: return G != null and G.world != null
 func new_campaign(f: String, opts: Dictionary, bots: Array) -> void:
 	sel = null
 	pad = null
+	opts = opts.duplicate()
+	opts.rerolls = settings.rerolls
+	opts.scrapRE = settings.scrapRE
+	opts.enhTrade = settings.enhTrade
 	if bots.size():
 		var o := opts.duplicate()
 		o.human = f
@@ -45,9 +89,24 @@ func act(result) -> void:
 	_after()
 
 func answer(choice, extra = null) -> void:
+	if G == null: return
+	G.lastRoll = null
 	var r = E.answer(G, choice, extra)
 	if r is String and r != "": toast.emit(r)
 	_after()
+	var L = G.get("lastRoll")
+	if L is Dictionary and L.get("kind") == "life": rolled.emit()
+
+## run fn (an engine call returning null or an error text) and show its roll if it made one.
+## any = show any roll (exploring); otherwise only produce/harvest/life results (those with a kind)
+func roll_act(fn: Callable, any := false) -> void:
+	if G == null: return
+	G.lastRoll = null
+	var r = fn.call()
+	act(r)
+	if r is String and r != "": return
+	var L = G.get("lastRoll")
+	if L is Dictionary and (any or L.get("kind") != null): rolled.emit()
 
 func next() -> void:
 	if G == null or G.over: return
@@ -58,6 +117,10 @@ func next() -> void:
 	if multi(): AI.advanceWorld(G)
 	else: E.advance(G)
 	_after()
+	if settings.autosave: autosave()
+
+func autosave() -> void:
+	if G != null: save_slot(0)
 
 func _after() -> void:
 	# in a multi-faction research step, let the bots take their turns until it is the human's turn again
@@ -92,6 +155,40 @@ func save_game(path := SAVE_PATH) -> bool:
 
 func has_save(path := SAVE_PATH) -> bool: return FileAccess.file_exists(path)
 
+# ---------------- save slots: 0 is the autosave, 1-3 are manual ----------------
+func slot_name(i: int) -> String: return "Autosave" if i == 0 else "Slot %d" % i
+func has_slot(i: int) -> bool: return FileAccess.file_exists(SLOTS[i])
+func any_slot() -> bool:
+	for i in SLOTS.size():
+		if has_slot(i): return true
+	return false
+
+func save_slot(i: int) -> bool:
+	if not save_game(SLOTS[i]): return false
+	var info := {"f": G.f, "bots": (G.world.meta.order.size() - 1) if multi() else 0, "y": G.y, "phase": G.phase, "over": SHRules.t(G.over), "end": G.get("endYear"),
+		"at": Time.get_datetime_string_from_system(false, true)}
+	var fh := FileAccess.open(SLOTS[i] + ".info", FileAccess.WRITE)
+	if fh: fh.store_string(var_to_str(info))
+	return true
+
+func load_slot(i: int) -> bool: return load_game(SLOTS[i])
+
+func delete_slot(i: int) -> void:
+	DirAccess.remove_absolute(SLOTS[i])
+	DirAccess.remove_absolute(SLOTS[i] + ".info")
+
+## one line about a slot: faction, bots, year and phase, when it was saved
+func slot_info(i: int) -> String:
+	if not has_slot(i): return "Empty"
+	var fh := FileAccess.open(SLOTS[i] + ".info", FileAccess.READ)
+	var o = str_to_var(fh.get_as_text()) if fh else null
+	if not (o is Dictionary): return "Saved campaign"
+	var D: Dictionary = data.D
+	var txt: String = D.FAC[o.f].n if D.FAC.has(o.f) else str(o.f)
+	if int(o.bots): txt += " + %d bot%s" % [o.bots, "s" if int(o.bots) > 1 else ""]
+	txt += " · " + (("finished %s" % str(o.end)) if o.over else "%d · %s" % [int(o.y), E.PHASE_NAME.get(o.phase, o.phase)])
+	return txt + " · " + str(o.at)
+
 func load_game(path := SAVE_PATH) -> bool:
 	var fh := FileAccess.open(path, FileAccess.READ)
 	if fh == null: return false
@@ -106,6 +203,7 @@ func load_game(path := SAVE_PATH) -> bool:
 		G = blob.G
 		G.world = null
 	else: return false
+	apply_settings(G)
 	campaign_started.emit()
 	changed.emit()
 	return true

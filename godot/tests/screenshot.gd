@@ -131,7 +131,85 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 		a.append(["call", func(): main.tabs.current_tab = main.TAB_POL])
 		a.append(["wait", 20])
 		a.append(["shot", "12_pol"])
+	if plan == "menus":
+		a.append(["call", func():
+			Game.next()
+			main.next_click()])
+		a.append(["wait", 20])
+		a.append(["shot", "30_next_confirm"])
+		a.append(["call", func():
+			main._modal_enter.call()
+			print("phase after enter: ", Game.G.phase)
+			main.show_menu("pause")])
+		a.append(["wait", 20])
+		a.append(["shot", "31_pause"])
+		a.append(["call", func():
+			print("saved slot 2: ", Game.save_slot(2))
+			main.show_menu("save")])
+		a.append(["wait", 20])
+		a.append(["shot", "32_save"])
+		a.append(["call", func(): main.show_menu("settings")])
+		a.append(["wait", 20])
+		a.append(["shot", "33_settings"])
+		a.append(["call", func():
+			main._close_menu()
+			print("load slot 2: ", Game.load_slot(2), " ", Game.G.phase)
+			main.tabs.current_tab = main.TAB_LOG
+			main._log_btns["key"].emit_signal("pressed")])
+		a.append(["wait", 20])
+		a.append(["shot", "34_log"])
+	if plan == "screens":
+		# play (bots for everyone) until one of our ships can explore a world, then show the explore screens
+		a.append(["call", func():
+			for i in 400:
+				var G = Game.G
+				while G.ask.size(): Game.AI.answerAsks(G)
+				if G.phase == "explore" and _explorer(G) != null: break
+				if not G.over: Game.AI.botPhase(G)
+				Game.next()
+			var G = Game.G
+			var se = _explorer(G)
+			print("explorer: ", se[0].name if se != null else "none", " ", G.y)
+			if se != null: main.show_explore(G, se[0], se[1])])
+		a.append(["wait", 20])
+		a.append(["shot", "20_explore_confirm"])
+		a.append(["call", func():
+			var G = Game.G
+			var se = _explorer(G)
+			main.modal.visible = false
+			if se != null: Game.roll_act(func(): return Game.E.explore(G, se[0], se[1]), true)])
+		a.append(["wait", 40])
+		a.append(["shot", "21_explore_result"])
+		a.append(["call", func():
+			main.modal.visible = false
+			var G = Game.G
+			G.lastRoll = {"kind": "life", "title": "Search for life on Europa", "extra": [], "life": {"r": 7, "found": true, "need": 12, "seek": "microbial life", "bonus": " (+2 from Astrobiology)", "reward": "4 Biology points and 2 VP"}}
+			main.show_roll()])
+		a.append(["wait", 30])
+		a.append(["shot", "22_life"])
+		var fake := [
+			{"k": "search", "ok": true, "auto": false, "T": 4, "rolls": [{"n": "You", "r": 3}, {"n": "Pirate", "r": 6}], "where": "Jupiter flyby box", "text": "Your fleet finds the pirate."},
+			{"k": "battle", "rem": 3, "lose": false, "tie": false, "tp": 5, "opp": 2, "d": 7, "od": 4, "strike": {"dealt": 1, "taken": 0, "tot": 12, "otot": 7}, "direct": {"dealt": 3, "taken": 2, "tot": 12, "otot": 7},
+				"mine": [{"n": "Ares II", "cb": 3}, {"n": "base Olympus", "cb": 2}], "theirs": [{"n": "Shenzhou 9", "cb": 2}], "foe": "China", "where": "Mars orbit", "text": "Combat with China at Mars orbit."},
+			{"k": "pbattle", "st": {"dm": 6, "dp": 3}, "mine": [{"n": "Ares II", "cb": 3}], "weapons": 1, "pir": {"strong": true, "cb": 3, "size": 2, "dmg": 0}, "myTot": 10, "pTot": 6, "strike": {"deal": 0, "take": 1}, "direct": {"deal": 2, "take": 1}, "myTP": 4, "pTP": 1, "extra": 3, "text": "A strong pirate attacks your fleet in the Saturn flyby box."},
+			{"k": "assign", "text": "Your fleet hits China: choose which of their units take the hits, and which of yours.", "screen": [{"key": "12", "n": "Ares III (supply)"}], "groups": [{"side": "foe", "n": 2, "units": [{"key": "40", "n": "Shenzhou 9", "cb": 2, "hp": 3}, {"key": "41", "n": "Tiangong", "cb": 1, "hp": 2}]}, {"side": "mine", "n": 1, "units": [{"key": "10", "n": "Ares II", "cb": 3, "hp": 3}]}]},
+			{"k": "basehit", "n": 3, "caps": {"def": 2, "lab": 1, "mine": 2, "set": 3, "res": 4}, "stock": {"ORE": 3, "SUP": 2, "FUEL": 1}, "text": "Your fleet hit China's base Yuegong 2 times."}]
+		for i in fake.size():
+			var q: Dictionary = fake[i]
+			a.append(["call", func():
+				main.modal.visible = false
+				Game.G.ask.push_front(q)
+				Game.changed.emit()])
+			a.append(["wait", 30])
+			a.append(["shot", "%d_%s" % [23 + i, q.k]])
+			a.append(["call", func(): Game.G.ask.pop_front()])
 	return a
+
+func _explorer(G):
+	for s in G.ships:
+		for o in Game.E.exploreOptions(G, s):
+			if o.kind == "explore" or o.kind == "probe": return [s, o]
+	return null
 
 func _find_node(n: Node, f: Callable):
 	for c in n.get_children():
