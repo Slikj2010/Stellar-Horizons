@@ -236,6 +236,24 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 			print("selected: ", Game.sel)])
 		a.append(["wait", 10])
 		a.append(["shot", "73_v25_tap"])
+	if plan == "scatest":
+		a.append(["call", func(): main.toggle_3d()])
+		a.append(["wait", 20])
+		for k in ["sca", "eri", "sed", "dsa", "kui", "alp"]:
+			a.append(["call", func():
+				main.v25.focusPod(k)])
+			a.append(["wait", 12])
+			a.append(["call", func():
+				for y in range(100, 800, 60):
+					for x in range(60, 1100, 70):
+						var e := InputEventMouseMotion.new()
+						e.position = Vector2(x, y)
+						e.global_position = e.position
+						get_viewport().push_input(e)
+						_mouse(Vector2(x, y), true)
+						_mouse(Vector2(x, y), false)])
+			a.append(["wait", 5])
+			a.append(["shot", "sc_" + k])
 	if plan == "3d" or plan == "3dbots":
 		if plan == "3dbots":
 			a.append(["call", func():
@@ -250,7 +268,7 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 		a.append(["call", func(): main.v25.fit()])
 		a.append(["wait", 10])
 		a.append(["shot", "61_v25_fit"])
-		for spot in [["62_v25_earth", "ear"], ["63_v25_jupiter", "jup"], ["64_v25_mars", "mar"], ["65_v25_saturn", "sat"], ["66_v25_kuiper", "kui"], ["67_v25_alpha", "alp"]]:
+		for spot in [["62_v25_earth", "ear"], ["63_v25_jupiter", "jup"], ["64_v25_mars", "mar"], ["65_v25_saturn", "sat"], ["66_v25_kuiper", "kui"], ["67_v25_alpha", "alp"], ["67b_sca", "sca"], ["67c_eri", "eri"], ["67d_dsa", "dsa"], ["67e_sed", "sed"], ["67f_sun", "sun"], ["67g_neptune", "nep"]]:
 			a.append(["call", func(): main.v25.focusPod(spot[1])])
 			a.append(["wait", 12])
 			a.append(["shot", spot[0]])

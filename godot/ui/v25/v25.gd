@@ -1484,7 +1484,7 @@ func frame() -> void:
 				"rot": fmod(T * 6.2832 / it.b.spd, 6.2832), "L": Vector3(Ld.dot(rgt), Ld.dot(cup) * .6 + .25, .55)})
 			var c = proj(it.x, it.y, it.z)
 			var e = proj(it.x + rgt.x * it.r, it.y + rgt.y * it.r, it.z + rgt.z * it.r)
-			if c != null and e != null: picks.append({"sx": c[0], "sy": c[1], "pr": Vector2(e[0] - c[0], e[1] - c[1]).length(), "hit": {"t": "world", "k": it.k}, "z": c[2], "planet": true})
+			if c != null and e != null and D.W.has(it.k): picks.append({"sx": c[0], "sy": c[1], "pr": Vector2(e[0] - c[0], e[1] - c[1]).length(), "hit": {"t": "world", "k": it.k}, "z": c[2], "planet": true})
 		elif it.t == "model":
 			batch(run)
 			run = []
@@ -1494,7 +1494,7 @@ func frame() -> void:
 			var ext: float = it.u * (3.4 if it.kind == "deep" else (4.4 if it.k == "alp" else 2.4))
 			var c = proj(it.x, it.y, it.z)
 			var e = proj(it.x + rgt.x * ext, it.y + rgt.y * ext, it.z + rgt.z * ext)
-			if c != null and e != null and GEO.worlds.has(it.k): picks.append({"sx": c[0], "sy": c[1], "pr": Vector2(e[0] - c[0], e[1] - c[1]).length(), "hit": {"t": "world", "k": it.k}, "z": c[2], "planet": true})
+			if c != null and e != null and GEO.worlds.has(it.k) and D.W.has(it.k) and G.w.get(it.k) != null: picks.append({"sx": c[0], "sy": c[1], "pr": Vector2(e[0] - c[0], e[1] - c[1]).length(), "hit": {"t": "world", "k": it.k}, "z": c[2], "planet": true})
 		else:
 			var r: Dictionary = it.r
 			var w: float = r.w * S

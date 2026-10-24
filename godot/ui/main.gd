@@ -459,6 +459,7 @@ func _tip_text(G, h: Dictionary) -> String:
 				if m.dest == h.dest: return "Move here: [b]%s[/b]%s" % [m.label, (" · %d turns" % m.eta) if SHRules.t(m.get("eta")) else ""]
 		"world":
 			var k: String = h.k
+			if not D.W.has(k): return ""
 			var w: Dictionary = D.W[k]
 			var ws = G.w.get(k)
 			if ws == null: return ""
@@ -534,6 +535,7 @@ func _tap(h) -> void:
 			Game.select({"t": h.t, "f": h.f, "id": h.id})
 			tabs.current_tab = 1
 		"world":
+			if not D.W.has(h.k) or Game.G.w.get(h.k) == null: return
 			Game.select({"t": "world", "k": h.k})
 			tabs.current_tab = 1
 
