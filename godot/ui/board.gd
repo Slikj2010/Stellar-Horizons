@@ -1,5 +1,7 @@
 ## The 2D game board: the printed map tiles, then every counter and marker drawn on top from the game state.
-## Positions come from data/geo.json (the same map geometry the web version uses). Clicks are resolved by pick_at().
+## Positions come from data/geo.json (the same map geometry the web version uses). The counters are painted by
+## paint_objects(), a port of the web version's paintObjects(): on the flat map it draws them, and while the 2.5D view
+## is on it records them for that view instead (as the web version's paint25 does). Clicks are resolved by pick_at().
 extends Node2D
 
 const CS := 62.0  ## counter size on the board (map pixels)
@@ -9,25 +11,34 @@ const MIS_COL := {"mine": Color("#f2a93b"), "common": Color("#4fb3e8"), "dated":
 const C_SEL := Color("#f2a93b")
 const C_READY := Color("#4fc3d9")
 const C_ZONE := Color(0.31, 0.765, 0.851, 0.16)
+const WB := {"LS": 56.0, "BS": CS + 10, "TS": 50.0, "GAP": 14.0}
+const RING_LABEL := {"jup": [-PI / 2, .2]}
 
 var geo: Dictionary
 var markers_tex: Texture2D
 var markers_fr: Dictionary
 var life_tex: Texture2D
 var atl := {}  ## faction -> {"tex": Texture2D, "fr": {key: [x, y, w, h]}}
-var hits: Array = []  ## clickable things from the last draw, topmost last
+var hits: Array = []  ## clickable things from the last paint, topmost last
 var targets: Array = []  ## legal moves of the selected ship (shown as zones)
 var font: Font
 var _rings := {}
 var _boxf := {}
 var _hulls := {}
+var _block := {}
+var _wrects = null
+var expb: Dictionary
 var fx: Node2D  ## animated planets, sun and exploration boxes (board_fx.gd)
-var ghost = null  ## {f, img, p, dest}: a counter being dragged on the map
+var ghost = null  ## {f, img, p, dest, id}: a counter being dragged on the map
+var v25 = null  ## the 2.5D view while it is on: paint_objects() records for it
+var v25_ring = null  ## the 2.5D view's Sun Observation ring (round the Sun)
+var R = null  ## the recorder during paint_objects(), or null when drawing
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	geo = _json("res://data/geo.json")
-	font = load("res://assets/fonts/Inter-SemiBold.otf")
+	font = V25Paint.font(600)
+	expb = _json("res://assets/expbox.json")
 	for k in geo.maps:
 		var r: Array = geo.maps[k]
 		var sp := Sprite2D.new()
@@ -61,13 +72,26 @@ func map_rect() -> Rect2:
 
 # ---------------- geometry (ported from the web board) ----------------
 func v2(a) -> Vector2: return Vector2(a[0], a[1])
+## convex hull (the web version's monotone chain, without collinear points)
 func hull(poly: Array) -> PackedVector2Array:
-	var key := str(poly[0]) + str(poly.size())
+	var key := str(poly[0]) + str(poly.size()) + str(poly[poly.size() - 1])
 	if _hulls.has(key): return _hulls[key]
-	var pts := PackedVector2Array()
-	for q in poly: pts.append(v2(q))
-	var h := Geometry2D.convex_hull(pts)
-	if h.size() > 1: h.remove_at(h.size() - 1)
+	var P := []
+	for q in poly: P.append(v2(q))
+	P.sort_custom(func(a, b): return a.x < b.x or (a.x == b.x and a.y < b.y))
+	var cr := func(o: Vector2, a: Vector2, b: Vector2) -> float: return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+	var lo := []
+	var up := []
+	for q in P:
+		while lo.size() >= 2 and cr.call(lo[lo.size() - 2], lo[lo.size() - 1], q) <= 0: lo.pop_back()
+		lo.append(q)
+	for i in range(P.size() - 1, -1, -1):
+		var q: Vector2 = P[i]
+		while up.size() >= 2 and cr.call(up[up.size() - 2], up[up.size() - 1], q) <= 0: up.pop_back()
+		up.append(q)
+	lo.pop_back()
+	up.pop_back()
+	var h := PackedVector2Array(lo + up)
 	_hulls[key] = h
 	return h
 func poly_h(poly: Array) -> float:
@@ -93,7 +117,9 @@ func world_center(k: String) -> Vector2:
 	var g: Dictionary = geo.worlds[k]
 	return v2(g.orbit) if g.has("orbit") else v2(g.exp)
 ## orbit ring of a world: the printed dotted orbit where the map has one, otherwise just outside the world's circle
+## (in the 2.5D view, Sun Observation is the circle round the Sun)
 func ring_of(w: String) -> Dictionary:
+	if w == "sun" and v25 != null and v25_ring != null: return v25_ring
 	if _rings.has(w): return _rings[w]
 	var g: Dictionary = geo.worlds[w]
 	if not g.has("poly"):
@@ -110,6 +136,8 @@ func ring_of(w: String) -> Dictionary:
 	var circle: float = g.get("circ", half * (.59 if g.has("spoly") else .79))
 	_rings[w] = {"c": c, "r": DOTR.get(w, circle + CS / 2 + 12)}
 	return _rings[w]
+func reset_rings() -> void:
+	_block.clear()
 ## counters in a transfer box sit along the box, turned to face outward
 func box_frame(sy: String, k: int) -> Dictionary:
 	var key := sy + str(k)
@@ -135,16 +163,17 @@ func box_frame(sy: String, k: int) -> Dictionary:
 			best = a
 	_boxf[key] = {"c": c, "a": best}
 	return _boxf[key]
-## the clickable zone of a destination
-func zone(loc: String) -> Dictionary:
+## the zone of a destination (zoneShape): {poly, hole} or {c, r}
+func zone_shape(loc: String, holes := false) -> Dictionary:
 	var p := Game.E.P(loc)
 	var g = geo.worlds.get(p.w) if p.w != null else null
 	if p.t == "fly": return {"poly": hull(geo.sys[p.s].flybyPoly)}
-	if p.t == "box": return {"poly": hull(geo.sys[p.s].boxPoly[str(p.n)])}
-	if p.t == "earth" and geo.worlds.ear.has("spoly"): return {"poly": hull(geo.worlds.ear.spoly)}
-	if p.t == "surf" and g != null and g.has("spoly"): return {"poly": hull(g.spoly)}
-	if p.t == "orbit" and g != null and g.has("poly"): return {"poly": hull(g.poly)}
+	if p.t == "box": return {"poly": PackedVector2Array(Array(geo.sys[p.s].boxPoly[str(p.n)]).map(func(q): return v2(q)))}
+	if p.t == "earth": return {"poly": PackedVector2Array(Array(geo.worlds.ear.spoly).map(func(q): return v2(q)))} if geo.worlds.ear.has("spoly") else {"c": pos_of(loc), "r": 44.0}
+	if p.t == "surf" and g.has("spoly"): return {"poly": hull(g.spoly)}
+	if p.t == "orbit" and g.has("poly"): return {"poly": hull(g.poly), "hole": hull(g.spoly) if (holes and g.has("spoly")) else null}
 	return {"c": pos_of(loc), "r": 44.0}
+func zone(loc: String) -> Dictionary: return zone_shape(loc)
 func in_zone(z: Dictionary, pt: Vector2) -> bool:
 	if z.has("poly"): return Geometry2D.is_point_in_polygon(pt, z.poly)
 	return pt.distance_to(z.c) <= z.r
@@ -154,13 +183,116 @@ func wcard_frame(k: String):
 	if g == null or not g.has("wcard"): return null
 	var wc: Array = g.wcard
 	return {"o": Vector2(wc[0], wc[1]), "a": deg_to_rad(wc[2]), "CW": float(wc[3]), "CH": wc[3] * 127.0 / 192.0, "noCard": Game.data.D.W.has(k) and Game.data.D.W[k].tags.has("earth")}
-func wat(F: Dictionary, lx: float, ly: float) -> Vector2: return F.o + Vector2(lx, ly).rotated(F.a)
+func wat(F: Dictionary, lx: float, ly: float) -> Vector2:
+	if F.get("abs", false): return Vector2(lx, ly)
+	return F.o + Vector2(lx, ly).rotated(F.a)
+## card + base row footprints, for keeping orbiting counters off them
+func wcard_rects() -> Array:
+	if _wrects != null: return _wrects
+	_wrects = []
+	for k in geo.worlds:
+		var F = wcard_frame(k)
+		if F != null: _wrects.append({"F": F, "w": F.CW + WB.LS + 10, "h": F.CH + WB.GAP + WB.BS, "cx": (WB.LS + 10) / 2, "cy": (WB.GAP + WB.BS) / 2})
+	return _wrects
 
-# ---------------- drawing helpers ----------------
+# ---------------- counters on an orbit ring never overlap (ringLayout) ----------------
+static func ang_dist(a: float, b: float) -> float: return absf(atan2(sin(a - b), cos(a - b)))
+## a spot is legal when the counter stays clear of the printed transfer boxes, flyby boxes and labels outside a world's circle
+func ring_blocked(w: String, a: float) -> bool:
+	var key := w + ":" + str(roundi(a * 180 / PI) % 360)
+	if _block.has(key): return _block[key]
+	var Rr := ring_of(w)
+	var x: float = Rr.c.x + cos(a) * Rr.r
+	var y: float = Rr.c.y + sin(a) * Rr.r
+	var rad := CS / 2 + 2
+	var hit_poly := func(q) -> bool:
+		if q == null: return false
+		var inside := false
+		var j: int = q.size() - 1
+		for i in q.size():
+			var xi: float = q[i][0]
+			var yi: float = q[i][1]
+			var xj: float = q[j][0]
+			var yj: float = q[j][1]
+			if (yi > y) != (yj > y) and x < (xj - xi) * (y - yi) / (yj - yi) + xi: inside = not inside
+			var dx := xj - xi
+			var dy := yj - yi
+			var dd := dx * dx + dy * dy
+			var t := clampf(((x - xi) * dx + (y - yi) * dy) / (dd if dd != 0 else 1.0), 0, 1)
+			if Vector2(x - xi - t * dx, y - yi - t * dy).length() < rad: return true
+			j = i
+		return inside
+	var b := false
+	for S in geo.sys.values():
+		for q in S.get("boxPoly", {}).values():
+			if hit_poly.call(q):
+				b = true
+				break
+		if b or hit_poly.call(S.flybyPoly):
+			b = true
+			break
+	var L = RING_LABEL.get(w)
+	if L != null and ang_dist(a, L[0]) < L[1]: b = true
+	# other worlds' printed circles and every EXPLORE box
+	if not b:
+		for k in geo.worlds:
+			var g: Dictionary = geo.worlds[k]
+			if k != w and g.has("poly") and g.has("circ") and Vector2(x, y).distance_to(ring_of(k).c) < g.circ + rad:
+				b = true
+				break
+	if not b:
+		for RR in wcard_rects():
+			var F: Dictionary = RR.F
+			var dx: float = x - F.o.x
+			var dy: float = y - F.o.y
+			var ca := cos(-F.a)
+			var sa := sin(-F.a)
+			var u: float = dx * ca - dy * sa - RR.cx
+			var v: float = dx * sa + dy * ca - RR.cy
+			if absf(u) < RR.w / 2 + rad and absf(v) < RR.h / 2 + rad:
+				b = true
+				break
+	if not b:
+		for e in expb.values():
+			var m: Array = geo.maps[e.map]
+			if Vector2(x - (m[0] + e.cx * .4), y - (m[1] + e.cy * .4)).length() < e.s * .4 * .75 + rad:
+				b = true
+				break
+	_block[key] = b
+	return b
+func free_angle(want: float, taken: Array, sep: float, w: String) -> float:
+	for pass_ in 2:
+		for k in 400:
+			var d := ceili(k / 2.0) * sep / 6 * (1 if k % 2 else -1)
+			var a := want + d
+			var ok := true
+			for t in taken:
+				if ang_dist(a, t) < sep - 1e-6:
+					ok = false
+					break
+			if ok and (pass_ == 1 or w == "" or not ring_blocked(w, a)): return a
+	return want
+## angle of each counter on a world's orbit ring
+func ring_layout(w: String, lst: Array) -> Dictionary:
+	var Rr := ring_of(w)
+	var sep := 2 * asin(minf(1, (CS + 8) / 2 / Rr.r))
+	var out := {}
+	var taken := []
+	var order := lst.filter(func(s): return s.get("ang") != null) + lst.filter(func(s): return s.get("ang") == null)
+	for s in order:
+		var a := free_angle(s.ang if s.get("ang") != null else -PI / 2, taken, sep, w)
+		taken.append(a)
+		out[s] = a
+	return out
+
+# ---------------- painting helpers (draw on the flat map, or record for the 2.5D view) ----------------
 func frame_rect(fr: Array) -> Rect2: return Rect2(fr[0], fr[1], fr[2], fr[3])
 ## draw an atlas frame centred at p, fitted to size, turned by rot
 func draw_frame(tex: Texture2D, fr, p: Vector2, size: float, rot := 0.0, mod := Color.WHITE) -> void:
 	if fr == null or tex == null: return
+	if R != null:
+		R.sprite(tex, fr, p.x, p.y, size, rot)
+		return
 	var k: float = size / maxf(fr[2], fr[3])
 	var sz := Vector2(fr[2] * k, fr[3] * k)
 	draw_set_transform(p, rot)
@@ -169,13 +301,18 @@ func draw_frame(tex: Texture2D, fr, p: Vector2, size: float, rot := 0.0, mod := 
 func unit_frame(f: String, key: String):
 	return atl[f].fr.get(key)
 func draw_box(p: Vector2, size: float, col: Color, w := 3.0, rot := 0.0) -> void:
+	if R != null: return
 	draw_set_transform(p, rot)
 	draw_rect(Rect2(-Vector2(size, size) / 2, Vector2(size, size)), col, false, w)
 	draw_set_transform(Vector2.ZERO)
-func text(s: String, p: Vector2, size: int, col: Color, outline := true) -> void:
+## txt(): text with a black outline, centred (or left/right aligned) on p
+func text(s: String, p: Vector2, size: int, col: Color, align := "center") -> void:
+	if R != null:
+		R.text(s, p.x, p.y, size, "#" + col.to_html(false), align)
+		return
 	var w := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-	var at := p + Vector2(-w / 2, size * 0.35)
-	if outline: draw_string_outline(font, at, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 4, Color(0, 0, 0, 0.85))
+	var at := p + Vector2(-w / 2 if align == "center" else (-w if align == "right" else 0.0), (font.get_ascent(size) - font.get_descent(size)) / 2)
+	draw_string_outline(font, at, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, maxi(2, roundi(size / 5.0)), Color.BLACK)
 	draw_string(font, at, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
 func base_key(b: Dictionary, f: String) -> String:
 	var fr: Dictionary = atl[f].fr
@@ -190,100 +327,187 @@ func base_key(b: Dictionary, f: String) -> String:
 	if alt == null: alt = plain
 	var station: bool = Game.E.basePos(b) == "orbit"
 	return plain if station != STATION_ALT.has(f) else alt
+func _mode(m: String, l: float) -> void:
+	if R != null:
+		R.mode = m
+		R.lift = l
 
 # ---------------- the board ----------------
 func _draw() -> void:
+	if v25 != null: return
+	R = null
+	_paint_orbit_rings()
+	paint_objects()
+
+## record the counters for the 2.5D view (called by it every frame)
+func record(rec_node) -> void:
+	R = rec_node
+	rec_node.begin()
+	paint_objects()
+	R = null
+	rec_node.finish(hits)
+
+func _paint_orbit_rings() -> void:
+	var G = Game.G
+	if G == null: return
+	for w in geo.worlds:
+		if G.w.get(w) == null or not geo.worlds[w].has("poly") or not DOTR.has(w): continue
+		var Rr := ring_of(w)
+		var n := roundi(2 * PI * Rr.r / 9)
+		for i in n:
+			var a := i / float(n) * 2 * PI
+			draw_circle(Rr.c + Vector2(cos(a), sin(a)) * Rr.r, 1.7, Color(150 / 255.0, 132 / 255.0, 214 / 255.0, .85))
+
+func paint_objects() -> void:
 	hits = []
 	var G = Game.G
 	if G == null: return
 	var E: SHRules = Game.E
 	var D: Dictionary = Game.data.D
 	var sel = Game.sel
-	# worlds: current exploration values, missions, terraforming
+	_mode("flat", 0)
+	# worlds: selection, missions, terraforming
 	for k in geo.worlds:
 		var ws = G.w.get(k)
 		if ws == null: continue
 		var g: Dictionary = geo.worlds[k]
-		var wc := world_center(k)
-		if g.has("poly"): hits.append({"t": "world", "k": k, "poly": hull(g.poly)})
-		else: hits.append({"t": "world", "k": k, "c": wc, "r": 60.0})
+		var wx: Vector2 = v2(g.orbit) if g.has("orbit") else v2(g.exp)
+		var raw = PackedVector2Array(Array(g.poly).map(func(q): return v2(q))) if g.has("poly") else null
+		if raw != null: hits.append({"t": "world", "k": k, "poly": raw})
+		else: hits.append({"t": "world", "k": k, "c": wx, "rad": 60.0})
 		if sel != null and sel.t == "world" and sel.k == k:
-			if g.has("poly"):
-				var h := hull(g.poly)
-				var closed := h.duplicate()
-				closed.append(h[0])
+			if R != null:
+				if raw != null: R.poly(Array(g.poly), "#f2a93b", 5)
+				else: R.ring(wx.x, wx.y, 60, "#f2a93b", 5)
+			elif raw != null:
+				var closed: PackedVector2Array = raw.duplicate()
+				closed.append(raw[0])
 				draw_polyline(closed, C_SEL, 5)
-			else: draw_arc(wc, 60, 0, TAU, 48, C_SEL, 5)
-		# the exploration value is painted by board_fx.gd over the printed box when it has changed
+			else: draw_arc(wx, 60, 0, TAU, 48, C_SEL, 5)
+		# mission tokens at the world: yours (gold), the common one (blue), a dated one open to all (red)
 		var i := 0
 		for x in E.missionsAt(G, k):
 			var fr = markers_fr.get(D.MIS[x.id].mk)
 			if fr == null: continue
-			var mp := wc + Vector2(-104 - i * 58, -34)
-			draw_frame(markers_tex, fr, mp, 50)
-			draw_rect(Rect2(mp - Vector2(27, 27), Vector2(54, 54)), MIS_COL[x.kind], false, 3)
-			hits.append({"t": "world", "k": k, "c": mp, "r": 25.0})
+			var S := 50.0
+			var mp := wx + Vector2(-104 - i * (S + 8), -34)
+			draw_frame(markers_tex, fr, mp, S)
+			if R == null: draw_rect(Rect2(mp - Vector2(S / 2 + 2, S / 2 + 2), Vector2(S + 4, S + 4)), MIS_COL[x.kind], false, 3)
+			hits.append({"t": "world", "k": k, "c": mp, "rad": S / 2})
 			i += 1
-		if D.TERRA.has(k) and SHRules.t(ws.terra): text("Terraformed %d/%d" % [ws.terra, D.TERRA[k]], wc + Vector2(0, -64), 14, Color("#5fcf8a"))
-	# world cards, life markers and bases in each world's card box
-	_draw_world_boxes(G, D)
-	# pirates and asteroids in the flyby boxes
+		if D.TERRA.has(k) and SHRules.t(ws.get("terra")): text("Terraformed %d/%d" % [ws.terra, D.TERRA[k]], wx + Vector2(0, -64), 14, Color("#5fcf8a"))
+	# flyby boxes: pirates and asteroids
+	_mode("stand", 22)
 	for s in G.fly:
 		var fly = geo.sys.get(s)
 		if fly == null: continue
 		var p := v2(fly.flyby)
 		var i := 0
 		for pr in G.fly[s].pir:
-			draw_frame(markers_tex, markers_fr.get("pir_l" if pr.strong else "pir_s"), p + Vector2(-26 + i * 22, -34), 46)
+			draw_frame(markers_tex, markers_fr.get("pir_l" if SHRules.t(pr.strong) else "pir_s"), p + Vector2(-26 + i * 22, -34), 46)
 			if SHRules.t(pr.dmg): text("dmg %d" % pr.dmg, p + Vector2(-26 + i * 22, -4), 11, Color("#ef6b5b"))
 			i += 1
-		for j in G.fly[s].ast: draw_frame(markers_tex, markers_fr.get("ast"), p + Vector2(26 + j * 16, 34), 42)
+		for j in int(G.fly[s].ast): draw_frame(markers_tex, markers_fr.get("ast"), p + Vector2(26 + j * 16, 34), 42)
+	_mode("flat", 0)
+	_paint_world_boxes(G, D)
+	_mode("stand", 34)
 	# ships (own and other factions'); ships waiting on Earth live on the faction board, not on the map
 	var by_loc := {}
+	var owner := {}
 	for s in G.ships:
-		if s.loc != "earth": by_loc[s.loc] = by_loc.get(s.loc, []) + [[s, ""]]
+		if s.loc != "earth": by_loc[s.loc] = by_loc.get(s.loc, []) + [s]
 	if G.world != null:
 		for f in G.world.facs:
 			if f == G.f: continue
 			for s in G.world.facs[f].ships:
-				if s.loc != "earth": by_loc[s.loc] = by_loc.get(s.loc, []) + [[s, f]]
+				if s.loc == "earth": continue
+				owner[s] = f
+				by_loc[s.loc] = by_loc.get(s.loc, []) + [s]
+	var drag_id = ghost.get("id") if ghost != null else null
 	for loc in by_loc:
-		_draw_stack(G, E, loc, by_loc[loc])
-	# move targets
-	if targets.size():
+		var lst: Array = by_loc[loc]
+		var p := pos_of(loc)
+		var cols := mini(lst.size(), 3)
+		var lp := E.P(loc)
+		var RL = ring_layout(lp.w, lst.filter(func(x): return not (drag_id != null and not owner.has(x) and SHRules.eq(x.id, drag_id)))) if (lp.t == "orbit" and geo.worlds.has(lp.w)) else null
+		var i := -1
+		for s in lst:
+			i += 1
+			if drag_id != null and not owner.has(s) and SHRules.eq(s.id, drag_id): continue
+			var c := p + Vector2(((i % 3) - (cols - 1) / 2.0) * (CS + 4), floorf(i / 3.0) * (CS + 4))
+			if lp.t == "orbit" and geo.worlds.has(lp.w):
+				var Rr := ring_of(lp.w)
+				var a: float = RL[s]
+				c = Rr.c + Vector2(cos(a), sin(a)) * Rr.r
+			var rot := 0.0
+			if lp.t == "box":
+				var B := box_frame(lp.s, lp.n)
+				rot = B.a
+				var off := (i - (lst.size() - 1) / 2.0) * 9
+				c = B.c + Vector2(off * cos(rot) - off * .6 * sin(rot), off * sin(rot) + off * .6 * cos(rot))
+			elif lp.t == "surf" and geo.worlds.has(lp.w) and not geo.worlds[lp.w].has("spoly"):
+				var Rr := ring_of(lp.w)
+				c = Rr.c + Vector2(((i % 3) - (cols - 1) / 2.0) * (CS + 4), floorf(i / 3.0) * (CS + 4))
+			if owner.has(s):
+				var of: String = owner[s]
+				if R != null: R.ring(c.x, c.y, CS * .62, D.FAC[of].c, 3)
+				draw_box(c, CS + 6, Color(D.FAC[of].c), 3, rot)
+				draw_frame(atl[of].tex, unit_frame(of, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
+				hits.append({"t": "oship", "f": of, "id": s.id, "c": c, "r": CS / 2, "img": s.img})
+				continue
+			var ready: bool = (G.phase == "move" and E.moves(G, s).size() > 0) or (G.phase == "explore" and E.exploreOptions(G, s).size() > 0)
+			var is_sel: bool = sel != null and sel.t == "ship" and SHRules.eq(sel.get("id"), s.id)
+			if R != null and (ready or is_sel): R.ring(c.x, c.y, CS * .62, "#f2a93b" if is_sel else "#4fc3d9", 3)
+			if ready or is_sel: draw_box(c, CS + 8, C_SEL if is_sel else C_READY, 3, rot)
+			draw_frame(atl[G.f].tex, unit_frame(G.f, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
+			if SHRules.t(s.dmg): text("▼%d" % s.dmg, c + Vector2(22, -24), 13, Color("#ef6b5b"))
+			if SHRules.t(s.get("hold")): text("+%d" % s.hold, c + Vector2(22, 24), 13, C_SEL)
+			if SHRules.t(s.get("probe")): draw_frame(atl[G.f].tex, unit_frame(G.f, "Probe|" + s.probe), c + Vector2(-24, 24), 24)
+			hits.append({"t": "ship", "id": s.id, "c": c, "r": CS / 2, "f": G.f, "img": s.img})
+	# move targets (the 2.5D view draws its own)
+	if targets.size() and R == null:
 		var seen := {}
 		var dests := {}
 		for m in targets: dests[m.dest] = true
 		for m in targets:
 			if seen.has(m.dest): continue
 			seen[m.dest] = true
-			var z := zone(m.dest)
+			var pp := E.P(m.dest)
+			var z := zone_shape(m.dest, pp.t == "orbit" and dests.has("surf:" + str(pp.w)))
 			if z.has("poly"):
-				draw_colored_polygon(z.poly, C_ZONE)
+				var fill = z.poly
+				if z.get("hole") != null:
+					var cut := Geometry2D.clip_polygons(z.poly, z.hole)
+					for q in cut:
+						if not Geometry2D.is_polygon_clockwise(q) or cut.size() == 1: draw_colored_polygon(q, C_ZONE)
+				else: draw_colored_polygon(fill, C_ZONE)
 				var closed: PackedVector2Array = z.poly.duplicate()
 				closed.append(z.poly[0])
 				draw_polyline(closed, C_READY, 4)
+				if z.get("hole") != null:
+					var hc: PackedVector2Array = z.hole.duplicate()
+					hc.append(z.hole[0])
+					draw_polyline(hc, C_READY, 4)
 			else:
 				draw_circle(z.c, z.r, C_ZONE)
 				draw_arc(z.c, z.r, 0, TAU, 40, C_READY, 4)
 			var lbl: String = m.label
 			if SHRules.t(m.get("eta")): lbl += " · %dt" % m.eta
-			var zc: Vector2 = pos_of(m.dest)
-			text(lbl, zc + Vector2(0, 46), 15, C_READY)
+			text(lbl, pos_of(m.dest) + Vector2(0, 46), 15, C_READY)
+	_mode("stand", 120)
 	# a counter being dragged to a destination
-	if ghost != null:
-		if ghost.get("dest", "") != "":
-			var z := zone(ghost.dest)
+	if ghost != null and ghost.has("p"):
+		if R == null and ghost.get("dest", "") != "":
+			var z := zone_shape(ghost.dest)
 			if z.has("poly"): draw_colored_polygon(z.poly, Color(C_SEL, 0.25))
 			else: draw_circle(z.c, z.r, Color(C_SEL, 0.25))
-		draw_box(ghost.p, CS * 1.2 + 6, C_SEL, 3)
-		draw_frame(atl[ghost.f].tex, unit_frame(ghost.f, ghost.img), ghost.p, CS * 1.2, 0, Color(1, 1, 1, 0.9))
+		draw_frame(atl[ghost.f].tex, unit_frame(ghost.f, ghost.img), ghost.p, CS * 1.15, 0, Color(1, 1, 1, 0.9))
 
-func _draw_world_boxes(G, D: Dictionary) -> void:
-	const LS := 56.0
-	const BS := CS + 10
-	const TS := 50.0
-	const GAP := 14.0
+func _paint_world_boxes(G, D: Dictionary) -> void:
+	var LS: float = WB.LS
+	var BS: float = WB.BS
+	var TS: float = WB.TS
+	var GAP: float = WB.GAP
 	for k in geo.worlds:
 		var ws = G.w.get(k)
 		if ws == null: continue
@@ -295,98 +519,98 @@ func _draw_world_boxes(G, D: Dictionary) -> void:
 				if f == G.f: continue
 				for b in G.world.facs[f].bases:
 					if b.w == k: bases.append([b, f])
-		if SHRules.t(ws.npf): bases.append([{"id": "npf:" + k, "name": String(Game.E.npfName(G, k)), "w": k, "set": 0, "npf": true, "trade": ws.npfTrade, "blk": ws.blk}, ws.npf])
-		if not SHRules.t(ws.card) and not SHRules.t(ws.sol) and not SHRules.t(ws.life) and not bases.size(): continue
-		var F = wcard_frame(k)
+		# a non-player faction's base looks like any faction base (its own counter art)
+		if SHRules.t(ws.get("npf")): bases.append([{"id": "npf:" + k, "name": String(Game.E.npfName(G, k)), "w": k, "set": 0, "npf": true, "trade": ws.get("npfTrade"), "blk": ws.get("blk")}, ws.npf])
+		if not SHRules.t(ws.get("card")) and not SHRules.t(ws.get("sol")) and not SHRules.t(ws.get("life")) and not bases.size(): continue
+		var F = R.worldFrame(k) if R != null else wcard_frame(k)
 		if F == null: continue
-		if SHRules.t(ws.card):
+		var CW: float = F.CW
+		var CH: float = F.CH
+		if SHRules.t(ws.get("card")) and not F.get("abs", false):
 			var c = SHRules._find(D.CARDS, func(x): return x.n == ws.card)
-			if c != null: draw_frame(markers_tex, markers_fr.get("card_" + c.img), wat(F, 0, 0), F.CW, F.a)
-		if SHRules.t(ws.sol) or SHRules.t(ws.life):
-			draw_frame(life_tex, [96 if SHRules.t(ws.life) else 0, 0, 96, 96], wat(F, F.CW / 2 + 10 + LS / 2, 0), LS, F.a)
-		var row_y: float = 0.0 if F.noCard else F.CH / 2 + GAP + BS / 2
+			if c != null: draw_frame(markers_tex, markers_fr.get("card_" + c.img), wat(F, 0, 0), CW, F.a)
+		if (SHRules.t(ws.get("sol")) or SHRules.t(ws.get("life"))) and not F.get("abs", false):
+			draw_frame(life_tex, [96 if SHRules.t(ws.get("life")) else 0, 0, 96, 96], wat(F, CW / 2 + 10 + LS / 2, 0), LS, F.a)
+		var row_y0: float = 0.0 if F.noCard else CH / 2 + GAP + BS / 2
 		var unit := BS + 8 + TS + 14
 		var i := 0
 		for pair in bases:
 			var b: Dictionary = pair[0]
 			var bf: String = pair[1]
-			var lx: float = -F.CW / 2 + BS / 2 + i * unit
+			var sl = F.slots[mini(i, F.slots.size() - 1)] if F.get("abs", false) else null
+			var lx: float = sl.x if sl != null else -CW / 2 + BS / 2 + i * unit
+			var row_y: float = sl.y if sl != null else row_y0
 			var p := wat(F, lx, row_y)
 			i += 1
+			if not atl.has(bf): continue
 			draw_frame(atl[bf].tex, unit_frame(bf, base_key(b, bf)), p, BS, F.a)
 			if SHRules.t(b.get("npf")):
 				hits.append({"t": "npf", "k": k, "c": p, "r": BS / 2, "f": bf, "img": base_key(b, bf)})
+				if R != null and Game.sel != null and Game.sel.t == "npf" and Game.sel.k == k: R.box(p.x, p.y, BS + 6, F.a, "#f2a93b", 3)
 				if Game.sel != null and Game.sel.t == "npf" and Game.sel.k == k: draw_box(p, BS + 6, C_SEL, 3, F.a)
-				if SHRules.t(b.trade): draw_frame(markers_tex, markers_fr.get(("buy_" if b.trade.side == "buy" else "sell_") + b.trade.type), wat(F, lx + BS / 2 + 8 + TS / 2, row_y), TS, F.a)
+				if SHRules.t(b.trade):
+					draw_frame(markers_tex, markers_fr.get(("buy_" if b.trade.side == "buy" else "sell_") + b.trade.type), wat(F, lx + BS / 2 + 8 + TS / 2, row_y), TS, F.a)
+					# enhanced trading: who has already traded here (faction colour tags under the marker)
+					if R == null:
+						var j := 0
+						for f in b.trade.get("by", []):
+							var dp := wat(F, lx + BS / 2 + 8 + 6 + j * 13, row_y + TS / 2 + 9)
+							draw_circle(dp, 5.5, Color(D.FAC[f].c))
+							draw_arc(dp, 5.5, 0, TAU, 16, Color.WHITE, 1.5)
+							j += 1
 				if SHRules.t(b.blk): text("BLOCKADED", wat(F, lx, row_y + BS / 2 + 12), 11, Color("#ef6b5b"))
 				continue
+			if R != null and bf != G.f: R.box(p.x, p.y, BS + 4, F.a, D.FAC[bf].c, 3)
+			if R != null and Game.sel != null and Game.sel.t == "base" and SHRules.eq(Game.sel.get("id"), b.id): R.box(p.x, p.y, BS + 6, F.a, "#f2a93b", 3)
 			if bf != G.f:
 				draw_box(p, BS + 4, Color(D.FAC[bf].c), 3, F.a)
-				hits.append({"t": "obase", "f": bf, "name": b.name, "w": b.w, "c": p, "r": BS / 2, "img": base_key(b, bf)})
+				hits.append({"t": "obase", "f": bf, "id": b.id, "name": b.name, "w": b.w, "c": p, "r": BS / 2, "img": base_key(b, bf)})
 			else: hits.append({"t": "base", "id": b.id, "c": p, "r": BS / 2, "f": bf, "img": base_key(b, bf)})
+			if b.set > 0: text(str(b.set), wat(F, lx + BS / 2 - 8, row_y + BS / 2 + 10), 15, Color("#f2a93b"))
 			if Game.sel != null and Game.sel.t == "base" and SHRules.eq(Game.sel.get("id"), b.id): draw_box(p, BS + 6, C_SEL, 3, F.a)
-			if SHRules.t(b.get("trade")) and bf == G.f: draw_frame(markers_tex, markers_fr.get(("buy_" if b.trade.side == "buy" else "sell_") + b.trade.type), wat(F, lx + BS / 2 + 8 + TS / 2, row_y), TS, F.a)
-			if b.set > 0: text("%d settl." % b.set, wat(F, lx, row_y + BS / 2 + 12), 12, Color("#5fcf8a"))
+			if SHRules.t(b.get("trade")) and b.set > 0: draw_frame(markers_tex, markers_fr.get(("buy_" if b.trade.side == "buy" else "sell_") + b.trade.type), wat(F, lx + BS / 2 + 8 + TS / 2, row_y), TS, F.a)
 
-func _draw_stack(G, E: SHRules, loc: String, lst: Array) -> void:
-	var p := pos_of(loc)
-	var lp := E.P(loc)
-	var cols := mini(lst.size(), 3)
-	var i := 0
-	for pair in lst:
-		var s: Dictionary = pair[0]
-		var of: String = pair[1]
-		var c := p + Vector2(((i % 3) - (cols - 1) / 2.0) * (CS + 4), floorf(i / 3.0) * (CS + 4))
-		var rot := 0.0
-		if lp.t == "orbit" and geo.worlds.has(lp.w):
-			var R := ring_of(lp.w)
-			var sep := 2 * asin(minf(1.0, (CS + 8) / 2 / R.r))
-			var a := -PI / 2 + (i - (lst.size() - 1) / 2.0) * sep
-			c = R.c + Vector2(cos(a), sin(a)) * R.r
-		elif lp.t == "box":
-			var B := box_frame(lp.s, lp.n)
-			rot = B.a
-			var off := (i - (lst.size() - 1) / 2.0) * 9
-			c = B.c + Vector2(off * cos(rot) - off * .6 * sin(rot), off * sin(rot) + off * .6 * cos(rot))
-		elif lp.t == "surf" and geo.worlds.has(lp.w) and not geo.worlds[lp.w].has("spoly"):
-			var R := ring_of(lp.w)
-			c = R.c + Vector2(((i % 3) - (cols - 1) / 2.0) * (CS + 4), floorf(i / 3.0) * (CS + 4))
-		i += 1
-		if of != "":
-			draw_box(c, CS + 6, Color(Game.data.D.FAC[of].c), 3, rot)
-			draw_frame(atl[of].tex, unit_frame(of, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
-			hits.append({"t": "oship", "f": of, "id": s.id, "c": c, "r": CS / 2, "img": s.img})
-			continue
-		var ready: bool = (G.phase == "move" and E.moves(G, s).size() > 0) or (G.phase == "explore" and E.exploreOptions(G, s).size() > 0)
-		var is_sel: bool = Game.sel != null and Game.sel.t == "ship" and SHRules.eq(Game.sel.get("id"), s.id)
-		if ready or is_sel: draw_box(c, CS + 8, C_SEL if is_sel else C_READY, 3, rot)
-		draw_frame(atl[G.f].tex, unit_frame(G.f, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
-		if SHRules.t(s.dmg): text("▼%d" % s.dmg, c + Vector2(22, -24), 13, Color("#ef6b5b"))
-		if SHRules.t(s.hold): text("+%d" % s.hold, c + Vector2(22, 24), 13, C_SEL)
-		if SHRules.t(s.probe): draw_frame(atl[G.f].tex, unit_frame(G.f, "Probe|" + s.probe), c + Vector2(-24, 24), 24)
-		hits.append({"t": "ship", "id": s.id, "c": c, "r": CS / 2, "f": G.f, "img": s.img})
+## hitAtWorld: the topmost hit at a board point (counters are squares, worlds polygons or circles)
+func hit_at_world(p: Vector2):
+	for i in range(hits.size() - 1, -1, -1):
+		var h: Dictionary = hits[i]
+		if h.has("r"):
+			if absf(p.x - h.c.x) <= h.r and absf(p.y - h.c.y) <= h.r: return h
+		elif h.has("poly"):
+			if Geometry2D.is_point_in_polygon(p, h.poly): return h
+		elif p.distance_to(h.c) <= h.rad: return h
+	return null
 
-## the move target under a map point, or ""
+## the move target under a map point, or "" (the smallest zone containing it wins, as in the web version)
 func dest_at(pt: Vector2) -> String:
-	var ordered := SHRules.ssort(targets, func(a, b): return (0 if Game.E.P(a.dest).t != "orbit" else 1) - (0 if Game.E.P(b.dest).t != "orbit" else 1))
-	for m in ordered:
-		if in_zone(zone(m.dest), pt): return m.dest
-	return ""
+	var best := ""
+	var ba := 1e12
+	var near := ""
+	var nd := 1e9
+	for m in targets:
+		var z := zone_shape(m.dest)
+		if z.has("poly"):
+			if Geometry2D.is_point_in_polygon(pt, z.poly):
+				var a := _area(z.poly)
+				if a < ba:
+					ba = a
+					best = m.dest
+			continue
+		var d: float = pt.distance_to(z.c)
+		if d < z.r * 1.4 and d < nd:
+			nd = d
+			near = m.dest
+	return best if best != "" else near
+static func _area(p: PackedVector2Array) -> float:
+	var a := 0.0
+	for i in p.size(): a += p[i].cross(p[(i + 1) % p.size()])
+	return absf(a / 2)
 
 ## what is under a map point: a counter first, then a move target, then a world
 func pick_at(pt: Vector2) -> Dictionary:
-	for i in range(hits.size() - 1, -1, -1):
-		var h: Dictionary = hits[i]
-		if h.t == "world": continue
-		if h.has("c") and pt.distance_to(h.c) <= h.r: return h
+	var h = hit_at_world(pt)
+	if h != null and h.t != "world": return h
 	if targets.size():
-		# surfaces sit inside their orbit zones: test them first
-		var ordered := SHRules.ssort(targets, func(a, b): return (0 if Game.E.P(a.dest).t != "orbit" else 1) - (0 if Game.E.P(b.dest).t != "orbit" else 1))
-		for m in ordered:
-			if in_zone(zone(m.dest), pt): return {"t": "dest", "dest": m.dest}
-	for i in range(hits.size() - 1, -1, -1):
-		var h: Dictionary = hits[i]
-		if h.t != "world": continue
-		if h.has("poly") and Geometry2D.is_point_in_polygon(pt, h.poly): return h
-		if h.has("c") and pt.distance_to(h.c) <= h.r: return h
-	return {}
+		var d := dest_at(pt)
+		if d != "": return {"t": "dest", "dest": d}
+	return h if h != null else {}

@@ -180,27 +180,101 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 				get_viewport().push_input(e)])
 		a.append(["wait", 10])
 		a.append(["shot", "53_zoom"])
-	if plan == "3d":
+	if plan == "3ddrag":
 		a.append(["call", func():
+			for i in 120:
+				var G = Game.G
+				while G.ask.size(): Game.AI.answerAsks(G)
+				if G.phase == "move" and _mover(G) != null: break
+				if not G.over: Game.AI.botPhase(G)
+				Game.next()
 			main.toggle_3d()])
-		a.append(["wait", 40])
-		a.append(["call", func(): main.v3d.overview()])
 		a.append(["wait", 10])
-		a.append(["shot", "60_3d_overview"])
-		for spot in [["61_3d_earth", "ear", 0.45], ["62_3d_jupiter", "jup", 0.35], ["63_3d_mars", "mar", 0.5]]:
-			a.append(["call", func(): main.fly(main.board.world_center(spot[1]), spot[2])])
-			a.append(["wait", 50])
+		a.append(["call", func():
+			var mv = _mover(Game.G)
+			main.v25.focus(main.board.pos_of(mv[0].loc), .5)])
+		a.append(["wait", 10])
+		a.append(["shot", "70_v25_before"])
+		a.append(["call", func():
+			var mv = _mover(Game.G)
+			var sp := _scr25(_hit_of(mv[0].id), 34)
+			var dsh = main.v25.BOXSH.get(mv[1])
+			var dp: Vector2
+			if dsh != null:
+				var c := Vector2.ZERO
+				for q in dsh: c += q
+				c /= dsh.size()
+				var pr = main.v25.proj(c.x, 7, c.y)
+				dp = Vector2(pr[0], pr[1])
+			else: dp = _scr25(main.board.pos_of(mv[1]), 0)
+			print("drag ", mv[0].name, " to ", mv[1], " from ", sp, " to ", dp)
+			_mouse(sp, true)
+			for i in 10: _move(sp.lerp(dp, (i + 1) / 10.0))])
+		a.append(["wait", 6])
+		a.append(["shot", "71_v25_dragging"])
+		a.append(["call", func():
+			var mv = _mover(Game.G)
+			var dsh = main.v25.BOXSH.get(mv[1])
+			var dp: Vector2
+			if dsh != null:
+				var c := Vector2.ZERO
+				for q in dsh: c += q
+				c /= dsh.size()
+				var pr = main.v25.proj(c.x, 7, c.y)
+				dp = Vector2(pr[0], pr[1])
+			else: dp = _scr25(main.board.pos_of(mv[1]), 0)
+			_mouse(dp, false)
+			var s = SHRules._find(Game.G.ships, func(x): return x.id == mv[0].id)
+			print("after drop: ", s.loc, " (target ", mv[1], ")")])
+		a.append(["wait", 10])
+		a.append(["shot", "72_v25_dropped"])
+		a.append(["call", func():
+			var mv0 = SHRules._find(Game.G.ships, func(x): return x.name == "Orion")
+			var sp := _scr25(_hit_of(mv0.id), 34)
+			_mouse(sp, true)
+			_mouse(sp, false)
+			print("selected: ", Game.sel)])
+		a.append(["wait", 10])
+		a.append(["shot", "73_v25_tap"])
+	if plan == "3d" or plan == "3dbots":
+		if plan == "3dbots":
+			a.append(["call", func():
+				for i in int(OS.get_environment("SH_STEPS") if OS.get_environment("SH_STEPS") != "" else "40"):
+					var G = Game.G
+					while G.ask.size(): Game.AI.answerAsks(G)
+					if not G.over: Game.AI.botPhase(G)
+					Game.next()])
+		a.append(["call", func(): main.toggle_3d()])
+		a.append(["wait", 30])
+		a.append(["shot", "60_v25_home"])
+		a.append(["call", func(): main.v25.fit()])
+		a.append(["wait", 10])
+		a.append(["shot", "61_v25_fit"])
+		for spot in [["62_v25_earth", "ear"], ["63_v25_jupiter", "jup"], ["64_v25_mars", "mar"], ["65_v25_saturn", "sat"], ["66_v25_kuiper", "kui"], ["67_v25_alpha", "alp"]]:
+			a.append(["call", func(): main.v25.focusPod(spot[1])])
+			a.append(["wait", 12])
 			a.append(["shot", spot[0]])
 		a.append(["call", func():
-			main.v3d.rotate_view(Vector2(260, -60))])
+			main.v25.home(main.board.pos_of("earth"))
+			main.v25.rotate_by(.6, -.3)])
 		a.append(["wait", 10])
-		a.append(["shot", "64_3d_turned"])
+		a.append(["shot", "68_v25_turned"])
 		a.append(["call", func():
-			var p: Vector2 = main._world(Vector2(560, 450))
-			print("pick at centre: ", p, " ", main.board.pick_at(p))
+			main.v25.debug_calls = true
+			main.v25.frame()
+			main.v25.debug_calls = false
+			for i in 12:
+				var mi: MeshInstance3D = main.v25._pool[i]
+				print(i, " vis ", mi.visible, " aabb ", mi.mesh.get_aabb() if mi.mesh else null, " mode ", mi.material_override.get_shader_parameter("MODE") if mi.material_override else null, " off ", mi.sorting_offset, " surf ", mi.mesh.get_surface_count() if mi.mesh else -1)
+			var t0 := Time.get_ticks_usec()
+			main.v25.prof = true
+			for i in 10: main.v25.frame()
+			main.v25.prof = false
+			print("v25 frame ms: ", (Time.get_ticks_usec() - t0) / 10000.0)
+			for k in main.v25._tms: print("  ", k, " ", main.v25._tms[k] / 10000.0)
 			main.toggle_3d()])
 		a.append(["wait", 20])
-		a.append(["shot", "65_back_flat"])
+		a.append(["shot", "69_back_flat"])
 	if plan == "fx":
 		for spot in [["40_earth", "ear", 0.8], ["41_sun", "mer", 0.45], ["42_jupiter", "jup", 0.6], ["43_far", "ear", 0.12]]:
 			a.append(["call", func():
@@ -293,6 +367,12 @@ func _hit_of(id) -> Vector2:
 	for h in main.board.hits:
 		if h.t == "ship" and SHRules.eq(h.id, id): return h.c
 	return Vector2.ZERO
+## a board point's screen position in the 2.5D view, lifted like a standing counter
+func _scr25(bp: Vector2, lift: float) -> Vector2:
+	var v = main.v25
+	var q: Vector2 = v.mapP(bp.x, bp.y)
+	var pr = v.proj(q.x, lift * v.LAY.S + 31 * v.LAY.S, q.y)
+	return Vector2(pr[0], pr[1])
 func _scr(wp: Vector2) -> Vector2:
 	return (wp - main.cam.get_screen_center_position()) * main.cam.zoom + get_viewport().get_visible_rect().size / 2.0
 
@@ -323,7 +403,6 @@ func _mouse(p: Vector2, down: bool) -> void:
 	e.position = p
 	e.global_position = p
 	if down: e.button_mask = MOUSE_BUTTON_MASK_LEFT
-	Input.parse_input_event(e)
 	get_viewport().push_input(e)
 func _move(p: Vector2) -> void:
 	var e := InputEventMouseMotion.new()

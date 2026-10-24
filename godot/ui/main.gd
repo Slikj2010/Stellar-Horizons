@@ -34,7 +34,8 @@ const TAB_LOG := 5
 var modal: ColorRect
 var modal_box: VBoxContainer
 var _modal_enter := Callable()  ## what Enter does while the modal is open
-var v3d: Node3D  ## the 3D view (view3d.gd)
+var v25: Node3D  ## the 2.5D view (v25/v25.gd, a port of the web version's view25.js)
+var _v25c: Control  ## its turn and tilt buttons
 var sfx: Node  ## sound effects and music (audio.gd)
 var bg: CanvasLayer  ## the flat map's starfield
 var _btn3d: Button
@@ -88,13 +89,10 @@ func _ready() -> void:
 	bg.add_child(stars)
 	sfx = preload("res://ui/audio.gd").new()
 	add_child(sfx)
-	v3d = preload("res://ui/view3d.gd").new()
-	add_child(v3d)
-	v3d.setup(self)
-	var b3 := UIK.button($HUD/Root/TopBar/Row, "3D view", func(): toggle_3d())
-	$HUD/Root/TopBar/Row.move_child(b3, 1)
-	b3.tooltip_text = "Switch between the flat map and the 3D solar system (V)"
-	_btn3d = b3
+	v25 = preload("res://ui/v25/v25.gd").new()
+	add_child(v25)
+	v25.setup(self)
+	_make_v25_controls()
 	show_menu("start")
 	refresh()
 
@@ -128,6 +126,9 @@ func _unhandled_input(ev: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 	if menu.visible: return
+	if v25.on and (ev is InputEventMouseButton or ev is InputEventMouseMotion or ev is InputEventMagnifyGesture or ev is InputEventPanGesture):
+		_input25(ev)
+		return
 	if ev is InputEventMouseButton:
 		var mb := ev as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed: _camc().zoom_at(1.12, mb.position)
@@ -153,7 +154,7 @@ func _unhandled_input(ev: InputEvent) -> void:
 				board.ghost = null
 				_drag_ship = null
 				board.queue_redraw()
-				if dest != "" and s != null: do_move(s, dest)
+				if dest != "" and s != null: do_move(s, dest, {}, wp)
 				elif s != null: show_toast("Drop the counter on a highlighted destination to move it.")
 				return
 			_drag_ship = null
@@ -165,15 +166,14 @@ func _unhandled_input(ev: InputEvent) -> void:
 		if _dragging and _drag_ship != null and _drag_btn == MOUSE_BUTTON_LEFT:
 			if board.ghost == null and mm.position.distance_to(_press) >= 6:
 				if Game.sel == null or Game.sel.t != "ship" or not SHRules.eq(Game.sel.get("id"), _drag_ship.id): Game.select({"t": "ship", "id": _drag_ship.id})
-				board.ghost = {"f": Game.G.f, "img": _drag_ship.img}
+				board.ghost = {"f": Game.G.f, "img": _drag_ship.img, "id": _drag_ship.id}
 			if board.ghost != null:
 				var wp: Vector2 = _world(mm.position)
 				board.ghost.p = wp
 				board.ghost.dest = board.dest_at(wp)
 				board.queue_redraw()
 		elif _dragging:
-			if v3d.on and _drag_btn == MOUSE_BUTTON_RIGHT: v3d.rotate_view(mm.relative)
-			else: _camc().pan_screen(mm.relative)
+			_camc().pan_screen(mm.relative)
 		else:
 			_hover(mm.position)
 	elif ev is InputEventMagnifyGesture:
@@ -186,32 +186,180 @@ func _unhandled_input(ev: InputEvent) -> void:
 		elif k == KEY_V: toggle_3d()
 		elif k == KEY_ENTER or k == KEY_KP_ENTER: next_click()
 
-## a screen point on the map, in board coordinates (far away when it is off the board in the 3D view)
-func _world(sp: Vector2) -> Vector2:
-	if v3d.on:
-		var p = v3d.board_point(sp)
-		return p if p != null else Vector2(-1e7, -1e7)
-	return board.get_canvas_transform().affine_inverse() * sp
+## a screen point on the map, in board coordinates
+func _world(sp: Vector2) -> Vector2: return board.get_canvas_transform().affine_inverse() * sp
 
-## the camera the mouse drives: the flat map's or the 3D view's
-func _camc(): return v3d if v3d.on else cam
+## the camera the mouse drives on the flat map
+func _camc(): return cam
 
 ## glide to a board point, zooming in to at least z (flat map zoom)
 func fly(p: Vector2, z := -1.0) -> void:
-	if v3d.on: v3d.fly_to(p, z)
+	if v25.on: v25.focus(p, z if z > 0 else 0.0)
 	else: cam.fly_to(p, maxf(cam.zoom.x, z) if z > 0 else -1.0)
 
+## the part of the window the map shows in: below the top bar, left of the side panel
+func stage_rect() -> Rect2:
+	var vs := get_viewport().get_visible_rect().size
+	var side: Control = $HUD/Root/Side
+	var top := 62.0
+	return Rect2(0, top, maxf(100, side.get_global_rect().position.x - 8), vs.y - top)
+
+## the 2.5D view on or off (toggle25 in the web version)
 func toggle_3d() -> void:
-	var to3: bool = not v3d.on
-	var focus: Vector2 = cam.get_screen_center_position()
-	v3d.enable(to3)
-	bg.visible = not to3
-	_btn3d.text = "Flat map" if to3 else "3D view"
-	if to3: v3d.fly_to(focus, cam.zoom.x)
-	else:
-		var bp = v3d.L.from_scene(Vector2(v3d.target.x, v3d.target.z))
-		if bp != null: cam.position = bp
+	var want: bool = not v25.on
+	v25.enable(want)
+	board.visible = not want
+	bg.visible = not want
+	_v25c.visible = want
+	_btn3d.add_theme_color_override("font_color", UIK.CYAN if want else Color(0.85, 0.9, 0.95))
+	if want: v25.home(board.pos_of("earth") if Game.G != null else Vector2(2500, 450))
+	else: board.queue_redraw()
 	_tip.visible = false
+
+# ---------------- 2.5D input (setupInput25 in the web version) ----------------
+var _g25 = null
+func _input25(ev: InputEvent) -> void:
+	if ev is InputEventMagnifyGesture:
+		v25.zoom((ev as InputEventMagnifyGesture).factor)
+		return
+	if ev is InputEventPanGesture:
+		v25.zoom(1.15 if (ev as InputEventPanGesture).delta.y < 0 else 1 / 1.15)
+		return
+	if ev is InputEventMouseButton:
+		var mb := ev as InputEventMouseButton
+		var q := mb.position
+		if mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed:
+			v25.zoom(1.15)
+			return
+		if mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed:
+			v25.zoom(1 / 1.15)
+			return
+		if mb.pressed:
+			_tip.visible = false
+			var r: Dictionary = v25.pick(q.x, q.y)
+			_g25 = {"k": "press", "x": q.x, "y": q.y, "lx": q.x, "ly": q.y, "hit": r.hit, "p0": v25.ground(q.x, q.y, 0), "moved": false,
+				"rot": mb.button_index == MOUSE_BUTTON_RIGHT or mb.button_index == MOUSE_BUTTON_MIDDLE or mb.shift_pressed, "btn": mb.button_index}
+			return
+		var gg = _g25
+		if gg == null or mb.button_index != gg.btn: return
+		_g25 = null
+		if gg.k == "press" and not gg.moved:
+			if gg.btn == MOUSE_BUTTON_RIGHT: _zoom_counter(gg.hit if gg.hit != null else {})
+			else: _tap(gg.hit)
+		if gg.k == "drag":
+			var p = board.ghost.get("p") if board.ghost != null else null
+			var s = _drag_ship
+			var moves: Array = E.moves(Game.G, s) if s != null else []
+			board.ghost = null
+			_drag_ship = null
+			v25.touch()
+			if s == null: return
+			# a counter dropped on one of the 3D box shapes goes to that box; anything else is judged on the flat map's zones
+			var dests := []
+			for m in moves:
+				if not dests.has(m.dest): dests.append(m.dest)
+			var box = v25.destAt(q.x, q.y, dests)
+			if box != null: do_move(s, box, {}, p)
+			elif p != null:
+				var d: String = board.dest_at(p)
+				if d != "": do_move(s, d, {}, p)
+		return
+	if ev is InputEventMouseMotion:
+		var mm := ev as InputEventMouseMotion
+		var q := mm.position
+		if _g25 == null:
+			var r: Dictionary = v25.pick(q.x, q.y)
+			var txt := _tip_text(Game.G, r.hit) if (Game.G != null and r.hit != null and not modal.visible and not fboard.visible and not ttree.visible) else ""
+			_show_tip(txt, q)
+			return
+		var g: Dictionary = _g25
+		if g.k == "press" and Vector2(q.x - g.x, q.y - g.y).length() > 6:
+			g.moved = true
+			var h = g.hit
+			if g.rot: g.k = "rot"
+			elif h != null and h.t == "ship" and Game.G.phase == "move" and not Game.G.ask.size():
+				var s = E._shipById(Game.G, h.id)
+				var m: Array = E.moves(Game.G, s) if s != null else []
+				if m.size():
+					g.k = "drag"
+					_drag_ship = s
+					Game.select({"t": "ship", "id": s.id})
+					board.ghost = {"f": Game.G.f, "img": s.img, "id": s.id}
+					v25.touch()
+				else: g.k = "pan"
+			else: g.k = "pan"
+		if g.k == "rot":
+			v25.rotate_by(-(q.x - g.lx) * .006, (q.y - g.ly) * .005)
+			g.lx = q.x
+			g.ly = q.y
+		elif g.k == "pan": v25.panBy(g.p0, q.x, q.y)
+		elif g.k == "drag":
+			var p = v25.sheetAt(q.x, q.y)
+			if p != null and board.ghost != null:
+				board.ghost.p = p
+				v25.touch()
+
+## the map's controls (bottom left of the stage) and the phase hint (top left), as in the web version:
+## zoom in and out, the whole map, your ships, the 2.5D switch, and in 2.5D the turn and tilt buttons
+var _hint: Label
+func _make_v25_controls() -> void:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 6)
+	h.anchor_top = 1.0
+	h.anchor_bottom = 1.0
+	h.offset_top = -56
+	h.offset_bottom = -16
+	h.offset_left = 16
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var add := func(t: String, fn: Callable, tip: String) -> Button:
+		var bt := UIK.button(h, t, fn, false, tip)
+		bt.custom_minimum_size = Vector2(40, 36)
+		return bt
+	add.call("+", func(): _zoom_btn(1.3), "Zoom in")
+	add.call("−", func(): _zoom_btn(1 / 1.3), "Zoom out")
+	add.call("Whole map", func(): _fit_btn(), "Show the whole map")
+	add.call("My ships", func(): _me_btn(), "Go to the selected ship, or your first ship in space")
+	_btn3d = add.call("2.5D", func(): toggle_3d(), "Switch between the flat map and the 2.5D space view (V)")
+	var c := HBoxContainer.new()
+	c.add_theme_constant_override("separation", 6)
+	for b in [["⟲", func(): v25.rotate_by(-.3, 0), "Rotate left"], ["⟳", func(): v25.rotate_by(.3, 0), "Rotate right"], ["⤒", func(): v25.rotate_by(0, .12), "Tilt up"], ["⤓", func(): v25.rotate_by(0, -.12), "Tilt down"]]:
+		var bt := UIK.button(c, b[0], b[1], false, b[2])
+		bt.custom_minimum_size = Vector2(40, 36)
+	c.visible = false
+	h.add_child(c)
+	root.add_child(h)
+	root.move_child(h, 0)
+	_v25c = c
+	_hint = Label.new()
+	_hint.position = Vector2(16, 62 + 12)
+	_hint.add_theme_font_size_override("font_size", 13)
+	_hint.add_theme_color_override("font_color", UIK.DIM)
+	_hint.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 1))
+	_hint.add_theme_constant_override("shadow_offset_y", 1)
+	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_hint)
+	root.move_child(_hint, 0)
+
+func _zoom_btn(f: float) -> void:
+	if v25.on: v25.zoom(f)
+	else:
+		var st := stage_rect()
+		cam.zoom_at(f, st.get_center())
+
+func _fit_btn() -> void:
+	if v25.on: v25.fit()
+	else: cam.setup(board.map_rect())
+
+func _me_btn() -> void:
+	var G = Game.G
+	if G == null: return
+	var s = _sel_ship()
+	if s == null or s.loc == "earth": s = SHRules._find(G.ships, func(x): return x.loc != "earth")
+	fly(board.pos_of(s.loc) if s != null else board.world_center("ear"), .9)
+
+const HINTS := {"econ": "Economic phase. Work through each step in the Turn tab.", "build": "Build ships and launch vehicles, unreserve and repair crew vehicles, or load cargo on Earth.",
+	"move": "Drag a counter onto a highlighted box to move it. Tap a counter to see its options.", "combat": "Attack pirates or blockade and raid NPF bases where your armed crew vehicles are.",
+	"explore": "Tap a ship with a blue ring to explore. Each ship explores once per turn.", "trade": "Found bases, build facilities and settlements, trade and terraform."}
 
 # ---------------- camera hotkeys: belts cycle through their satellites on repeated presses ----------------
 const JUMP := {KEY_1: ["mer"], KEY_2: ["ven"], KEY_SPACE: ["ear"], KEY_3: ["mar"], KEY_4: ["bel", "cer", "ves", "hyg"], KEY_5: ["jup"], KEY_6: ["sat"],
@@ -223,6 +371,9 @@ func _jump_key(key: int) -> void:
 	_jump_i = (_jump_i + 1) % list.size() if _jump_last == key else 0
 	_jump_last = key
 	var k: String = list[_jump_i]
+	if v25.on:
+		v25.focusPod(k)
+		return
 	if D.SYS.has(k): _jump(k)
 	elif board.geo.worlds.has(k): fly(board.world_center(k), 0.6)
 
@@ -258,6 +409,9 @@ func _hover(sp: Vector2) -> void:
 	var txt := ""
 	if G != null and not modal.visible and not fboard.visible and not ttree.visible:
 		txt = _tip_text(G, board.pick_at(_world(sp)))
+	_show_tip(txt, sp)
+
+func _show_tip(txt: String, sp: Vector2) -> void:
 	if txt == "":
 		_tip.visible = false
 		return
@@ -352,13 +506,18 @@ func _jump(sy: String) -> void:
 	fly(p, 0.38)
 
 func _click(pt: Vector2) -> void:
-	var G = Game.G
-	if G == null: return
-	var h: Dictionary = board.pick_at(pt)
-	if h.is_empty():
+	if Game.G == null: return
+	_tap(board.pick_at(pt))
+
+## select what was tapped (tap in the web version)
+func _tap(h) -> void:
+	if Game.G == null: return
+	if h == null or h.is_empty():
 		Game.select(null)
 		return
 	match h.t:
+		"pod":
+			if v25.on: v25.focusPod(h.k)
 		"ship":
 			Game.select({"t": "ship", "id": h.id})
 			tabs.current_tab = 1
@@ -371,8 +530,8 @@ func _click(pt: Vector2) -> void:
 		"npf":
 			Game.select({"t": "npf", "k": h.k})
 			tabs.current_tab = 1
-		"oship":
-			Game.select({"t": "oship", "f": h.f, "id": h.id})
+		"oship", "obase":
+			Game.select({"t": h.t, "f": h.f, "id": h.id})
 			tabs.current_tab = 1
 		"world":
 			Game.select({"t": "world", "k": h.k})
@@ -383,10 +542,20 @@ func _sel_ship():
 	if s == null or s.t != "ship": return null
 	return E._shipById(Game.G, s.id)
 
-func do_move(s, dest: String, extra := {}) -> void:
+func do_move(s, dest: String, extra := {}, drop_pt = null) -> void:
 	var opt := {"probe": SHRules._first(Game.G.probes.get(s.loc, []))}
 	for k in extra: opt[k] = extra[k]
-	Game.act(E.move(Game.G, s, dest, opt))
+	var res = E.move(Game.G, s, dest, opt)
+	# a counter dropped on an orbit keeps the spot where it was dropped (as in the web version)
+	if s.loc == dest:
+		var pp := E.P(dest)
+		if pp.t == "orbit" and drop_pt != null:
+			var Rr: Dictionary = board.ring_of(pp.w)
+			var a := atan2(drop_pt.y - Rr.c.y, drop_pt.x - Rr.c.x)
+			var others: Array = Game.G.ships.filter(func(o): return not is_same(o, s) and o.loc == dest)
+			s.ang = board.free_angle(a, board.ring_layout(pp.w, others).values(), 2 * asin(minf(1, (board.CS + 8) / 2 / Rr.r)), pp.w)
+		elif pp.t != "orbit": s.erase("ang")
+	Game.act(res)
 
 # ---------------- refresh ----------------
 func refresh() -> void:
@@ -396,6 +565,7 @@ func refresh() -> void:
 		board.queue_redraw()
 		return
 	year_lbl.text = str(G.y)
+	_hint.text = "The campaign is over. See the Turn tab for the final score." if G.over else HINTS.get(G.phase, "")
 	phase_lbl.text = (E.PHASE_NAME[G.phase] + ((" · " + E.ESTEP_NAME[G.estep]) if G.estep != null else "")).to_upper()
 	var bank: Dictionary = G.bank
 	stats_lbl.text = "%s    Cash $%sB    Politics %s    Victory %s    Physics %s    Engineering %s    Biology %s" % [D.FAC[G.f].n, SHRules.n(G.cash), G.polm, G.vm, bank.Phy, bank.Eng, bank.Bio]
@@ -779,6 +949,18 @@ func build_selected() -> void:
 			if ship != null:
 				UIK.title(box, ship.name)
 				UIK.para(box, "%s · %s · %s" % [D.FAC[s.f].n, ("CV-%d" % ship.sz) if ship.cls == "CV" else ship.kind, E.locName(ship.loc)], UIK.DIM)
+				UIK.para(box, "Relations: " + D.REL[G.rel[s.f]])
+		"obase":
+			var g = G.world.facs.get(s.f) if G.world != null else null
+			var b = E._baseById(g, s.id) if g != null else null
+			if b != null:
+				UIK.title(box, b.name)
+				UIK.para(box, "%s base · %s" % [D.FAC[s.f].n, D.W[b.w].n], UIK.DIM)
+				var fac := []
+				for c in [["lab", "lab"], ["mine", "mine"], ["sup", "supply"], ["def", "defense"]]:
+					if SHRules.t(b.fac[c[0]]): fac.append("%s %d" % [c[1], b.fac[c[0]]])
+				UIK.para(box, ("Facilities: " + ", ".join(fac)) if fac.size() else "No facilities.")
+				if b.set > 0: UIK.para(box, "%d settlement%s" % [b.set, "s" if b.set > 1 else ""])
 				UIK.para(box, "Relations: " + D.REL[G.rel[s.f]])
 
 func _sel_ship_panel(box, G, s) -> void:

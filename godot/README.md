@@ -39,10 +39,12 @@ The first import takes a minute while Godot converts the map and counter images.
 - **Combat:** searches, ship combat and pirate fights open a screen with both sides, the dice, the strike and
   direct-fire table and your tactics-point plan (direct fire, extra damage, less damage taken, picking targets, or
   calling the combat off). Damage on units and hits on a base can be assigned by hand or left to the game.
-- **3D view:** the **3D view** button in the top bar (or `V`) sets the board's systems out round a glowing Sun as tiles
-  on their orbits, with the Main and Kuiper Belts as rings of rocks and turning 3D planets. The tiles show the live
-  board, so everything works there as on the flat map: click, hover, drag ships. Left-drag pans, right-drag turns the
-  view, the wheel zooms, and the hotkeys fly to each system. The same button returns to the flat map.
+- **2.5D view:** the **2.5D** button under the map (or `V`) switches to the web version's 2.5D space view, ported
+  line for line: the systems as glass plates on their orbits round the Sun, holographic transfer and flyby boxes,
+  digital world boxes (information plate, card slot, life slot and base tray), spinning planets, ray-marched moons
+  and rocks, hovering counters, the Main and Kuiper Belts, and a deep-sky backdrop. Drag a counter onto a highlighted
+  box to move it, tap to select. Left-drag pans, right-drag (or Shift-drag) turns, the wheel zooms; the buttons under
+  the map turn and tilt the view, zoom, show the whole map or your ships.
 - **Sound:** sound effects for clicks, dice, exploring, launches, building, trade, combat and phase changes, and an
   ambient music loop. Both volumes are in Settings. The sounds are synthesized by `tools/make_sounds.py`.
 - **Side panel:** **Turn** shows what the current phase or step offers (building, research, policies, diplomacy,
@@ -71,7 +73,8 @@ The first import takes a minute while Godot converts the map and counter images.
 | `ui/board_camera.gd` | Pan, zoom and camera jumps. |
 | `ui/board_fx.gd`, `ui/shaders/` | Spinning planets, the sun and the animated exploration boxes. |
 | `ui/starfield.gd` | The starfield and nebula behind the map. |
-| `ui/view3d.gd`, `ui/layout3d.gd` | The 3D view, and its layout of the systems round the Sun (a port of `layout25.js`). |
+| `ui/v25/` | The 2.5D view: `v25.gd` (a port of `view25.js`), `v25_layout.gd` (of `layout25.js`), `v25_paint.gd` (its text, labels and world plates) and the shaders. |
+| `assets/v25/` | The 2.5D view's galaxy, nebula and deep-sky art, rendered from the web version's own code by `tools/export_v25_art.js`. |
 | `ui/audio.gd`, `assets/audio/` | Sound effects and music. |
 | `ui/faction_board.gd` | The faction board screen, with drag-and-drop between New builds and the launch pad. |
 | `ui/main.gd` | The HUD: top bar, side panel tabs, question dialog, Next check, menus, save slots and settings. |
@@ -115,5 +118,9 @@ In the editor, open **Editor → Manage Export Templates** and download the temp
 
 ## Differences from the web version
 
-- The 3D view is built differently (the systems are tiles showing the live board, with 3D planets on top), so it does
-  not have the web version's hovering counters or its models of the small bodies and of Alpha Centauri.
+- The web version's font (IBM Plex Sans Condensed) isn't included. The 2.5D view's labels and plates use DejaVu Sans
+  Condensed instead; put `IBMPlexSansCondensed-Regular.ttf`, `-Medium.ttf`, `-SemiBold.ttf` and `-Bold.ttf` in
+  `assets/fonts/` and they are used automatically.
+
+To compare the 2.5D view with the web version, `node tools/web_v25_shots.js /tmp/web na 0` renders the web version's
+view of the same seeded game as the Godot screenshot test's `3d` plan.
