@@ -180,6 +180,27 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 				get_viewport().push_input(e)])
 		a.append(["wait", 10])
 		a.append(["shot", "53_zoom"])
+	if plan == "3d":
+		a.append(["call", func():
+			main.toggle_3d()])
+		a.append(["wait", 40])
+		a.append(["call", func(): main.v3d.overview()])
+		a.append(["wait", 10])
+		a.append(["shot", "60_3d_overview"])
+		for spot in [["61_3d_earth", "ear", 0.45], ["62_3d_jupiter", "jup", 0.35], ["63_3d_mars", "mar", 0.5]]:
+			a.append(["call", func(): main.fly(main.board.world_center(spot[1]), spot[2])])
+			a.append(["wait", 50])
+			a.append(["shot", spot[0]])
+		a.append(["call", func():
+			main.v3d.rotate_view(Vector2(260, -60))])
+		a.append(["wait", 10])
+		a.append(["shot", "64_3d_turned"])
+		a.append(["call", func():
+			var p: Vector2 = main._world(Vector2(560, 450))
+			print("pick at centre: ", p, " ", main.board.pick_at(p))
+			main.toggle_3d()])
+		a.append(["wait", 20])
+		a.append(["shot", "65_back_flat"])
 	if plan == "fx":
 		for spot in [["40_earth", "ear", 0.8], ["41_sun", "mer", 0.45], ["42_jupiter", "jup", 0.6], ["43_far", "ear", 0.12]]:
 			a.append(["call", func():

@@ -131,6 +131,7 @@ func _draw_glow() -> void:
 			var band := PackedVector2Array([Vector2(bx - h * 0.5 - h * 0.6, -h), Vector2(bx + h * 0.5 - h * 0.6, -h), Vector2(bx + h * 0.5 + h * 0.6, h), Vector2(bx - h * 0.5 + h * 0.6, h)])
 			var sq := PackedVector2Array([Vector2(-h, -h), Vector2(h, -h), Vector2(h, h), Vector2(-h, h)])
 			for poly in Geometry2D.intersect_polygons(band, sq):
+				if poly.size() < 3 or absf(_area(poly)) < 1.0: continue
 				var cols := PackedColorArray()
 				for pt in poly:
 					# brightest along the band's middle line
@@ -139,6 +140,11 @@ func _draw_glow() -> void:
 					cols.append(Color(1, 1, 1, 0.22 * k2))
 				glow.draw_polygon(poly, cols)
 	glow.draw_set_transform(Vector2.ZERO)
+
+static func _area(p: PackedVector2Array) -> float:
+	var a := 0.0
+	for i in p.size(): a += p[i].cross(p[(i + 1) % p.size()])
+	return a / 2.0
 
 func _draw_top() -> void:
 	var G = Game.G

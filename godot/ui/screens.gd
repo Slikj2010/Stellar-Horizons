@@ -30,7 +30,7 @@ static func die(box: Node, v, ok: bool, d100 := false, anim := false, tip := "")
 	l.add_theme_color_override("font_color", UIK.GOOD if ok else UIK.BAD)
 	p.add_child(l)
 	box.add_child(p)
-	if anim and p.is_inside_tree():
+	if anim and Game.settings.get("anim", true) and p.is_inside_tree():
 		var top := 100 if d100 else 10
 		var final_txt := str(v)
 		var tw := p.create_tween()

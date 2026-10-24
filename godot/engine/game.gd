@@ -5,6 +5,7 @@ extends Node
 signal changed  ## the game state changed (redraw everything)
 signal toast(text: String)  ## a short message for the player (an action was refused, and why)
 signal campaign_started
+signal sound(name: String)  ## ask the audio node to play an effect
 signal rolled  ## a die roll worth showing happened (G.lastRoll): exploring, producing, harvesting, a search for life
 
 const SAVE_PATH := "user://campaign.save"  ## the autosave (slot 0)
@@ -12,7 +13,7 @@ const SLOTS := ["user://campaign.save", "user://slot1.save", "user://slot2.save"
 const SETTINGS_PATH := "user://settings.cfg"
 
 ## player settings, kept in user://settings.cfg. rerolls/scrapRE apply to new games, enhTrade to every game
-var settings := {"rerolls": true, "scrapRE": false, "enhTrade": false, "confirmNext": true, "autosave": true, "anim": true}
+var settings := {"rerolls": true, "scrapRE": false, "enhTrade": false, "confirmNext": true, "autosave": true, "anim": true, "sfxVol": 0.8, "musicVol": 0.45}
 
 var data: Dictionary
 var E: SHRules
@@ -114,8 +115,10 @@ func next() -> void:
 		toast.emit("Answer the open question first.")
 		return
 	sel = null
+	var y0 = G.y
 	if multi(): AI.advanceWorld(G)
 	else: E.advance(G)
+	if G.y == y0: sound.emit("next")
 	_after()
 	if settings.autosave: autosave()
 

@@ -34,6 +34,10 @@ const TAB_LOG := 5
 var modal: ColorRect
 var modal_box: VBoxContainer
 var _modal_enter := Callable()  ## what Enter does while the modal is open
+var v3d: Node3D  ## the 3D view (view3d.gd)
+var sfx: Node  ## sound effects and music (audio.gd)
+var bg: CanvasLayer  ## the flat map's starfield
+var _btn3d: Button
 
 const PHASE_HELP := {
 	"econ": "Once a decade: politics and events, diplomacy, production, resource transport, bases, asteroids and pirates, technologies, settlement growth and policy.",
@@ -76,12 +80,21 @@ func _ready() -> void:
 	_make_modal()
 	_make_log_filter()
 	_make_tip()
-	var bg := CanvasLayer.new()
+	bg = CanvasLayer.new()
 	bg.layer = -1
 	add_child(bg)
 	var stars = preload("res://ui/starfield.gd").new()
 	stars.cam = cam
 	bg.add_child(stars)
+	sfx = preload("res://ui/audio.gd").new()
+	add_child(sfx)
+	v3d = preload("res://ui/view3d.gd").new()
+	add_child(v3d)
+	v3d.setup(self)
+	var b3 := UIK.button($HUD/Root/TopBar/Row, "3D view", func(): toggle_3d())
+	$HUD/Root/TopBar/Row.move_child(b3, 1)
+	b3.tooltip_text = "Switch between the flat map and the 3D solar system (V)"
+	_btn3d = b3
 	show_menu("start")
 	refresh()
 
@@ -96,7 +109,7 @@ func _on_started() -> void:
 	_log_seen = 0
 	tabs.current_tab = 0
 	var ep: Vector2 = board.world_center("ear")
-	cam.fly_to(ep, 0.32)
+	fly(ep, 0.32)
 
 # ---------------- input on the board ----------------
 func _unhandled_input(ev: InputEvent) -> void:
@@ -117,8 +130,8 @@ func _unhandled_input(ev: InputEvent) -> void:
 	if menu.visible: return
 	if ev is InputEventMouseButton:
 		var mb := ev as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed: cam.zoom_at(1.12, mb.position)
-		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed: cam.zoom_at(1 / 1.12, mb.position)
+		if mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed: _camc().zoom_at(1.12, mb.position)
+		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed: _camc().zoom_at(1 / 1.12, mb.position)
 		elif mb.pressed:
 			_press = mb.position
 			_dragging = true
@@ -159,20 +172,46 @@ func _unhandled_input(ev: InputEvent) -> void:
 				board.ghost.dest = board.dest_at(wp)
 				board.queue_redraw()
 		elif _dragging:
-			cam.pan_screen(mm.relative)
+			if v3d.on and _drag_btn == MOUSE_BUTTON_RIGHT: v3d.rotate_view(mm.relative)
+			else: _camc().pan_screen(mm.relative)
 		else:
 			_hover(mm.position)
 	elif ev is InputEventMagnifyGesture:
-		cam.zoom_at((ev as InputEventMagnifyGesture).factor, (ev as InputEventMagnifyGesture).position)
+		_camc().zoom_at((ev as InputEventMagnifyGesture).factor, (ev as InputEventMagnifyGesture).position)
 	elif ev is InputEventPanGesture:
-		cam.pan_screen(-(ev as InputEventPanGesture).delta * 20)
+		_camc().pan_screen(-(ev as InputEventPanGesture).delta * 20)
 	elif ev is InputEventKey and ev.pressed and not ev.echo:
 		var k: int = (ev as InputEventKey).keycode
 		if JUMP.has(k): _jump_key(k)
+		elif k == KEY_V: toggle_3d()
 		elif k == KEY_ENTER or k == KEY_KP_ENTER: next_click()
 
-## a screen point on the map, in board coordinates
-func _world(sp: Vector2) -> Vector2: return board.get_canvas_transform().affine_inverse() * sp
+## a screen point on the map, in board coordinates (far away when it is off the board in the 3D view)
+func _world(sp: Vector2) -> Vector2:
+	if v3d.on:
+		var p = v3d.board_point(sp)
+		return p if p != null else Vector2(-1e7, -1e7)
+	return board.get_canvas_transform().affine_inverse() * sp
+
+## the camera the mouse drives: the flat map's or the 3D view's
+func _camc(): return v3d if v3d.on else cam
+
+## glide to a board point, zooming in to at least z (flat map zoom)
+func fly(p: Vector2, z := -1.0) -> void:
+	if v3d.on: v3d.fly_to(p, z)
+	else: cam.fly_to(p, maxf(cam.zoom.x, z) if z > 0 else -1.0)
+
+func toggle_3d() -> void:
+	var to3: bool = not v3d.on
+	var focus: Vector2 = cam.get_screen_center_position()
+	v3d.enable(to3)
+	bg.visible = not to3
+	_btn3d.text = "Flat map" if to3 else "3D view"
+	if to3: v3d.fly_to(focus, cam.zoom.x)
+	else:
+		var bp = v3d.L.from_scene(Vector2(v3d.target.x, v3d.target.z))
+		if bp != null: cam.position = bp
+	_tip.visible = false
 
 # ---------------- camera hotkeys: belts cycle through their satellites on repeated presses ----------------
 const JUMP := {KEY_1: ["mer"], KEY_2: ["ven"], KEY_SPACE: ["ear"], KEY_3: ["mar"], KEY_4: ["bel", "cer", "ves", "hyg"], KEY_5: ["jup"], KEY_6: ["sat"],
@@ -185,7 +224,7 @@ func _jump_key(key: int) -> void:
 	_jump_last = key
 	var k: String = list[_jump_i]
 	if D.SYS.has(k): _jump(k)
-	elif board.geo.worlds.has(k): cam.fly_to(board.world_center(k), maxf(cam.zoom.x, 0.6))
+	elif board.geo.worlds.has(k): fly(board.world_center(k), 0.6)
 
 # ---------------- hover tips and the counter zoom ----------------
 var _drag_ship = null
@@ -310,7 +349,7 @@ func _zoom_counter(h: Dictionary) -> void:
 func _jump(sy: String) -> void:
 	var hub = D.SYS[sy].hub
 	var p: Vector2 = board.world_center(hub) if (hub != null and board.geo.worlds.has(hub)) else board.v2(board.geo.sys[sy].flyby)
-	cam.fly_to(p, maxf(cam.zoom.x, 0.38))
+	fly(p, 0.38)
 
 func _click(pt: Vector2) -> void:
 	var G = Game.G
@@ -633,7 +672,7 @@ func _turn_move(box, G) -> void:
 		var h := _ship_row(box, G, s, E.locName(s.loc))
 		UIK.button(h, "Select", func():
 			Game.select({"t": "ship", "id": s.id})
-			if s.loc != "earth": cam.fly_to(board.pos_of(s.loc))
+			if s.loc != "earth": fly(board.pos_of(s.loc))
 			tabs.current_tab = 1)
 	var waiting: Array = G.ships.filter(func(s): return s.loc == "earth" and not E.moves(G, s).size())
 	if waiting.size():
@@ -1215,7 +1254,7 @@ func _settings_menu() -> void:
 	var rows := [
 		["confirmNext", "Confirm before Next", "Ask before ending a phase or step, and list what you have not used yet."],
 		["autosave", "Autosave", "Save the campaign to the autosave slot each time you press Next."],
-		["anim", "Animated board", "Rolling dice and other small animations."],
+		["anim", "Animated board", "Spinning planets, drifting stars, the sun's corona, glowing exploration boxes and rolling dice."],
 		["rerolls", "Improved engine reliability", "Optional rule: two engine-failure rerolls per campaign (applies to new games)."],
 		["scrapRE", "Scrap explorers and launch vehicles", "Optional rule: telescopes, orbiters over your bases, rovers on your base's surface and stocked launch vehicles can be scrapped at your bases and on Earth like crew vehicles (applies to new games%s)." % (" and this one" if Game.G != null else "")],
 		["enhTrade", "Enhanced trading", "Optional rule: a trade marker at a non-player faction's base stays until every faction in play has traded there once; markers still there in the next economic phase are replaced (applies to new games, loaded saves%s)." % (" and this one" if Game.G != null else "")]]
@@ -1233,6 +1272,25 @@ func _settings_menu() -> void:
 		var key: String = r[0]
 		cb.toggled.connect(func(on): Game.set_setting(key, on))
 		h.add_child(cb)
+	for r in [["sfxVol", "Sound effects"], ["musicVol", "Music"]]:
+		var c := UIK.card(menu_box)
+		var h := UIK.hbox(c, 12)
+		var l := UIK.rich(h, "[b]%s[/b]" % r[1], 15)
+		l.custom_minimum_size.x = 160
+		var sl := HSlider.new()
+		sl.min_value = 0.0
+		sl.max_value = 1.0
+		sl.step = 0.05
+		sl.value = Game.settings[r[0]]
+		sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		sl.focus_mode = Control.FOCUS_NONE
+		var key: String = r[0]
+		sl.value_changed.connect(func(v):
+			Game.set_setting(key, v)
+			sfx.apply_volumes()
+			if key == "sfxVol": sfx.play("select"))
+		h.add_child(sl)
 	UIK.button(UIK.flow(menu_box), "Back", func(): _menu_back())
 
 func _load(i := 0) -> void:
