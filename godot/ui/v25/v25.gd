@@ -185,7 +185,7 @@ func setup(m: Node) -> void:
 	_sh.r = load("res://ui/v25/v25_rock.gdshader")
 	_sh.pt = load("res://ui/v25/v25_points.gdshader")
 	Game.changed.connect(touch)
-	for k in ["bodies", "galaxies", "nebulae", "deep_bg", "neb_wash"]:
+	for k in ["bodies", "galaxies", "nebulae", "deep_bg", "neb_wash", "andromeda"]:
 		_tex[k] = load("res://assets/bodies.png" if k == "bodies" else "res://assets/v25/%s.png" % k)
 	cam = Camera3D.new()
 	cam.fov = rad_to_deg(FOV)
@@ -472,11 +472,11 @@ func computeBoxes() -> Array:
 				if not is_same(o, it) and o.B.k == B.k and not o.B.fly: nd = minf(nd, (o.c as Vector2).distance_to(c))
 			var side := minf(it.s * .92, nd * .86)
 			var h := side / 2
-			var ca := cos(toHub)
-			var sa := sin(toHub)
+			# a round pad: no corners to line up, so every box sits the same way round its hub
+			var rad := minf(side * 1.08, nd * .92) / 2.0
 			shape = []
-			for uv in [[-h, -h], [h, -h], [h, h], [-h, h]]: shape.append(Vector2(c.x + uv[0] * ca - uv[1] * sa, c.y + uv[0] * sa + uv[1] * ca))
-			cs = side
+			for j in 24: shape.append(Vector2(c.x + cos(j * TAU / 24.0 + PI / 4) * rad, c.y + sin(j * TAU / 24.0 + PI / 4) * rad))
+			cs = rad * 2.0
 		else:
 			shape = it.pts
 			cs = it.s
@@ -501,7 +501,7 @@ func _slab_geo(it: Dictionary) -> Dictionary:
 	var P := []
 	for q in pts: P.append(Vector2(cx + (q.x - cx) * .94, cz + (q.y - cz) * .94))
 	var fly: bool = it.B.fly
-	it.geo = {"P": P, "cx": cx, "cz": cz, "hgt": 9.0 if fly else 7.0, "pal": PAL.fly if fly else PAL.box, "label": "FLYBY" if fly else String(it.B.n), "cs": it.cs, "tri": earclip(P)}
+	it.geo = {"P": P, "cx": cx, "cz": cz, "hgt": 9.0 if fly else 7.0, "pal": PAL.fly if fly else PAL.box, "label": "FLYBY" if fly else String(it.B.n), "cs": it.cs, "tri": earclip(P), "round": not fly}
 	return it.geo
 func slab_body(out: Dictionary, g: Dictionary, hi: bool) -> void:
 	var P: Array = g.P
@@ -545,7 +545,11 @@ func slab_beams(beam: VB, glowv: VB, g: Dictionary, hi: bool) -> void:
 	var r := 7.0
 	var Rr := rgt * r
 	var U := cup * r
-	for q in g.P:
+	var BP: Array = g.P
+	if g.get("round", false):
+		BP = []
+		for j in range(0, g.P.size(), maxi(1, g.P.size() / 4)): BP.append(g.P[j])
+	for q in BP:
 		quad(beam, [Vector3(q.x - rgt.x * .9, hgt + 15, q.y - rgt.z * .9), Vector3(q.x + rgt.x * .9, hgt + 15, q.y + rgt.z * .9), Vector3(q.x + rgt.x * .9, hgt, q.y + rgt.z * .9), Vector3(q.x - rgt.x * .9, hgt, q.y - rgt.z * .9)], UV1, Color(rim.r, rim.g, rim.b, .55))
 		var y := 7.0 + 14
 		quad(glowv, [Vector3(q.x - Rr.x + U.x, y - Rr.y + U.y, q.y - Rr.z + U.z), Vector3(q.x + Rr.x + U.x, y + Rr.y + U.y, q.y + Rr.z + U.z), Vector3(q.x + Rr.x - U.x, y + Rr.y - U.y, q.y + Rr.z - U.z), Vector3(q.x - Rr.x - U.x, y - Rr.y - U.y, q.y - Rr.z - U.z)], UV1, Color(.4, .9, 1, .5))
@@ -1215,71 +1219,24 @@ func drawModel(it: Dictionary) -> void:
 	for e in parts: drawRock(e.o, u * e.p.s, e.p)
 
 var DEEPI = null
+## Deep Space Astronomy: the Andromeda galaxy with its companions, in the free part of the world's area
 func drawDeep(it: Dictionary) -> void:
 	var u: float = it.u
 	var pod: Dictionary = podOfW("dsa")
 	var rc: Array = pod.rect
 	var ar = ASM.dsa.rect if ASM.has("dsa") else null
-	var key := str(rc)
-	if DEEPI == null or DEEPI.key != key:
-		var r := Mulb.new(901)
-		var gal := []
-		var neb := []
-		var Wd: float = rc[2] - rc[0]
-		var Hd: float = rc[3] - rc[1]
-		var clear := func(x: float, z: float, s: float) -> bool: return ar == null or not (x + s * .7 > ar[0] - 20 and x - s * .7 < ar[2] + 20 and z + s * .7 > ar[1] - 20 and z - s * 1.9 < ar[3] + s * 1.4)
-		for i in 9:
-			var x := 0.0
-			var z := 0.0
-			var t := 0
-			var ok := false
-			var sz := u * (2 + r.next() * 1.6)
-			while true:
-				x = rc[0] + sz * .5 + (Wd - sz) * pow(r.next(), 1.1)
-				z = rc[1] + sz * .4 + (Hd - sz * .8) * (1 - pow(r.next(), 1.2))
-				ok = true
-				for q in neb:
-					if Vector2(q.x - x, q.z - z).length() <= (q.s + sz) * .62:
-						ok = false
-						break
-				t += 1
-				if (ok and clear.call(x, z, sz * .5)) or t >= 200: break
-			if t < 200: neb.append({"x": x, "z": z, "cell": int(r.next() * 4), "s": sz, "y": -u * .2})
-		for i in 56:
-			var x := 0.0
-			var z := 0.0
-			var t := 0
-			var ok := false
-			var sz := u * (.8 + pow(r.next(), 1.5) * 1.5) * 1.75
-			while true:
-				x = rc[0] + sz * .6 + (Wd - sz * 1.2) * pow(r.next(), 1.25)
-				z = rc[1] + sz * .9 + (Hd - sz * 1.2) * (1 - pow(r.next(), 1.3))
-				ok = true
-				for q in gal:
-					if Vector2(q.x - x, q.z - z).length() <= (q.s + sz) * .42:
-						ok = false
-						break
-				t += 1
-				if (ok and clear.call(x, z, sz)) or t >= 200: break
-			if t < 200: gal.append({"x": x, "z": z, "cell": [0, 8, 1, 9, 4, 12, 2, 10, 0, 1, 4, 2, 3, 5, 6, 7][int(r.next() * 16)], "s": sz, "y": sz * .5, "ph": r.next() * 6.2832})
-		DEEPI = {"key": key, "gal": gal, "neb": neb}
+	var Wd: float = rc[2] - rc[0]
+	var Hd: float = rc[3] - rc[1]
+	var c := Vector2((rc[0] + rc[2]) / 2.0, (rc[1] + rc[3]) / 2.0)
+	if ar != null:
+		var ac := Vector2((ar[0] + ar[2]) / 2.0, (ar[1] + ar[3]) / 2.0)
+		c += (c - ac).limit_length(Hd * .22)
+	var w := minf(Wd * .8, Hd * 1.5)
+	c.x -= Wd * .07
+	var sway := 1.0 + .015 * sin(T * .4)
 	var g := VB.new()
-	var n := VB.new()
-	for o in DEEPI.neb:
-		var cx: float = (o.cell % 2) / 2.0
-		var cy: float = int(o.cell / 2) / 2.0
-		quad(n, billboard(Vector3(o.x, o.y, o.z), o.s, o.s * .8), [cx, cy, cx + .5, cy + .5], Color(1, 1, 1, .5))
-	flush("q", n, _tex.nebulae, 0)
-	var gi := []
-	for o in DEEPI.gal: gi.append({"o": o, "d": dist2(o.x, o.y, o.z)})
-	gi.sort_custom(func(a, b): return a.d > b.d)
-	for e in gi:
-		var o: Dictionary = e.o
-		var cx: float = (o.cell % 4) / 4.0
-		var cy: float = int(o.cell / 4) / 4.0
-		var gl := 1 + .06 * sin(T * .7 + o.ph)
-		quad(g, billboard(Vector3(o.x, o.y, o.z), o.s, o.s), [cx, cy, cx + .25, cy + .25], Color(gl, gl, gl, .92))
-	flush("q", g, _tex.galaxies, 0)
+	quad(g, billboard(Vector3(c.x, u * .3, c.y), w / 2.0 * sway, w / 2.0 / 1.6 * sway), UV1, WHITE)
+	flush("q", g, _tex.andromeda, 0)
 
 func drawStars(it: Dictionary) -> void:
 	var u: float = it.u

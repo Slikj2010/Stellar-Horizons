@@ -56,7 +56,7 @@ var _dragging := false
 var _drag_btn := 0
 var _toast_t := 0.0
 var _log_seen := 0
-var _setup := {"f": "eu", "bots": false, "scenario": "std", "variant": "mil"}
+var _setup := {"f": "eu", "bots": false, "botset": [], "cnbot": "mil", "scenario": "std", "variant": "mil"}
 
 func _ready() -> void:
 	E = Game.E
@@ -1414,33 +1414,52 @@ func show_menu(mode: String) -> void:
 	UIK.head(menu_box, "Your faction")
 	var f := UIK.flow(menu_box)
 	for k in D.FAC_ORDER:
-		var b := UIK.button(f, D.FAC[k].n, func():
-			_setup.f = k
-			show_menu("start"))
-		b.add_theme_color_override("font_color", Color(D.FAC[k].c).lightened(0.25))
-		if _setup.f == k: b.add_theme_stylebox_override("normal", b.get_theme_stylebox("hover"))
+		var vs: Array = ["mil", "rob"] if k == "cn" else [""]
+		for vv in vs:
+			var lbl: String = D.FAC[k].n + ((" · " + D.FAC[k].variants[vv].n) if vv != "" else "")
+			var b := UIK.button(f, lbl, func():
+				_setup.f = k
+				if vv != "": _setup.variant = vv
+				_setup.botset = (_setup.botset as Array).filter(func(x): return x != k)
+				_setup.bots = _setup.botset.size() > 0
+				show_menu("start"))
+			b.add_theme_color_override("font_color", Color(D.FAC[k].c).lightened(0.25))
+			if _setup.f == k and (vv == "" or _setup.variant == vv): b.add_theme_stylebox_override("normal", b.get_theme_stylebox("hover"))
+	if _setup.f == "cn": UIK.para(menu_box, D.FAC.cn.variants[_setup.variant].d, UIK.DIM, 13)
 	UIK.para(menu_box, D.FAC[_setup.f].ab, UIK.DIM, 13)
 	var opts := UIK.flow(menu_box)
-	var bots := CheckButton.new()
-	bots.text = "Other factions played by bots"
-	bots.button_pressed = _setup.bots
-	bots.toggled.connect(func(on):
-		_setup.bots = on
+	var others: Array = D.FAC_ORDER.filter(func(x): return x != _setup.f)
+	var cnt := UIK.pick(opts, range(others.size() + 1).map(func(i): return "No bots (solo)" if i == 0 else "%d bot%s" % [i, "" if i == 1 else "s"]), (_setup.botset as Array).size())
+	cnt.item_selected.connect(func(i):
+		var cur: Array = (_setup.botset as Array).filter(func(x): return x in others)
+		while cur.size() > i: cur.pop_back()
+		for k in others:
+			if cur.size() >= i: break
+			if not k in cur: cur.append(k)
+		_setup.botset = cur
+		_setup.bots = cur.size() > 0
 		show_menu("start"))
-	opts.add_child(bots)
 	var scen := UIK.pick(opts, ["Standard campaign (2030)", "Futuristic start (2060)"], 1 if _setup.scenario == "fut2060" else 0)
 	scen.item_selected.connect(func(i): _setup.scenario = "fut2060" if i == 1 else "std")
-	if _setup.f == "cn":
-		var vr := UIK.pick(opts, ["Military policy", "Robotic policy"], 1 if _setup.variant == "rob" else 0)
-		vr.item_selected.connect(func(i): _setup.variant = "rob" if i == 1 else "mil")
-	if _setup.bots:
-		UIK.head(menu_box, "The other factions play as bots")
-		for k in D.FAC_ORDER:
-			if k == _setup.f: continue
-			var row := UIK.hbox(menu_box, 8)
-			var nm := UIK.para(row, D.FAC[k].n, Color(D.FAC[k].c).lightened(0.25), 12, 0)
-			nm.custom_minimum_size.x = 120
-			UIK.para(row, _bot_blurb(k), UIK.DIM, 12, 560)
+	UIK.head(menu_box, "Bots: tick the factions that play as bots")
+	for k in others:
+		var row := UIK.hbox(menu_box, 8)
+		var ck := CheckBox.new()
+		ck.text = D.FAC[k].n
+		ck.button_pressed = k in _setup.botset
+		ck.add_theme_color_override("font_color", Color(D.FAC[k].c).lightened(0.25))
+		ck.custom_minimum_size.x = 150
+		ck.toggled.connect(func(on):
+			var cur: Array = _setup.botset
+			if on and not k in cur: cur.append(k)
+			if not on: cur.erase(k)
+			_setup.bots = cur.size() > 0
+			show_menu("start"))
+		row.add_child(ck)
+		if k == "cn":
+			var vp := UIK.pick(row, ["Military", "Robotic"], 1 if _setup.cnbot == "rob" else 0)
+			vp.item_selected.connect(func(i): _setup.cnbot = "rob" if i == 1 else "mil")
+		UIK.para(row, _bot_blurb(k), UIK.DIM, 12, 520)
 	var on: Array = []
 	for k in [["rerolls", "engine rerolls"], ["scrapRE", "scrap explorers and LVs"], ["enhTrade", "enhanced trading"]]:
 		if Game.settings[k[0]]: on.append(k[1])
@@ -1579,5 +1598,5 @@ func _start() -> void:
 	var bots := []
 	if _setup.bots:
 		for k in D.FAC_ORDER:
-			if k != _setup.f: bots.append({"f": k})
+			if k != _setup.f and k in _setup.botset: bots.append({"f": k, "variant": _setup.cnbot} if k == "cn" else {"f": k})
 	Game.new_campaign(_setup.f, opts, bots)

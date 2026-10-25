@@ -312,6 +312,24 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 				main.v25.touch()])
 			a.append(["wait", 14])
 			a.append(["shot", "pl_" + k])
+	if plan == "picker":
+		a.append(["call", func():
+			main._setup.f = "cn"
+			main._setup.botset = ["na", "eu", "cn"] if false else ["na", "eu"]
+			main._setup.bots = true
+			main.show_menu("start")])
+		a.append(["wait", 10])
+		a.append(["shot", "80_picker"])
+		a.append(["call", func():
+			main._start()])
+		a.append(["wait", 40])
+		a.append(["call", func(): print("FACS ", Game.G.f, " ", Game.G.variant, " ", Game.W.facs.keys())])
+	if plan == "dsa":
+		a.append(["call", func(): main.toggle_3d()])
+		a.append(["wait", 20])
+		a.append(["call", func(): main.v25.focusPod("dsa")])
+		a.append(["wait", 20])
+		a.append(["shot", "70_dsa"])
 	if plan == "3d" or plan == "3dbots":
 		if plan == "3dbots":
 			a.append(["call", func():
