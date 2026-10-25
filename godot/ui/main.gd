@@ -131,10 +131,12 @@ func _startup_load() -> void:
 		ResourceLoader.load(paths[i])
 	loading.step(0.55, "Building the 2.5D scene…")
 	await get_tree().process_frame
+	board.set_layout(false)  # the 2.5D scene is built on the printed sheet's geometry, not the flat winding layout
 	v25.ensure()
 	loading.step(0.75, "Building models…")
 	await get_tree().process_frame
 	if v25.MODELS.is_empty(): v25._build_models()
+	board.set_layout(true)
 	loading.step(1.0, "Ready")
 	await get_tree().process_frame
 	loading.done()

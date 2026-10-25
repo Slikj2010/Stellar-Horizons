@@ -334,6 +334,12 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 			print("TOGGLE_MS ", Time.get_ticks_msec() - t0)])
 		a.append(["wait", 10])
 		a.append(["shot", "94_25d"])
+		a.append(["call", func(): main.v25.fit()])
+		a.append(["wait", 10])
+		a.append(["shot", "95_fit"])
+		a.append(["call", func(): main.v25.focusPod("jup")])
+		a.append(["wait", 10])
+		a.append(["shot", "96_jup"])
 	if plan == "picker":
 		a.append(["call", func():
 			main._setup.f = "cn"

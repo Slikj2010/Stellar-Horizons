@@ -378,6 +378,11 @@ func ringOf(k: String) -> Dictionary: return board.ring_of(k)
 
 func ensure() -> void:
 	if LAY != null: return
+	if board.flat_on:  # built on the printed sheet's geometry, never the flat winding layout
+		board.set_layout(false)
+		ensure()
+		board.set_layout(true)
+		return
 	var m: Array = board.geo_std.maps[sunJ.map]
 	var sc := [m[0] + sunJ.cx * .4, m[1] + sunJ.cy * .4]
 	LAY = V25Layout.new()
