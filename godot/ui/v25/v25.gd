@@ -205,6 +205,7 @@ func setup(m: Node) -> void:
 		env.background_mode = Environment.BG_SKY
 		env.sky = sky
 		env.sky_rotation = Vector3(0, 0, PI / 2)  # the panorama's poles lie on the horizon, where the camera rarely looks
+		env.background_energy_multiplier = 0.55
 	else:
 		env.background_mode = Environment.BG_COLOR
 		env.background_color = Color(.008, .014, .03)
