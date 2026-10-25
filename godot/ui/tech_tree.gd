@@ -198,16 +198,64 @@ func pass_research() -> void:
 		return e
 	main.confirm("Pass research?", "You develop no more technologies this decade. The other factions keep taking research turns until they pass too.", go, "Pass")
 
-## politics markers to cash or tech points
+## politics markers to cash or tech points: one slider per target, together at most the markers you hold
 func convert_dialog() -> void:
 	var G = Game.G
-	var k := 3 if E.polLv(G, "dip") >= 3 else 2
-	main.choose("Convert politics markers", "You have %d politics markers. Each converts to $1B or %d tech points." % [G.polm, k], [
-		["$1B", func(): return E.convertPolitics(G, "cash")],
-		["%d Physics" % k, func(): return E.convertPolitics(G, "Phy")],
-		["%d Engineering" % k, func(): return E.convertPolitics(G, "Eng")],
-		["%d Biology" % k, func(): return E.convertPolitics(G, "Bio")],
-	])
+	var n := 3 if E.polLv(G, "dip") >= 3 else 2
+	var mx: int = int(G.polm)
+	var box: VBoxContainer = main.modal_box
+	UIK.clear(box)
+	UIK.title(box, "Convert politics markers")
+	UIK.para(box, "You hold %d politics marker%s. Each becomes $1B or %d tech points of one field. Together the sliders use at most %d." % [mx, "" if mx == 1 else "s", n, mx], null, 14, 420)
+	var T := [["cash", "Cash", 1, "$", "B", null]]
+	for f in E.FIELDS: T.append([f, E.FN[f], n, "", " pts", UIK.FIELD_COL[f]])
+	var sls := []
+	for t in T:
+		var sl := UIK.slider(box, t[1], mx, 0, t[5])
+		sl.set_meta("k", t[0])
+		sls.append(sl)
+	var sum := UIK.para(box, "", null, 14, 420)
+	var goh := [null]
+	var upd := func():
+		var tot := 0
+		for i in sls.size():
+			var v := int(sls[i].value)
+			tot += v
+			(sls[i].get_meta("tail") as Label).text = ("→ +%s%d%s" % [T[i][3], v * int(T[i][2]), T[i][4]]) if v else ""
+		sum.text = ("Converting %d of %d markers; %d left." % [tot, mx, mx - tot]) if tot else "Move a slider to choose."
+		if goh[0] != null: goh[0].disabled = tot == 0
+	UIK.share_cap(sls, mx, upd)
+	var f := UIK.flow(box)
+	var run := func():
+		main.modal.visible = false
+		var err = null
+		for sl in sls:
+			for i in int(sl.value):
+				err = E.convertPolitics(G, sl.get_meta("k"))
+				if err != null: break
+			if err != null: break
+		Game.act(err)
+	goh[0] = UIK.button(f, "Convert", run, true)
+	UIK.button(f, "Cancel", func(): main.modal.visible = false)
+	main._modal_enter = run
+	main.modal.visible = true
+
+## every faction's tech bank in this step's turn order (the web version's tech-bank strip)
+func facbanks_bb(G) -> String:
+	if G.world == null: return ""
+	var RT = rt_info(G)
+	var order: Array = RT.seq if RT != null else G.world.meta.order
+	var parts := []
+	for f in order:
+		var g = G.world.facs[f]
+		var passed: bool = RT != null and SHRules.t(RT.done.get(f))
+		var s := "[color=#%s][b]%s%s[/b][/color]" % [Color(D.FAC[f].c).to_html(false), D.FAC[f].pre, " (you)" if f == G.f else ""]
+		for x in E.FIELDS: s += " [color=#%s]%s[/color] %d" % [UIK.FIELD_COL[x].to_html(false), x.substr(0, 1), int(g.bank[x])]
+		if passed: s += " [i]passed[/i]"
+		if RT != null and RT.cur == f: s = "[bgcolor=#1f3a4d] " + s + " [/bgcolor]"
+		if passed: s = "[color=#6b7c8f]" + s + "[/color]"
+		parts.append(s)
+	return "[color=#8fa3b8]Tech banks%s:[/color]   %s" % [" (turn order)" if RT != null else "", "    ".join(parts)]
 
 # ---------------- technology tree ----------------
 func _tpos(k: String) -> Array: return D.TECH_POS[k]
@@ -236,13 +284,7 @@ func _build_tech(G) -> void:
 		var rs := UIK.rich(h2, rt_status_bb(G), 14)
 		rs.custom_minimum_size.x = 520
 		if RT.mine and not RT.passed: UIK.button(h2, "Pass", func(): pass_research())
-	if G.world != null:
-		var order: Array = RT.seq if RT != null else G.world.meta.order
-		var parts := []
-		for f in order:
-			var g = G.world.facs[f]
-			parts.append("[color=#%s]%s%s[/color] %d/%d/%d" % [Color(D.FAC[f].c).to_html(false), D.FAC[f].pre, " (you)" if f == G.f else "", g.bank.Phy, g.bank.Eng, g.bank.Bio])
-		UIK.rich(top, "[color=#8fa3b8]Tech banks (Physics/Engineering/Biology):[/color] " + "   ".join(parts), 13)
+	if G.world != null: UIK.rich(top, facbanks_bb(G), 14)
 	# layout
 	var W := LAB + PAD + 7 * (CW + GX)
 	var H := 12 * (CH + GY) + PAD * 2

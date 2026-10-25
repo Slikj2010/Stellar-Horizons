@@ -795,9 +795,7 @@ func _turn_econ(box, G) -> void:
 	if st == "politics" or st == "tech":
 		UIK.head(box, "Politics markers: %d" % G.polm)
 		var f := UIK.flow(box)
-		for to in ["cash", "Phy", "Eng", "Bio"]:
-			var lbl: String = "→ $1B" if to == "cash" else "→ %d %s" % [3 if E.polLv(G, "dip") >= 3 else 2, E.FN[to]]
-			UIK.button(f, lbl, func(): Game.act(E.convertPolitics(G, to)), G.polm < 1)
+		UIK.button(f, "Convert politics markers…", func(): ttree.convert_dialog(), G.polm < 1)
 		UIK.button(f, "Buy victory marker (4)", func(): Game.act(E.buyVictory(G)), G.polm < 4)
 		UIK.button(f, "Redraw mission (2)", func(): Game.act(E.redrawMission(G)), G.polm < 2 or G.mis.mine == null)
 	if st == "initiative" and G.world != null:
@@ -924,17 +922,30 @@ func _turn_move(box, G) -> void:
 		UIK.para(box, "On Earth without a launch: " + ", ".join(waiting.map(func(s): return s.name)) + ". They need a launch vehicle (build one, or one is bought at launch if a counter is free).", UIK.DIM, 13)
 	if G.bases.size():
 		UIK.head(box, "Cargo flight from Earth to a base")
-		var h := UIK.flow(box)
-		var bp := UIK.pick(h, G.bases.map(func(b): return b.name))
-		var sp := {}
-		for r in ["ORE", "SUP", "FUEL"]:
-			UIK.para(h, r, UIK.DIM, 13)
-			sp[r] = UIK.spin(h, 0, 9, 1 if r != "FUEL" else 0, 64)
-		UIK.button(h, "Launch cargo", func():
-			var ld := {}
-			for r in sp:
-				if sp[r].value > 0: ld[r] = int(sp[r].value)
-			Game.act(E.shipCargo(G, G.bases[bp.selected].id, ld)))
+		var lvl := E.launchLVs(G, "earth", 1)
+		if not lvl.size():
+			UIK.para(box, "No launch vehicle available on Earth.", UIK.DIM, 13)
+		else:
+			UIK.para(box, "An LV carries resources to one of your bases: faction-board resources first, the rest bought at $1B each. Capacity = LV size%s." % [" + 1 (Equatorial Launch Sites)" if G.f == "sa" else ""], UIK.DIM, 13, 0)
+			var h := UIK.flow(box)
+			var bp := UIK.pick(h, G.bases.map(func(b): return b.name))
+			var lp := UIK.pick(h, lvl.map(func(o): return "LV-%d %s · carries %d" % [o.n, "from stock" if SHRules.t(o.get("stock")) else "(new: %s)" % o.txt, (o.n + (1 if G.f == "sa" else 0)) * E.cargoMul(G)]))
+			var slot := UIK.vbox(box)
+			var cu := [null]
+			var build := func():
+				UIK.clear(slot)
+				var o: Dictionary = lvl[lp.selected]
+				var cap: int = (int(o.n) + (1 if G.f == "sa" else 0)) * E.cargoMul(G)
+				cu[0] = cargo_sliders(slot, cap, "LV-%d cargo" % int(o.n), func(): return null if not SHRules.t(o.get("buy")) else o.cost)
+			lp.item_selected.connect(func(_i): build.call())
+			build.call()
+			UIK.button(box, "Launch cargo", func():
+				var ld: Dictionary = cu[0].load.call()
+				if E.sum(ld) == 0:
+					show_toast("Set some cargo with the sliders first.")
+					return
+				var o: Dictionary = lvl[lp.selected]
+				Game.act(E.shipCargo(G, G.bases[bp.selected].id, ld, int(o.n))))
 
 func _turn_combat(box, G) -> void:
 	var opts := E.combatOptions(G)
@@ -1071,11 +1082,14 @@ func _sel_ship_panel(box, G, s) -> void:
 				var hh := UIK.hbox(box)
 				UIK.para(hh, "Launch vehicle", UIK.DIM)
 				lvpick = UIK.pick(hh, lvs.map(func(x): return ("LV-%d (in stock)" % x.n) if SHRules.t(x.get("stock")) else ("LV-%d (buy: %s)" % [x.n, x.txt])))
-			var cargo_spin: SpinBox = null
-			if s.cls == "CV" and s.loc == "earth" and SHRules.t(s.cap):
-				var hh := UIK.hbox(box)
-				UIK.para(hh, "Load SUP at launch", UIK.DIM)
-				cargo_spin = UIK.spin(hh, 0, s.cap * E.cargoMul(G) - E.sum(s.cargo), 0)
+			var cargo_ui = null
+			if s.cls == "CV" and s.loc == "earth" and SHRules.t(s.cap) and s.cap * E.cargoMul(G) > E.sum(s.cargo):
+				var newlv := func():
+					if lvs.size() == 0: return null
+					var o: Dictionary = lvs[lvpick.selected] if lvpick != null else lvs[0]
+					return o.cost if SHRules.t(o.get("buy")) else null
+				cargo_ui = cargo_sliders(box, int(s.cap * E.cargoMul(G) - E.sum(s.cargo)), "Load cargo on Earth", newlv)
+				if lvpick != null: lvpick.item_selected.connect(func(_i): cargo_ui.update.call())
 			var by_sys := {}
 			for m in mv:
 				if m.dest == s.loc: continue
@@ -1091,7 +1105,9 @@ func _sel_ship_panel(box, G, s) -> void:
 					UIK.button(f, lbl, func():
 						var extra := {}
 						if lvpick != null: extra.lvSize = lvs[lvpick.selected].n
-						if cargo_spin != null and cargo_spin.value > 0: extra.load = {"SUP": int(cargo_spin.value)}
+						if cargo_ui != null:
+							var ld: Dictionary = cargo_ui.load.call()
+							if E.sum(ld) > 0: extra.load = ld
 						do_move(s, m.dest, extra))
 		elif s.loc == "earth": UIK.para(box, "No launch is possible now (it needs a launch vehicle, or it has moved this turn).", UIK.DIM)
 	if G.phase == "explore":
@@ -1106,9 +1122,23 @@ func _sel_ship_panel(box, G, s) -> void:
 		var b = E.atOwnBase(G, s)
 		if b != null and E.sum(s.cargo): UIK.button(box, "Unload at " + b.name, func(): Game.act(E.unload(G, s, b)))
 	if s.loc == "earth" and SHRules.t(s.cap):
-		var f := UIK.flow(box)
-		UIK.button(f, "Buy 1 SUP into the hold", func(): Game.act(E.buyCargo(G, s, "SUP", 1)))
-		if E.sum(s.cargo): UIK.button(f, "Unload onto the faction board", func(): Game.act(E.sellCargo(G, s)))
+		UIK.head(box, "Cargo on Earth")
+		var room: int = int(s.cap * E.cargoMul(G) - E.sum(s.cargo))
+		if room > 0:
+			var lbh := [null]
+			var cuh := [null]
+			cuh[0] = cargo_sliders(box, room, "Load cargo into the hold", null, func(ok): if lbh[0] != null: lbh[0].disabled = not ok or E.sum(cuh[0].load.call()) == 0)
+			lbh[0] = UIK.button(box, "Load", func():
+				var L: Dictionary = cuh[0].load.call()
+				var err = null
+				for r in ["ORE", "SUP", "FUEL"]:
+					if int(L[r]) > 0:
+						err = E.buyCargo(G, s, r, int(L[r]))
+						if err != null: break
+				Game.act(err), true)
+			UIK.para(box, "Or load while launching: the move buttons above use the same sliders.", UIK.DIM, 12, 0)
+		else: UIK.para(box, "The hold is full.", UIK.DIM, 13)
+		if E.sum(s.cargo): UIK.button(box, "Unload onto the faction board", func(): Game.act(E.sellCargo(G, s)))
 	var sv = E.scrapValue(G, s)
 	if G.phase == "build" and sv != null: UIK.button(box, "Scrap (recover %s)" % E.resTxt(sv.back), func(): Game.act(E.scrap(G, s)))
 
@@ -1191,8 +1221,42 @@ func build_tech_panel() -> void:
 	for f in E.FIELDS: UIK.rich(box, "[color=#%s]%s[/color]: [b]%d[/b] points" % [UIK.FIELD_COL[f].to_html(false), E.FN[f], G.bank[f]], 14)
 	var cnt: int = D.TECH.filter(func(t): return SHRules.t(G.tech.get(t.k))).size()
 	UIK.para(box, "%d of %d developed. Each undeveloped technology costs 3 VP at the end. Costs drop by 3 for each other faction that has a technology (the faction tags on its card)." % [cnt, D.TECH.size()], UIK.DIM, 13)
+	if G.world != null: UIK.rich(box, ttree.facbanks_bb(G), 13)
 	UIK.button(box, "Convert politics markers (%d)…" % G.polm, func(): ttree.convert_dialog(), G.polm < 1)
 	UIK.button(box, "Back to the map", func(): tabs.current_tab = TAB_TURN)
+
+const RES_COL := {"ORE": Color("#c9d4e0"), "SUP": Color("#6fb3ff"), "FUEL": Color("#f2a93b")}
+## sliders for ORE / SUP / FUEL that share one hold's free room (the web version's cargoSliders). extra = a Callable that
+## returns other Earth costs to add (a new launch vehicle), or null. Returns {"load": Callable -> {ORE,SUP,FUEL}, "update": Callable, "ok": Callable -> bool}
+func cargo_sliders(box: Node, room: int, title: String, extra = null, on_change = null) -> Dictionary:
+	var G = Game.G
+	var c := UIK.card(box)
+	UIK.para(c, "%s: %d free. Resources on your faction board are used first, the rest is bought at $1B each." % [title, room], UIK.DIM, 13, 0)
+	var sls := {}
+	for r in ["ORE", "SUP", "FUEL"]: sls[r] = UIK.slider(c, r, room, 0, RES_COL[r])
+	var cost := UIK.rich(c, "", 13)
+	var st := {"ok": true}
+	var load_fn := func() -> Dictionary:
+		var d := {}
+		for r in sls: d[r] = int(sls[r].value)
+		return d
+	var upd := func():
+		var L: Dictionary = load_fn.call()
+		var all: Dictionary = L.duplicate()
+		var x = extra.call() if extra != null else null
+		if x != null:
+			for r in x: all[r] = int(all.get(r, 0)) + int(x[r])
+		var cash: int = E.earthCash(G, all)
+		st.ok = cash <= G.cash
+		if E.sum(L) or x != null:
+			var pre: String = ("Cargo %s" % UIK.res_bb(L)) if E.sum(L) else "New launch vehicle"
+			if E.sum(L) and x != null and E.sum(x): pre += " plus the new launch vehicle"
+			cost.text = "%s: [b][color=#%s]%s[/color][/b]%s" % [pre, (UIK.GOOD if st.ok else UIK.BAD).to_html(false), E.earthCostTxt(G, all), "" if st.ok else " (you have $%dB)" % int(G.cash)]
+		else: cost.text = "[color=#8fa3b8]No cargo.[/color]"
+		if on_change != null: on_change.call(st.ok)
+	UIK.share_cap(sls.values(), room, upd)
+	upd.call()
+	return {"load": load_fn, "update": upd, "ok": func(): return st.ok}
 
 func build_pol_panel() -> void:
 	var G = Game.G

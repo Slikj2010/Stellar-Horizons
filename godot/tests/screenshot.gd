@@ -340,6 +340,42 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 		a.append(["call", func(): main.v25.focusPod("jup")])
 		a.append(["wait", 10])
 		a.append(["shot", "96_jup"])
+	if plan == "sliders":
+		a.append(["call", func():
+			Game.G.polm = 4
+			main.ttree.convert_dialog()])
+		a.append(["wait", 8])
+		a.append(["call", func():
+			var bx = main.modal_box
+			var sl: Array = []
+			for r in bx.get_children():
+				for c in r.get_children():
+					if c is HSlider: sl.append(c)
+			sl[0].value = 1
+			sl[2].value = 2])
+		a.append(["wait", 8])
+		a.append(["shot", "85_convert"])
+		a.append(["call", func():
+			main.modal.visible = false
+			main.tabs.current_tab = main.TAB_TECH
+			Game.G.estep = "tech"
+			Game.changed.emit()])
+		a.append(["wait", 10])
+		a.append(["shot", "86_tech"])
+		a.append(["call", func():
+			main.tabs.current_tab = 1
+			Game.G.phase = "build"
+			var s = SHRules._find(Game.G.ships, func(x): return x.cls == "CV")
+			s.loc = "earth"
+			s.launched = false
+			s.cap = 4
+			s.moved = false
+			print("SHIP ", s.name)
+			Game.select({"t": "ship", "id": s.id})
+			Game.G.phase = "move"
+			Game.changed.emit()])
+		a.append(["wait", 10])
+		a.append(["shot", "87_cargo"])
 	if plan == "picker":
 		a.append(["call", func():
 			main._setup.f = "cn"

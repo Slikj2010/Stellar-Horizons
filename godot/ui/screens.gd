@@ -252,14 +252,14 @@ static func _plan(box: Node, r: int, tb: Dictionary, picks_ok: bool, default_dir
 	var picks: SpinBox = _spin_row(c, "Pick targets instead of your opponent", r, "1 point each") if picks_ok else null
 	var sum := UIK.rich(c, "")
 	var go_row := UIK.flow(c)
-	var go: Button
+	var goh := [null]
 	var upd := func():
 		var dir := bd.button_pressed
 		var cost: int = (1 if dir else 0) + 2 * int(inc.value) + 2 * int(red.value) + (int(picks.value) if picks != null else 0)
 		var base: Dictionary = tb.direct if dir else tb.strike
 		sum.text = "[b][color=#%s]%d[/color][/b] of %d points spent. You deal [b]%d[/b], you take [b]%d[/b]." % [(UIK.BAD if cost > r else UIK.GOOD).to_html(false), cost, r, int(base.dealt) + int(inc.value), maxi(0, int(base.taken) - int(red.value))]
-		if go != null: go.disabled = cost > r
-	go = UIK.button(go_row, "Fight with this plan", func():
+		if goh[0] != null: goh[0].disabled = cost > r
+	goh[0] = UIK.button(go_row, "Fight with this plan", func():
 		on_go.call({"mode": "direct" if bd.button_pressed else "strike", "inc": int(inc.value), "red": int(red.value), "picks": int(picks.value) if picks != null else 0}))
 	if r >= 3: UIK.button(go_row, "Call off the combat (3 points)", func(): Game.answer("avoid"))
 	if can_auto: UIK.button(go_row, "Let the game choose", func(): Game.answer("auto"))
@@ -326,7 +326,7 @@ static func assign(box: Node, a: Dictionary) -> void:
 			scr_boxes[u.key] = cb
 	var spins := {}  # side -> {key: SpinBox}
 	var counts := {}
-	var go: Button
+	var goh := [null]
 	var upd := func():
 		var ok := true
 		for g in a.groups:
@@ -334,7 +334,7 @@ static func assign(box: Node, a: Dictionary) -> void:
 			for k in spins[g.side]: t += int(spins[g.side][k].value)
 			counts[g.side].text = "Assigned [b][color=#%s]%d[/color][/b] of %d" % [(UIK.GOOD if t == int(g.n) else UIK.AMBER).to_html(false), t, int(g.n)]
 			if t != int(g.n): ok = false
-		if go != null: go.disabled = not ok
+		if goh[0] != null: goh[0].disabled = not ok
 	for g in a.groups:
 		var c := UIK.card(box)
 		UIK.head(c, "%d hit%s on %s" % [int(g.n), "s" if int(g.n) > 1 else "", side_nm.get(g.side, g.side)])
@@ -345,7 +345,7 @@ static func assign(box: Node, a: Dictionary) -> void:
 			s.value_changed.connect(func(_v): upd.call())
 		counts[g.side] = UIK.rich(c, "", 13)
 	var f := UIK.flow(box)
-	go = UIK.button(f, "Deal the damage", func():
+	goh[0] = UIK.button(f, "Deal the damage", func():
 		var alloc := {}
 		for side in spins:
 			alloc[side] = {}
@@ -371,9 +371,13 @@ static func basehit(box: Node, a: Dictionary) -> void:
 	var rc := UIK.card(box)
 	var rhead := UIK.rich(rc, "", 13)
 	var rsp := {}
-	for r in ["ORE", "SUP", "FUEL"]: rsp[r] = _spin_row(rc, r, int(SHRules.gi(a.stock, r, 0)), "of %d" % int(SHRules.gi(a.stock, r, 0)))
+	var rcol := {"ORE": Color("#c9d4e0"), "SUP": Color("#6fb3ff"), "FUEL": Color("#f2a93b")}
+	for r in ["ORE", "SUP", "FUEL"]:
+		var sl := UIK.slider(rc, r, int(SHRules.gi(a.stock, r, 0)), 0, rcol[r])
+		(sl.get_meta("tail") as Label).text = "of %d" % int(SHRules.gi(a.stock, r, 0))
+		rsp[r] = sl
 	var sum := UIK.rich(box, "", 13)
-	var go: Button
+	var goh := [null]
 	var upd := func():
 		var used := 0
 		for k in spins: used += int(spins[k].value)
@@ -384,11 +388,11 @@ static func basehit(box: Node, a: Dictionary) -> void:
 		for r in rsp: rsum += int(rsp[r].value)
 		rhead.text = "Resources destroyed: choose [b]%d[/b] (chosen %d)" % [tot, rsum]
 		sum.text = "Assigned [b][color=#%s]%d[/color][/b] of %d hits." % [(UIK.GOOD if used == int(a.n) else UIK.AMBER).to_html(false), used, int(a.n)]
-		if go != null: go.disabled = used != int(a.n) or (tot > 0 and rsum != tot)
+		if goh[0] != null: goh[0].disabled = used != int(a.n) or (tot > 0 and rsum != tot)
 	for k in spins: spins[k].value_changed.connect(func(_v): upd.call())
 	for r in rsp: rsp[r].value_changed.connect(func(_v): upd.call())
 	var f := UIK.flow(box)
-	go = UIK.button(f, "Apply the hits", func():
+	goh[0] = UIK.button(f, "Apply the hits", func():
 		var alloc := {}
 		for k in spins: alloc[k] = int(spins[k].value)
 		var res = null

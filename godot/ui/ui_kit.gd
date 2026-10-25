@@ -146,6 +146,51 @@ static func spin(box: Node, lo: int, hi: int, val: int, w := 70) -> SpinBox:
 	box.add_child(s)
 	return s
 
+## a labelled slider (whole numbers) with its value shown on the right; returns the HSlider
+static func slider(box: Node, label: String, hi: int, val := 0, col = null, w := 220) -> HSlider:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	box.add_child(row)
+	var l := Label.new()
+	l.text = label
+	l.custom_minimum_size.x = 96
+	if col != null: l.add_theme_color_override("font_color", col)
+	row.add_child(l)
+	var sl := HSlider.new()
+	sl.min_value = 0
+	sl.max_value = maxi(hi, 0)
+	sl.step = 1
+	sl.value = clampi(val, 0, maxi(hi, 0))
+	sl.custom_minimum_size = Vector2(w, 24)
+	sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	sl.focus_mode = Control.FOCUS_NONE
+	sl.editable = hi > 0
+	row.add_child(sl)
+	var v := Label.new()
+	v.custom_minimum_size.x = 30
+	v.text = str(int(sl.value))
+	row.add_child(v)
+	sl.value_changed.connect(func(x): v.text = str(int(x)))
+	var tail := Label.new()
+	tail.add_theme_color_override("font_color", DIM)
+	row.add_child(tail)
+	sl.set_meta("tail", tail)
+	return sl
+
+## sliders that share one budget: together they never go above cap (the one being moved gives way); on_change runs after each move
+static func share_cap(sliders: Array, cap: int, on_change: Callable) -> void:
+	var busy := [false]
+	for sl in sliders:
+		sl.value_changed.connect(func(_x):
+			if busy[0]: return
+			var tot := 0
+			for o in sliders: tot += int(o.value)
+			if tot > cap:
+				busy[0] = true
+				sl.value = int(sl.value) - (tot - cap)
+				busy[0] = false
+			on_change.call())
+
 static func pick(box: Node, items: Array, sel := 0) -> OptionButton:
 	var o := OptionButton.new()
 	for it in items: o.add_item(str(it))
