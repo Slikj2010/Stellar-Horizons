@@ -15,6 +15,7 @@ func _ready() -> void:
 	var bots := args.size() > 2 and args[2] == "1"
 	var plan: String = args[3] if args.size() > 3 else "basic"
 	main = load("res://scenes/main.tscn").instantiate()
+	main.warm_enabled = false
 	add_child(main)
 	actions = _plan(plan, f, bots)
 
@@ -312,6 +313,27 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 				main.v25.touch()])
 			a.append(["wait", 14])
 			a.append(["shot", "pl_" + k])
+	if plan == "warm":
+		a.append(["call", func():
+			main.warm_enabled = true
+			main._startup_load()])
+		a.append(["wait", 4])
+		a.append(["shot", "90_loading"])
+		a.append(["wait", 150])
+		a.append(["shot", "91_after"])
+		a.append(["call", func():
+			Game.new_campaign(f, {"scenario": "std"}, [])])
+		a.append(["wait", 6])
+		a.append(["shot", "92_warm"])
+		a.append(["wait", 200])
+		a.append(["shot", "93_game"])
+		a.append(["call", func():
+			var t0 := Time.get_ticks_msec()
+			main.toggle_3d()
+			main.v25.frame()
+			print("TOGGLE_MS ", Time.get_ticks_msec() - t0)])
+		a.append(["wait", 10])
+		a.append(["shot", "94_25d"])
 	if plan == "picker":
 		a.append(["call", func():
 			main._setup.f = "cn"

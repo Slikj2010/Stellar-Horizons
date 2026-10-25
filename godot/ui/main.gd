@@ -106,6 +106,56 @@ func _ready() -> void:
 	root.add_child(dev)
 	show_menu("title")
 	refresh()
+	loading = LoadingScreen.new()
+	add_child(loading)
+	_startup_load.call_deferred()
+
+var loading: LoadingScreen
+var warm_enabled := true  ## the screenshot tests turn this off
+
+## start-up: pull in every image the game uses and build the 2.5D scene now, behind a loading screen
+func _startup_load() -> void:
+	if not warm_enabled: return
+	loading.begin("Loading the solar system…")
+	await get_tree().process_frame
+	var paths: Array = []
+	for dir in ["res://assets/", "res://assets/v25/", "res://assets/maps/", "res://assets/menu/"]:
+		for fn in DirAccess.get_files_at(dir):
+			if fn.ends_with(".png") or fn.ends_with(".webp") or fn.ends_with(".import"): 
+				var pth: String = dir + fn.trim_suffix(".import")
+				if not pth in paths and not pth.ends_with(".import"): paths.append(pth)
+	for i in paths.size():
+		if i % 4 == 0:
+			loading.step(0.5 * i / maxf(1, paths.size()), "Loading art… %d / %d" % [i, paths.size()])
+			await get_tree().process_frame
+		ResourceLoader.load(paths[i])
+	loading.step(0.55, "Building the 2.5D scene…")
+	await get_tree().process_frame
+	v25.ensure()
+	loading.step(0.75, "Building models…")
+	await get_tree().process_frame
+	if v25.MODELS.is_empty(): v25._build_models()
+	loading.step(1.0, "Ready")
+	await get_tree().process_frame
+	loading.done()
+
+## when a campaign starts, run the 2.5D view once (hidden behind the loading screen) so its meshes, shaders and caches
+## are ready and the first switch to it does not freeze
+func _warm_v25() -> void:
+	if not warm_enabled or v25.on or Game.G == null: return
+	loading.begin("Preparing the board…")
+	await get_tree().process_frame
+	toggle_3d()
+	var spots := ["", "ear", "jup", "sat", "alp", "dsa", "sca", "sun"]
+	for i in spots.size():
+		loading.step(float(i) / spots.size(), "Preparing the 2.5D view…")
+		if spots[i] == "": v25.fit()
+		else: v25.focusPod(spots[i])
+		await get_tree().process_frame
+		await get_tree().process_frame
+	toggle_3d()
+	await get_tree().process_frame
+	loading.done()
 
 func _process(dt: float) -> void:
 	if _toast_t > 0:
@@ -113,6 +163,7 @@ func _process(dt: float) -> void:
 		if _toast_t <= 0: toast_panel.visible = false
 
 func _on_started() -> void:
+	_warm_v25()
 	menu.visible = false
 	title.visible = false
 	fboard.visible = false
