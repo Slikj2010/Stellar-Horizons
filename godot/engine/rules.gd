@@ -491,7 +491,7 @@ func endYear(G) -> void:
 			return
 		glog(G, "End-of-game roll " + n(r) + " against " + n(th) + "%: play continues.")
 	G.y += 1
-	G.turn = {"moved": {}, "acted": {}, "built": {}, "terraBuys": {}}
+	G.turn = {"moved": {}, "acted": {}, "built": {}, "terraBuys": {}, "buys": []}
 	G.freight = 0
 	lvReturn(G)
 	# dated missions (turn track): placed on their world, open to every faction
@@ -1099,9 +1099,54 @@ func _baseById(G, id):
 	return _find(G.bases, func(b): return eq(b.id, id))
 func payable(G, where, cost) -> bool:
 	return G.cash >= earthCash(G, cost) if where == "earth" else enough(_baseById(G, where).stock, cost)
-func pay(G, where, cost) -> void:
-	if where == "earth": payEarth(G, cost)
-	else: addRes(_baseById(G, where).stock, cost, -1)
+func pay(G, where, cost) -> Dictionary:
+	if where == "earth": return payEarth(G, cost)
+	addRes(_baseById(G, where).stock, cost, -1)
+	return {"cost": cost.duplicate()}
+## remember a purchase of this build phase so it can be refunded (planning: buy, look, take it back)
+func _noteBuy(G, rec: Dictionary) -> void:
+	if not G.turn.has("buys"): G.turn.buys = []
+	G.nid2 = int(gi(G, "nid2", 0)) + 1
+	rec.uid = G.nid2
+	G.turn.buys.append(rec)
+## purchases of this build phase that can still be taken back
+func refundable(G) -> Array:
+	if G.phase != "build" or not G.turn.has("buys"): return []
+	return G.turn.buys
+func refundBuy(G, uid):
+	if G.phase != "build": return "Purchases can only be refunded during the build & service phase."
+	var e = _find(refundable(G), func(b): return eq(b.uid, uid))
+	if e == null: return "That purchase can no longer be refunded."
+	var what := ""
+	match e.k:
+		"ship":
+			var sh = _find(G.ships, func(x): return eq(x.id, e.sid))
+			if sh == null: return "That ship is gone, so it cannot be refunded."
+			if sum(sh.cargo) > 0: return sh.name + " carries cargo: unload it before refunding."
+			removeShip(G, sh)
+			what = sh.name
+		"probe":
+			var lst: Array = G.probes.get(e.loc, [])
+			var i := lst.find(e.name)
+			if i < 0: return "That probe has already been used."
+			lst.remove_at(i)
+			what = "probe " + String(e.name)
+		"lv":
+			var st = G.lv.get(e.where)
+			if st == null or int(gi(st, e.z, 0)) < 1: return "That launch vehicle has already been used."
+			st[e.z] -= 1
+			what = "LV-" + n(e.z)
+	if e.where == "earth": unpayEarth(G, e.paid)
+	else: addRes(_baseById(G, e.where).stock, e.paid.cost)
+	G.turn.buys = without(G.turn.buys, e)
+	glog(G, "Refunded " + what + ": " + (earthRefundTxt(e.paid) if e.where == "earth" else resTxt(e.paid.cost)) + " returned.")
+	return null
+func earthRefundTxt(paid) -> String:
+	var parts := []
+	var r := resTxt(paid.used)
+	if r != "none" and r != "nothing" and r != "": parts.append(r + " to the faction board")
+	if int(paid.cash) > 0: parts.append("$" + n(paid.cash) + "B")
+	return " + ".join(parts) if parts.size() else "nothing"
 func buildUnit(G, key: String, where, reserved := false):
 	if G.phase != "build": return "Ships are built in the build & service phase."
 	var opt = _find(buildOptions(G, where), func(o): return o.key == key)
@@ -1116,16 +1161,18 @@ func buildUnit(G, key: String, where, reserved := false):
 	if not opt.cv and opt.kind != "Probe" and nonProbeRE(G) >= L[0] + 4: return "You are already 4 robotic explorers over your support limit."
 	if not payable(G, where, cost): return opt.u.n + " costs " + (earthCostTxt(G, cost) if where == "earth" else resTxt(cost)) + "."
 	var paidTxt := earthCostTxt(G, cost) if where == "earth" else resTxt(cost)
-	pay(G, where, cost)
+	var paid: Dictionary = pay(G, where, cost)
 	var loc: String = "earth" if where == "earth" else baseLoc(_baseById(G, where))
 	if opt.kind == "Probe":
 		if not G.probes.has(loc): G.probes[loc] = []
 		G.probes[loc].append(opt.u.n)
+		_noteBuy(G, {"k": "probe", "where": where, "paid": paid, "loc": loc, "name": opt.u.n})
 	else:
 		var s = makeShip(G, opt.u.n)
 		s.loc = loc
 		s.res = reserved and opt.cv
 		s.built = G.y
+		_noteBuy(G, {"k": "ship", "where": where, "paid": paid, "sid": s.id})
 	glog(G, "Built " + opt.kind + " " + opt.u.n + (" (reserved)" if reserved and opt.cv else "") + " at " + ("Earth" if where == "earth" else _baseById(G, where).name) + " for " + paidTxt + ".", "g")
 	return null
 # two-sided LV counters. A faction has c13 LV-1/LV-3 counters, c24 LV-2/LV-4 counters, and (North America) c14 LV-1/LV-4.
@@ -1201,10 +1248,11 @@ func buildLV(G, z: int, where):
 	if base != null and base.fac.sup - (1 if t(base.dmg.sup) else 0) < (1 if z <= 2 else 2): return "LV-" + n(z) + " needs a " + ("small" if z <= 2 else "large") + " Supply Station."
 	var cost := {"ORE": 1, "FUEL": z}
 	if not payable(G, where, cost): return "LV-" + n(z) + " costs " + (earthCostTxt(G, cost) if where == "earth" else resTxt(cost)) + "."
-	pay(G, where, cost)
+	var paid: Dictionary = pay(G, where, cost)
 	var key: String = "earth" if where == "earth" else where
 	if not G.lv.has(key): G.lv[key] = _lvSlot()
 	G.lv[key][z] += 1
+	_noteBuy(G, {"k": "lv", "where": key, "paid": paid, "z": z})
 	glog(G, "Built LV-" + n(z) + " at " + (base.name if base != null else "Earth") + ".")
 	return null
 ## where a CV can be unreserved/repaired: returns {where, level}
@@ -1257,7 +1305,7 @@ func setReserve(G, s):
 	glog(G, s.name + " is placed in reserve.")
 	return null
 ## optional rule (G.opts.scrapRE): robotic explorers and launch vehicles can be scrapped at your bases and on Earth like crew vehicles
-func scrapRule(G) -> bool: return t(gi(G.opts, "scrapRE", false))
+func scrapRule(G) -> bool: return true  # scrapping robotic explorers and launch vehicles is always allowed
 func scrapSite(G, s):
 	if s.cls == "RE":
 		# telescopes (Earth orbit) and unlaunched explorers scrap on Earth; orbiters over a world with your base and
@@ -3019,6 +3067,15 @@ func unload(G, s, b):
 	var tx := resTxt(s.cargo)
 	s.cargo = {"ORE": 0, "SUP": 0, "FUEL": 0}
 	glog(G, s.name + " unloads " + tx + " at " + b.name + ".")
+	return null
+func loadAt(G, s, b, r: String, cnt: int):
+	if b == null or not is_same(atOwnBase(G, s), b): return "The ship must be at that base."
+	var room: int = int(s.cap * cargoMul(G)) - int(sum(s.cargo))
+	cnt = mini(cnt, mini(room, int(b.stock[r])))
+	if cnt <= 0: return "Nothing to load."
+	b.stock[r] -= cnt
+	s.cargo[r] += cnt
+	glog(G, s.name + " loads " + n(cnt) + " " + r + " at " + b.name + ".")
 	return null
 func loadCargo(G, s, b, r: String, k: int):
 	if b == null or not is_same(atOwnBase(G, s), b): return "The ship must be at that base."

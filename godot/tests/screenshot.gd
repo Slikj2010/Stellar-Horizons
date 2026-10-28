@@ -340,6 +340,81 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 		a.append(["call", func(): main.v25.focusPod("jup")])
 		a.append(["wait", 10])
 		a.append(["shot", "96_jup"])
+	if plan == "newui":
+		a.append(["call", func():
+			Game.G.phase = "build"
+			Game.G.cash = 40
+			var o = SHRules._find(Game.E.buildOptions(Game.G, "earth"), func(x): return x.why == null and x.kind == "Orbiter")
+			Game.act(Game.E.buildUnit(Game.G, o.key, "earth"))
+			Game.act(Game.E.buildLV(Game.G, 2, "earth"))
+			main.tabs.current_tab = 0])
+		a.append(["wait", 20])
+		a.append(["shot", "70_turn_build"])
+		a.append(["call", func():
+			main.tabs.current_tab = 2
+			main.fboard.scroll.scroll_vertical = 0])
+		a.append(["wait", 20])
+		a.append(["shot", "71_board_top"])
+		a.append(["call", func(): main.fboard.scroll.scroll_vertical = 520])
+		a.append(["wait", 10])
+		a.append(["shot", "72_board_mid"])
+		a.append(["call", func(): main.fboard.scroll.scroll_vertical = 1100])
+		a.append(["wait", 10])
+		a.append(["shot", "73_board_low"])
+		a.append(["call", func():
+			main.tabs.current_tab = 1
+			var s = SHRules._find(Game.G.ships, func(x): return x.cls == "RE")
+			Game.select({"t": "ship", "id": s.id})
+			main.scrap_ask(s)])
+		a.append(["wait", 10])
+		a.append(["shot", "74_scrap"])
+		a.append(["call", func():
+			main.modal.visible = false
+			var o = SHRules._find(Game.E.buildOptions(Game.G, "earth"), func(x): return x.why == null)
+			main.buy_unit(o, "earth")])
+		a.append(["wait", 10])
+		a.append(["shot", "75_buy_confirm"])
+		a.append(["call", func():
+			main.modal.visible = false
+			Game.G.phase = "move"
+			main.tabs.current_tab = 0
+			Game.changed.emit()])
+		a.append(["wait", 10])
+		a.append(["shot", "76_turn_move"])
+		a.append(["call", func():
+			var s = SHRules._find(Game.G.ships, func(x): return Game.E.moves(Game.G, x).size() > 0)
+			Game.select({"t": "ship", "id": s.id})
+			var m = Game.E.moves(Game.G, s)[0]
+			main.do_move(s, m.dest)])
+		a.append(["wait", 10])
+		a.append(["shot", "77_move_confirm"])
+	if plan == "basepanel":
+		a.append(["call", func():
+			var G = Game.G
+			var s = SHRules._find(G.ships, func(x): return x.cls == "CV")
+			G.phase = "trade"
+			G.cash = 30
+			G.tech.elev = true
+			G.tech.terra = true
+			var b := {"id": "bt", "name": "Alpha", "w": "mar", "stock": {"ORE": 6, "SUP": 6, "FUEL": 3}, "fac": {"lab": 1, "mine": 1, "sup": 0, "def": 0}, "dmg": {"lab": 0, "mine": 1, "sup": 0, "def": 0}, "set": 2, "setDmg": 0, "setHits": 1, "trade": {"side": "buy", "type": "SUP"}, "out": "ORE", "built": 2030, "techField": "Phy", "pos": "surf"}
+			G.bases.append(b)
+			Game.select({"t": "base", "id": "bt"})
+			main.tabs.current_tab = 1
+			Game.changed.emit()])
+		a.append(["wait", 20])
+		a.append(["shot", "80_base_panel"])
+		a.append(["call", func():
+			main._fac_ask(Game.G, Game.G.bases[0], "lab")])
+		a.append(["wait", 10])
+		a.append(["shot", "81_fac_confirm"])
+		a.append(["call", func():
+			main.modal.visible = false
+			Game.G.phase = "econ"
+			Game.G.estep = "production"
+			main.tabs.current_tab = 0
+			Game.changed.emit()])
+		a.append(["wait", 10])
+		a.append(["shot", "82_production"])
 	if plan == "sliders":
 		a.append(["call", func():
 			Game.G.polm = 4

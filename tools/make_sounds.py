@@ -219,15 +219,70 @@ def boom():
 
 
 def build():
-    """construction: two metallic clanks"""
-    parts = []
-    for i in range(2):
-        d = 0.35
-        f = 420 + 140 * i
-        n = (tone(f, d) + 0.6 * tone(f * 2.76, d) + 0.4 * tone(f * 5.4, d)) * env(int(SR * d), 0.001, 0.12, 4)
-        n += bp(noise(d), 2000, 6000) * env(int(SR * d), 0.0005, 0.01, 5) * 0.6
-        parts.append(np.pad(n, (int(SR * 0.16 * i), 0)))
-    return norm(mix(*parts), 0.5)
+    """construction: a gear ratchet, an impact wrench running bolts down, welding crackle and a final clank"""
+    D = 2.2
+    out = np.zeros(int(SR * D))
+
+    def put(x, at):
+        i = int(SR * at)
+        out[i:i + len(x)] += x[:len(out) - i]
+    # 1) gears: ratchet clicks speeding up (a dull tooth knock plus a metallic tick)
+    t = 0.0
+    gap = 0.11
+    while t < 0.75:
+        d = 0.06
+        knock = tone(190 + rng.uniform(-15, 15), d) * env(int(SR * d), 0.0005, 0.03, 5)
+        tick = bp(noise(d), 2500, 7000) * env(int(SR * d), 0.0003, 0.012, 5) * 0.8
+        put((knock + tick) * 0.9, t)
+        t += gap
+        gap = max(0.045, gap * 0.93)
+    # a gear whirr under it
+    whirr = tone(lambda x: 140 + 220 * x / 0.8, 0.8, 'saw') * env(int(SR * 0.8), 0.05, 0.6, 2) * 0.12
+    put(lp(whirr, 1500), 0.0)
+    # 2) bolts: impact wrench, a burst of fast pulses that ends with a hard seat
+    d = 0.55
+    tt = t_(d)
+    pulse = (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 26 * tt))) * 0.6 + 0.4
+    motor = tone(lambda x: 620 + 380 * np.minimum(1, x / 0.35), d, 'saw') * pulse * env(int(SR * d), 0.01, 0.4, 3) * 0.28
+    rattle = bp(noise(d), 1200, 5000) * pulse * env(int(SR * d), 0.01, 0.4, 3) * 0.3
+    put(lp(motor, 4200) + rattle, 0.8)
+    seat = (tone(230, 0.25) + 0.5 * tone(610, 0.25) + 0.3 * tone(1490, 0.25)) * env(int(SR * 0.25), 0.0007, 0.09, 5)
+    put(seat * 0.7, 1.33)
+    # 3) welding: a hiss with random crackle pops and a flickering arc buzz
+    d = 0.8
+    hiss = bp(noise(d), 2500, 9000) * 0.18
+    flick = np.clip(lp(rng.standard_normal(int(SR * d)), 40) * 18, -1, 1) * 0.5 + 0.55
+    arc = tone(100, d, 'saw') * 0.05
+    pops = np.zeros(int(SR * d))
+    for _ in range(60):
+        i = rng.integers(0, len(pops) - 800)
+        L = rng.integers(60, 400)
+        pops[i:i + L] += hp(rng.standard_normal(L), 3000) * rng.uniform(0.2, 1.0) * np.exp(-np.arange(L) / (L / 4))
+    weld = (hiss + arc) * flick + pops * 0.5
+    weld *= env(int(SR * d), 0.02, 0.9, 2.4)
+    put(weld * 0.9, 1.0)
+    # 4) a closing clank
+    d = 0.5
+    clank = (tone(480, d) + 0.7 * tone(1325, d) + 0.5 * tone(2590, d)) * env(int(SR * d), 0.0008, 0.2, 4)
+    clank += bp(noise(d), 1800, 6500) * env(int(SR * d), 0.0004, 0.012, 5) * 0.7
+    put(clank * 0.8, 1.72)
+    return norm(out, 0.6)
+
+
+def scrap():
+    """scrapping: a crunch of metal and a falling clatter"""
+    D = 0.9
+    crunch = bp(noise(0.35), 300, 4500) * env(int(SR * 0.35), 0.002, 0.14, 4) * 0.8
+    thud = tone(lambda x: 150 - 90 * x / 0.3, 0.3) * env(int(SR * 0.3), 0.002, 0.18, 4)
+    out = np.zeros(int(SR * D))
+    out[:len(crunch)] += crunch
+    out[:len(thud)] += thud * 0.9
+    for k, at in enumerate((0.3, 0.42, 0.55, 0.66)):
+        d = 0.14
+        c = (tone(900 - 120 * k, d) + 0.5 * tone(2300 - 200 * k, d)) * env(int(SR * d), 0.0006, 0.06, 5) * (0.55 - 0.1 * k)
+        i = int(SR * at)
+        out[i:i + len(c)] += c
+    return norm(out, 0.55)
 
 
 def coins():
@@ -295,9 +350,12 @@ def music(d=96.0):
 
 
 if __name__ == '__main__':
+    only = os.environ.get('ONLY')
     for name, fn in [('click', click), ('select', select), ('error', error), ('next', next_phase), ('year', new_year),
                      ('dice', dice), ('success', success), ('failure', failure), ('launch', launch), ('move', move),
-                     ('explore', explore), ('found', found), ('alarm', alarm), ('boom', boom), ('build', build), ('coins', coins)]:
+                     ('explore', explore), ('found', found), ('alarm', alarm), ('boom', boom), ('build', build), ('scrap', scrap), ('coins', coins)]:
+        if only and name not in only.split(','): continue
         save(name, fn())
-    l, r = music()
-    save('music_space', l, r, q=4)
+    if not only:
+        l, r = music()
+        save('music_space', l, r, q=4)

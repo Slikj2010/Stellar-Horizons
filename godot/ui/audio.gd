@@ -3,11 +3,11 @@
 ## new technologies). Volumes are in Settings. The sounds are synthesized by tools/make_sounds.py.
 extends Node
 
-const SOUNDS := ["click", "select", "error", "next", "year", "dice", "success", "failure", "launch", "move", "explore", "found", "alarm", "boom", "build", "coins"]
+const SOUNDS := ["click", "select", "error", "next", "year", "dice", "success", "failure", "launch", "move", "explore", "found", "alarm", "boom", "build", "scrap", "coins"]
 ## log text -> sound, first match wins (checked in this order)
-const LOG_SOUNDS := [["boom", ["destroyed", " hits ", "damage", "is lost", "malfunctions"]], ["launch", ["moves from Earth to", "launches"]],
-	["build", ["builds ", "founds ", "upgrades ", "settlement", "repairs "]], ["move", [" moves from "]],
-	["coins", [" sells ", " buys ", "trades", "trade marker"]], ["success", ["develops ", "adopts ", "mission complete", "completes"]]]
+const LOG_SOUNDS := [["scrap", ["scrapped at", "decommissioned"]], ["boom", ["destroyed", " hits ", "damage", "is lost", "malfunctions"]], ["launch", ["moves from Earth to", "launches"]],
+	["build", ["Built ", "builds ", "founds ", "upgrades ", "settlement", "repairs "]], ["move", [" moves from "]],
+	["coins", ["Refunded ", " sells ", " buys ", "trades", "trade marker"]], ["success", ["develops ", "adopts ", "mission complete", "completes"]]]
 
 var streams := {}
 var pool: Array[AudioStreamPlayer] = []

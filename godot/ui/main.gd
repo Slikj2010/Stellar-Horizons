@@ -617,7 +617,21 @@ func _sel_ship():
 	if s == null or s.t != "ship": return null
 	return E._shipById(Game.G, s.id)
 
-func do_move(s, dest: String, extra := {}, drop_pt = null) -> void:
+func do_move(s, dest: String, extra := {}, drop_pt = null, ask := true) -> void:
+	if ask:
+		var G = Game.G
+		var mv = null
+		for m in E.moves(G, s):
+			if m.dest == dest: mv = m
+		var body := "%s moves from %s to %s." % [s.name, E.locName(s.loc), E.locName(dest)]
+		if mv != null:
+			body += "\n" + (("It arrives in %d turn%s." % [int(mv.eta), "" if int(mv.eta) == 1 else "s"]) if SHRules.t(mv.get("eta")) else "It arrives this turn.")
+			if mv.get("lv") != null:
+				body += "\nLaunch vehicle: LV-%d%s." % [int(extra.get("lvSize", mv.lv.n)), (" (new: %s)" % mv.lv.txt) if SHRules.t(mv.lv.get("buy")) else " from stock"]
+		var ld = extra.get("load")
+		if ld is Dictionary and E.sum(ld) > 0: body += "\nCargo loaded: " + E.resTxt(ld) + "."
+		confirm("Move %s?" % s.name, body, func(): do_move(s, dest, extra, drop_pt, false), "Move")
+		return
 	var opt := {"probe": SHRules._first(Game.G.probes.get(s.loc, []))}
 	for k in extra: opt[k] = extra[k]
 	var res = E.move(Game.G, s, dest, opt)
@@ -825,8 +839,30 @@ func _turn_econ(box, G) -> void:
 			var to := UIK.pick(h, names, mini(1, names.size() - 1))
 			var ty := UIK.pick(h, ["ORE", "SUP", "FUEL"], 1)
 			var amt := UIK.spin(h, 1, left, 1)
-			UIK.button(h, "Transfer", func(): Game.act(E.transferRes(G, places[from.selected][0], places[to.selected][0], ty.get_item_text(ty.selected), int(amt.value))))
+			UIK.button(h, "Transfer", func():
+				var f0: String = places[from.selected][0]
+				var t0: String = places[to.selected][0]
+				var tyn: String = ty.get_item_text(ty.selected)
+				var nn := int(amt.value)
+				var extra := ""
+				if f0 == "earth": extra += " Resources come off the faction board first, the rest are bought at $1B each."
+				if t0 == "earth": extra += " Sold on Earth at 2 for $1B."
+				confirm("Transfer %d %s?" % [nn, tyn], "From %s to %s.%s" % [places[from.selected][1], places[to.selected][1], extra], func(): return E.transferRes(G, f0, t0, tyn, nn), "Transfer"))
+	if st == "production":
+		UIK.para(box, "Production is collected; see the log. Set what each base produces next decade:", UIK.DIM, 13)
+		for b in G.bases:
+			var h := UIK.hbox(box)
+			var l := UIK.rich(h, "[b]%s[/b]\n[color=#8fa3b8]%s[/color]" % [b.name, D.W[b.w].n], 13)
+			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			var types := ["ORE", "SUP", "FUEL", "tech"]
+			var pk := UIK.pick(h, types.map(func(t): var o = E.baseOutput(G, b, t); return "%s %s" % ["Tech" if t == "tech" else t, ("(%d)" % int(o.n)) if o != null else "(none)"]))
+			pk.selected = maxi(0, types.find(b.out))
+			pk.item_selected.connect(func(i):
+				b.out = types[i]
+				Game.act(null))
+		if not G.bases.size(): UIK.para(box, "You have no bases yet.", UIK.DIM, 13)
 	if st == "tech":
+		_trade_points(box, G)
 		UIK.button(box, "Open the technology tree", func(): tabs.current_tab = TAB_TECH)
 		_tech_list(box, G)
 	if st == "policy":
@@ -839,7 +875,7 @@ func _turn_econ(box, G) -> void:
 			UIK.rich(c, "[b]%s%s[/b]  [color=#8fa3b8]%s[/color]" % [D.POL_LV[maxi(0, lv - 1)] if lv else "", p.n, ("level %d" % lv) if lv else "not held"])
 			if lv < 3:
 				UIK.para(c, "Next: " + p.d[lv], UIK.DIM, 13)
-				UIK.button(c, "Adopt " + D.POL_LV[lv] + p.n, func(): Game.act(E.choosePolicy(G, p.k)), SHRules.t(G.get("policyPicked")))
+				UIK.button(c, "Adopt " + D.POL_LV[lv] + p.n, func(): confirm("Adopt %s%s?" % [D.POL_LV[lv], p.n], String(p.d[lv]) + "\nYou can adopt one policy per decade.", func(): return E.choosePolicy(G, p.k), "Adopt"), SHRules.t(G.get("policyPicked")))
 
 func _tech_list(box, G) -> void:
 	if G.world != null:
@@ -848,7 +884,7 @@ func _tech_list(box, G) -> void:
 		elif cur != G.f: UIK.para(box, "Research turn: " + D.FAC[cur].n, UIK.DIM)
 		else:
 			UIK.para(box, "Your research turn: develop one technology or pass.", UIK.AMBER)
-			UIK.button(box, "Pass (no more technologies this decade)", func(): Game.act(E.techPass(G)))
+			UIK.button(box, "Pass (no more technologies this decade)", func(): ttree.pass_research())
 	UIK.para(box, "Points: %d Physics, %d Engineering, %d Biology. Unspent points are halved at the end of the step." % [G.bank.Phy, G.bank.Eng, G.bank.Bio])
 	var open: Array = D.TECH.filter(func(tt): return E.techState(G, tt) == "open")
 	open = SHRules.ssort(open, func(a, b): return E.techCost(G, a) - E.techCost(G, b))
@@ -858,9 +894,10 @@ func _tech_list(box, G) -> void:
 		var h := UIK.hbox(box)
 		var l := UIK.rich(h, "[b][color=#%s]%s[/color][/b] · %d %s\n[color=#8fa3b8]%s[/color]" % [UIK.FIELD_COL[tt.f].to_html(false), tt.n, c, E.FN[tt.f], tt.d], 13)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		UIK.button(h, "Develop", func(): Game.act(E.develop(G, tt.k)), not ok, E.techCostTxt(G, tt))
+		UIK.button(h, "Develop", func(): confirm("Develop %s?" % tt.n, "%s\n\nCost: %d %s points (you have %d)." % [tt.d, c, E.FN[tt.f], G.bank[tt.f]], func(): return ttree.develop(tt.k), "Develop"), not ok, E.techCostTxt(G, tt))
 
 func _turn_build(box, G) -> void:
+	refund_list(box)
 	UIK.head(box, "Earth shipyard")
 	UIK.rich(box, "On Earth the resources on your faction board are used first (now %s), the rest is bought at $1B each." % UIK.res_bb(E.estock(G)), 13)
 	for o in E.buildOptions(G, "earth"):
@@ -869,12 +906,13 @@ func _turn_build(box, G) -> void:
 		UIK.image(h, UIK.atlas_tex("atlas_" + G.f, o.kind + "|" + o.u.n), 40)
 		var l := UIK.rich(h, "[b]%s[/b] [color=#8fa3b8]%s[/color]\n%s = %s%s" % [o.u.n, o.kind, UIK.res_bb(o.cost), E.earthCostTxt(G, o.cost), (" · [color=#ef6b5b]%s[/color]" % o.why) if o.why != null else ""], 13)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		UIK.button(h, "Build", func(): Game.act(E.buildUnit(G, o.key, "earth", false)), o.why != null or G.cash < E.earthCash(G, o.cost))
-		if o.cv and o.why == null: UIK.button(h, "Reserved", func(): Game.act(E.buildUnit(G, o.key, "earth", true)), false, "Reserved: 1 SUP and 1 Fuel cheaper")
+		UIK.button(h, "Build", func(): buy_unit(o, "earth", false), o.why != null or G.cash < E.earthCash(G, o.cost))
+		if o.cv and o.why == null: UIK.button(h, "Reserved", func(): buy_unit(o, "earth", true), false, "Reserved: 1 SUP and 1 Fuel cheaper")
 	UIK.head(box, "Launch vehicles")
+	lv_scrap_row(box)
 	UIK.para(box, "On Earth: " + _lv_txt(G) + ". " + E.lvPoolTxt(G) + ".", UIK.DIM, 13)
 	var f := UIK.flow(box)
-	for z in [1, 2, 3, 4]: UIK.button(f, "Build LV-%d (1 ORE + %d FUEL)" % [z, z], func(): Game.act(E.buildLV(G, z, "earth")))
+	for z in [1, 2, 3, 4]: UIK.button(f, "Build LV-%d (1 ORE + %d FUEL)" % [z, z], func(): buy_lv(z, "earth"))
 	var cvs: Array = G.ships.filter(func(s): return s.cls == "CV")
 	if cvs.size():
 		UIK.head(box, "Crew vehicles")
@@ -890,9 +928,9 @@ func _turn_build(box, G) -> void:
 		UIK.head(box, b.name + " shipyard")
 		UIK.rich(box, "Stock " + UIK.res_bb(b.stock), 13)
 		var fl := UIK.flow(box)
-		for z in [1, 2, 3, 4]: UIK.button(fl, "LV-%d" % z, func(): Game.act(E.buildLV(G, z, b.id)))
+		for z in [1, 2, 3, 4]: UIK.button(fl, "LV-%d" % z, func(): buy_lv(z, b.id))
 		for o in E.buildOptions(G, b.id):
-			if o.why == null: UIK.button(fl, "Build " + o.u.n, func(): Game.act(E.buildUnit(G, o.key, b.id, false)))
+			if o.why == null: UIK.button(fl, "Build " + o.u.n, func(): buy_unit(o, b.id, false))
 
 func _lv_txt(G) -> String:
 	var parts := []
@@ -911,12 +949,8 @@ func _ship_row(box, G, s, sub: String) -> HBoxContainer:
 func _turn_move(box, G) -> void:
 	var ready: Array = G.ships.filter(func(s): return E.moves(G, s).size() > 0)
 	UIK.head(box, "Ships that can move (%d)" % ready.size())
-	for s in ready:
-		var h := _ship_row(box, G, s, E.locName(s.loc))
-		UIK.button(h, "Select", func():
-			Game.select({"t": "ship", "id": s.id})
-			if s.loc != "earth": fly(board.pos_of(s.loc))
-			tabs.current_tab = 1)
+	UIK.para(box, "Select a ship to see where it can go. You can also click it on the map.", UIK.DIM, 12)
+	for s in ready: _pick_row(box, G, s, E.locName(s.loc) + " · %d destinations" % E.moves(G, s).map(func(m): return m.dest).size())
 	var waiting: Array = G.ships.filter(func(s): return s.loc == "earth" and not E.moves(G, s).size())
 	if waiting.size():
 		UIK.para(box, "On Earth without a launch: " + ", ".join(waiting.map(func(s): return s.name)) + ". They need a launch vehicle (build one, or one is bought at launch if a counter is free).", UIK.DIM, 13)
@@ -950,17 +984,25 @@ func _turn_move(box, G) -> void:
 func _turn_combat(box, G) -> void:
 	var opts := E.combatOptions(G)
 	if not opts.size(): UIK.para(box, "No attacks are possible this turn.", UIK.DIM)
-	for o in opts: UIK.button(box, o.label, func(): Game.act(E.combatAct(G, o)))
+	for o in opts: UIK.button(box, o.label, func(): confirm("Fight?", String(o.label) + "\nThe dice decide the result and losses cannot be undone.", func(): return E.combatAct(G, o), "Fight"))
 
 func _turn_explore(box, G) -> void:
 	var ready: Array = G.ships.filter(func(s): return E.exploreOptions(G, s).size() > 0)
 	UIK.head(box, "Ships that can explore (%d)" % ready.size())
-	for s in ready:
-		var c := UIK.card(box)
-		_ship_row(c, G, s, E.locName(s.loc))
-		var f := UIK.flow(c)
-		for o in E.exploreOptions(G, s): _explore_btn(f, G, s, o)
-		if s.kind == "Flyby" and E.P(s.loc).t == "fly": UIK.button(f, "Skip, transfer outward", func(): Game.act(E.flybySkip(G, s)))
+	UIK.para(box, "Select a ship to see its research and exploration options.", UIK.DIM, 12)
+	for s in ready: _pick_row(box, G, s, E.locName(s.loc) + " · %d options" % E.exploreOptions(G, s).size())
+
+## one selectable ship: the chosen one is marked; Select opens the Selected tab
+func _pick_row(box, G, s, sub: String) -> void:
+	var chosen: bool = Game.sel != null and Game.sel.t == "ship" and SHRules.eq(Game.sel.id, s.id)
+	var c := UIK.card(box)
+	if chosen: c.modulate = Color(1.0, 0.92, 0.7)
+	var h := _ship_row(c, G, s, sub)
+	var pick := func():
+		Game.select({"t": "ship", "id": s.id})
+		if s.loc != "earth": fly(board.pos_of(s.loc))
+		tabs.current_tab = 1
+	UIK.button(h, "Selected ▸" if chosen else "Select", pick)
 
 func _explore_btn(box, G, s, o) -> void:
 	var lbl: String
@@ -989,28 +1031,71 @@ func _turn_trade(box, G) -> void:
 	for s in founders:
 		var c = E.canFoundBase(G, s)
 		var h := _ship_row(box, G, s, "Can found a base at %s for %d SUP (carries %d)." % [D.W[c.w].n, c.cost, s.cargo.SUP])
-		UIK.button(h, "Found base", func(): Game.act(E.foundBase(G, s)), s.cargo.SUP < c.cost)
+		UIK.button(h, "Found base", func(): found_ask(G, s), s.cargo.SUP < c.cost)
 	for b in G.bases: _base_card(box, G, b)
 	var npfs: Array = G.w.keys().filter(func(k): return SHRules.t(G.w[k].npf))
 	for k in npfs:
 		var info = E.npfTradeInfo(G, k)
 		if info == null or info.why != null: continue
-		UIK.button(box, "Trade at %s (%s %s, up to %d)" % [info.name, info.tm.side, info.tm.type, info.limit], func(): Game.act(E.trade(G, {"w": k}, info.limit)))
+		UIK.button(box, "Trade at %s (%s %s, up to %d)" % [info.name, info.tm.side, info.tm.type, info.limit], func(): trade_ask(G, {"w": k}, info.tm, int(info.limit), "Trade at %s?" % info.name))
+
+
+## Genetic Engineering / Matter-Energy Conversion / Nano-Technology: trade tech points for cash
+func _trade_points(box, G) -> void:
+	var map := {"Bio": "gen", "Phy": "mec", "Eng": "nano"}
+	for f in ["Bio", "Phy", "Eng"]:
+		if not E.has(G, map[f]): continue
+		var h := UIK.hbox(box)
+		var l := UIK.para(h, "%s points (%d):" % [E.FN[f], int(G.bank[f])], null, 13)
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		UIK.button(h, "Buy 1 for $1B", func(): confirm("Buy 1 %s point?" % E.FN[f], "Pay $1B (you have $%dB) for 1 %s point." % [int(G.cash), E.FN[f]], func(): return E.tradePoints(G, f, "buy"), "Buy"), G.cash < 1)
+		UIK.button(h, "Sell 2 for $1B", func(): confirm("Sell 2 %s points?" % E.FN[f], "Trade 2 of your %d %s points for $1B." % [int(G.bank[f]), E.FN[f]], func(): return E.tradePoints(G, f, "sell"), "Sell"), G.bank[f] < 2)
+
+func _cost_line(cost: Dictionary, b) -> String:
+	if b == null: return "Costs %s: %s (faction board %s, cash $%dB)." % [E.resTxt(cost), E.earthCostTxt(Game.G, cost), E.resTxt(E.estock(Game.G)), int(Game.G.cash)]
+	return "Costs %s from %s's stock (it has %s)." % [E.resTxt(cost), b.name, E.resTxt(b.stock)]
+
+func found_ask(G, s) -> void:
+	var c = E.canFoundBase(G, s)
+	if c == null: return
+	confirm("Found %s base at %s?" % ["an orbital" if c.pos == "orbit" else "a surface", D.W[c.w].n], "Uses %d SUP from %s's hold (it carries %d). The base takes the next name on your faction sheet." % [c.cost, s.name, int(s.cargo.SUP)], func(): return E.foundBase(G, s), "Found base")
+
+func trade_ask(G, where: Dictionary, tm: Dictionary, limit: int, title: String) -> void:
+	var body: String = ("Buy up to %d %s at 2 per $1B (you have $%dB)." % [limit, tm.type, int(G.cash)]) if tm.side == "buy" else ("Sell up to %d %s at $2B each." % [limit, tm.type])
+	body += "\n" + ("Enhanced trading: you trade here once; the marker stays until every faction has traded." if (where.has("w") and E.enhTrade(G)) else "The trade marker is used up after this trade.")
+	confirm(title, body, func(): return E.trade(G, where, 99), "Buy" if tm.side == "buy" else "Sell")
+
+func _fac_ask(G, b, c: String) -> void:
+	var o = null
+	for x in E.upgradeOptions(G, b):
+		if x.c == c: o = x
+	if o == null or o.next == null: return
+	confirm("Build %s at %s?" % [o.next.n, b.name], _cost_line(o.next.c, b) + "\n\nA base can build several things in one turn, but only one tier of each building (and one settlement) per turn.", func(): return E.buildFacility(G, b, c), "Build")
+
+func _repair_ask(G, b, c: String) -> void:
+	confirm("Repair at %s?" % b.name, "Removes 1 damage marker for 1 ORE from %s's stock (it has %d)." % [b.name, int(b.stock.ORE)], func(): return E.repairFacility(G, b, c), "Repair")
+
+func _settle_ask(G, b) -> void:
+	confirm("Add a settlement at %s?" % b.name, _cost_line(D.SETTLE_COST, b) + "\n%s has %d settlement%s." % [b.name, b.set, "" if b.set == 1 else "s"], func(): return E.buildSettlement(G, b), "Build")
+
+func _terra_ask(G, b) -> void:
+	var c: int = (3 if E.has(G, "atm") else 4) + int(SHRules.gi(G.turn.terraBuys, b.id, 0))
+	confirm("Buy a terraforming point for %s?" % D.W[b.w].n, "Costs %d SUP from %s (it has %d). Each extra point this turn costs 1 SUP more." % [c, b.name, int(b.stock.SUP)], func(): return E.terraform(G, b), "Buy")
+
+const FACDESC := {
+	"lab": ["Required for the base to produce tech points (the world card's research value, plus bonuses for settlements, signs of life and existing life).", "Adds +3 tech points to the base's research output."],
+	"mine": ["Lets the base produce resources of one type per decade (world card production plus the world's intrinsic production; the total must be above 0).", "Adds +1 to resource production.", "Small Refinery (upgrade of a large Mining Station): adds +3 to resource production.", "Large Refinery: adds +5 to resource production."],
+	"sup": ["Builds LV-1 and LV-2 launch vehicles, unreserves CV-2s, and repairs 1 damage marker per CV each turn.", "Builds LV-3 and LV-4, unreserves CV-3s, and repairs 2 damage markers per CV.", "Small Spaceport (upgrade of a large Supply Station): builds robotic explorers and CV-2s, unreserves CV-4s and CV-5s, repairs 3 per CV.", "Large Spaceport: builds every crew vehicle, unreserves any size, unlimited repairs per CV."],
+	"def": ["Combat value 3 with 1 combat drone: the base fights with it, and a blockading fleet needs combined combat value of at least 3.", "Combat value 7 with 3 combat drones (replaces the small network); a blockading fleet needs combined combat value of at least 7."]}
+const FACNAME := {"lab": "Research Lab", "mine": "Mining", "sup": "Supply", "def": "Defense Network"}
 
 func _base_card(box, G, b) -> void:
-	var c := UIK.card(box)
-	UIK.rich(c, "[b]%s[/b] · %s · %d settlement%s\nStock %s" % [b.name, D.W[b.w].n, b.set, "" if b.set == 1 else "s", UIK.res_bb(b.stock)], 13)
-	if G.phase == "trade":
-		var f := UIK.flow(c)
-		for o in E.upgradeOptions(G, b):
-			if o.next == null: continue
-			UIK.button(f, "%s (%s)" % [o.next.n, E.resTxt(o.next.c)], func(): Game.act(E.buildFacility(G, b, o.c)), o.why != null, String(o.why) if o.why != null else "")
-		UIK.button(f, "Add settlement (%s)" % E.resTxt(D.SETTLE_COST), func(): Game.act(E.buildSettlement(G, b)))
-		if SHRules.t(b.get("trade")):
-			UIK.button(f, "Trade: %s %s (up to %d)" % [b.trade.side, b.trade.type, E.tradeLimitOwn(b)], func(): Game.act(E.trade(G, {"base": b.id}, E.tradeLimitOwn(b))), not E.tradeLimitOwn(b))
-		if E.has(G, "terra") and D.TERRA.has(b.w): UIK.button(f, "Terraform", func(): Game.act(E.terraform(G, b)))
-		for k in ["lab", "mine", "sup", "def"]:
-			if SHRules.t(b.dmg[k]): UIK.button(f, "Repair " + k, func(): Game.act(E.repairFacility(G, b, k)))
+	var h := UIK.hbox(UIK.card(box))
+	var l := UIK.rich(h, "[b]%s[/b] · %s · %d settlement%s\nStock %s" % [b.name, D.W[b.w].n, b.set, "" if b.set == 1 else "s", UIK.res_bb(b.stock)], 13)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UIK.button(h, "Open", func():
+		Game.select({"t": "base", "id": b.id})
+		tabs.current_tab = 1)
 
 # ---------------- Selected tab ----------------
 func build_selected() -> void:
@@ -1116,6 +1201,7 @@ func _sel_ship_panel(box, G, s) -> void:
 			fl.apply.call()
 		elif s.loc == "earth": UIK.para(box, "No launch is possible now (it needs a launch vehicle, or it has moved this turn).", UIK.DIM)
 	if G.phase == "explore":
+		if s.kind == "Flyby" and E.P(s.loc).t == "fly": UIK.button(box, "Skip, transfer outward", func(): confirm("Skip exploring?", s.name + " does not explore and transfers outward.", func(): return E.flybySkip(G, s), "Skip"))
 		var ex := E.exploreOptions(G, s)
 		if ex.size():
 			UIK.head(box, "Explore")
@@ -1138,9 +1224,13 @@ func _sel_ship_panel(box, G, s) -> void:
 			fl.apply.call()
 	if G.phase == "trade":
 		var c = E.canFoundBase(G, s)
-		if c != null: UIK.button(box, "Found a base at %s (%d SUP)" % [D.W[c.w].n, c.cost], func(): Game.act(E.foundBase(G, s)))
+		if c != null: UIK.button(box, "Found %s base here (%d SUP)" % ["an orbital" if c.pos == "orbit" else "a surface", c.cost], func(): found_ask(G, s), s.cargo.SUP < c.cost)
 		var b = E.atOwnBase(G, s)
-		if b != null and E.sum(s.cargo): UIK.button(box, "Unload at " + b.name, func(): Game.act(E.unload(G, s, b)))
+		if b != null and SHRules.t(s.cap):
+			UIK.head(box, "At " + b.name)
+			var lf := UIK.flow(box)
+			UIK.button(lf, "Unload all", func(): Game.act(E.unload(G, s, b)), E.sum(s.cargo) == 0)
+			for r in ["ORE", "SUP", "FUEL"]: UIK.button(lf, "Load " + r, func(): Game.act(E.loadAt(G, s, b, r, 99)), b.stock[r] < 1)
 	if s.loc == "earth" and SHRules.t(s.cap):
 		UIK.head(box, "Cargo on Earth")
 		var room: int = int(s.cap * E.cargoMul(G) - E.sum(s.cargo))
@@ -1160,24 +1250,56 @@ func _sel_ship_panel(box, G, s) -> void:
 		else: UIK.para(box, "The hold is full.", UIK.DIM, 13)
 		if E.sum(s.cargo): UIK.button(box, "Unload onto the faction board", func(): Game.act(E.sellCargo(G, s)))
 	var sv = E.scrapValue(G, s)
-	if G.phase == "build" and sv != null: UIK.button(box, "Scrap (recover %s)" % E.resTxt(sv.back), func(): Game.act(E.scrap(G, s)))
+	UIK.button(box, ("Scrap (recover %s)" % E.resTxt(sv.back)) if sv != null else "Scrap (destroyed, nothing recovered)", func(): scrap_ask(s))
 
 func _sel_base_panel(box, G, b) -> void:
+	var sr = E.setRow(b.set)
 	UIK.title(box, b.name)
-	UIK.para(box, "%s base at %s" % ["Orbital" if E.basePos(b) == "orbit" else "Surface", D.W[b.w].n], UIK.DIM)
-	var facs := []
-	for c in ["lab", "mine", "sup", "def"]:
-		if SHRules.t(b.fac[c]): facs.append("%s %d%s" % [c, b.fac[c], (" (damaged %d)" % b.dmg[c]) if SHRules.t(b.dmg[c]) else ""])
-	UIK.para(box, "Facilities: " + (", ".join(facs) if facs.size() else "none"))
-	var o = E.baseOutput(G, b)
-	UIK.para(box, "Output: " + ((("%d %s" % [o.n, E.FN[o.field] + " points" if o.type == "tech" else o.type])) if o != null else "nothing yet"), UIK.DIM)
+	UIK.para(box, "%s · %s base · founded %d · %d settlement%s%s" % [D.W[b.w].n, "orbital" if E.basePos(b) == "orbit" else "surface", int(b.built), b.set, "" if b.set == 1 else "s", (" (trade %d, +%d resources, +%d tech)" % [sr[1], sr[2], sr[3]]) if sr != null else ""], UIK.DIM, 13)
+	UIK.rich(box, "Stock " + UIK.res_bb(b.stock), 14)
+	if SHRules.t(b.get("setHits")):
+		var c := UIK.card(box)
+		UIK.para(c, "%d settlement damage. One settlement is damaged and does not count for trade or production until repaired (3 damage loses it)." % int(b.setHits), UIK.BAD, 13)
+		UIK.button(c, "Repair settlement", func(): _repair_ask(G, b, "set"), b.stock.ORE < 1, "1 ORE per damage marker")
+	var note := ""
+	if E.basePos(b) == "orbit" and not E.has(G, "elev"): note += " Mines need the Space Elevator technology."
+	if D.W[b.w].tags.has("severeAtm") and not E.has(G, "psh"): note += " Mines need the Pressure Shell technology (severe atmosphere)."
+	UIK.para(box, "One of each facility type, small first and then large, one tier per turn." + note, UIK.DIM, 12)
+	UIK.head(box, "Facilities")
+	var trade_phase: bool = G.phase == "trade"
+	for o in E.upgradeOptions(G, b):
+		var c := UIK.card(box)
+		var h := UIK.hbox(c, 8)
+		var cur = D.FACIL[o.c][o.lv - 1] if o.lv > 0 else null
+		if cur != null and cur.get("m") != null: UIK.image(h, UIK.atlas_tex("markers", cur.m), 54, cur.n)
+		var v := UIK.vbox(h, 2)
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		UIK.rich(v, "[b]%s[/b]" % (cur.n if cur != null else FACNAME[o.c] + " · none"), 13)
+		UIK.para(v, FACDESC[o.c][o.lv - 1] if o.lv > 0 else FACDESC[o.c][0], UIK.DIM, 12)
+		if SHRules.t(b.dmg[o.c]): UIK.para(v, "%d damage" % int(b.dmg[o.c]), UIK.BAD, 12)
+		if o.next != null: UIK.rich(v, "[color=#8fa3b8]Next: %s[/color] %s%s" % [o.next.n, UIK.res_bb(o.next.c), (" · [color=#ef6b5b]%s[/color]" % o.why) if o.why != null else ""], 12)
+		else: UIK.para(v, "Fully built", UIK.DIM, 12)
+		var bf := UIK.flow(c)
+		if SHRules.t(b.dmg[o.c]): UIK.button(bf, "Repair", func(): _repair_ask(G, b, o.c), b.stock.ORE < 1, "1 ORE per damage marker")
+		if o.next != null: UIK.button(bf, "Build " + o.next.n, func(): _fac_ask(G, b, o.c), o.why != null or not trade_phase or not E.enough(b.stock, o.next.c), String(o.why) if o.why != null else ("Built in the trade & base phase" if not trade_phase else ""))
 	var f := UIK.flow(box)
+	var done: bool = SHRules.t(E.builtThisTurn(G, b).get("set"))
+	UIK.button(f, "Add settlement (%s)" % E.resTxt(D.SETTLE_COST), func(): _settle_ask(G, b), not trade_phase or done or not E.enough(b.stock, D.SETTLE_COST), "One settlement per turn" if done else "")
+	if D.TERRA.has(b.w): UIK.button(f, "Terraform (%d/%d)" % [int(G.w[b.w].terra), int(D.TERRA[b.w])], func(): _terra_ask(G, b), not trade_phase or not E.has(G, "terra"), "Needs the Terraforming technology")
+	var o = E.baseOutput(G, b)
+	UIK.head(box, "Produces each decade")
+	UIK.para(box, ("%d %s" % [o.n, (E.FN[o.field] + " points") if o.type == "tech" else o.type]) if o != null else "Nothing yet (needs a Mining Station or Research Lab).", UIK.DIM, 13)
+	var pf := UIK.flow(box)
 	for ty in ["tech", "ORE", "SUP", "FUEL"]:
 		var bo = E.baseOutput(G, b, ty)
-		if bo != null: UIK.button(f, ("Produce %s%s" % [ty, " (selected)" if b.out == ty else ""]), func():
+		if bo != null: UIK.button(pf, ("Produce %s%s" % [ty, " (selected)" if b.out == ty else ""]), func():
 			b.out = ty
 			Game.act(null))
-	_base_card(box, G, b)
+	if SHRules.t(b.get("trade")):
+		UIK.head(box, "Trade marker")
+		var lim: int = E.tradeLimitOwn(b)
+		UIK.para(box, "%s (up to %d)" % [("Buy 2 %s per $1B" % b.trade.type) if b.trade.side == "buy" else ("Sell %s for $2B each" % b.trade.type), lim], null, 13)
+		UIK.button(box, "Trade", func(): trade_ask(G, {"base": b.id}, b.trade, lim, "Trade at %s?" % b.name), not trade_phase or lim < 1)
 
 func _sel_world_panel(box, G, k: String) -> void:
 	var w: Dictionary = D.W[k]
@@ -1195,7 +1317,7 @@ func _sel_world_panel(box, G, k: String) -> void:
 		UIK.para(box, "%s (%s), relations %s." % [info.name, D.FAC[info.f].n, D.REL[info.rel]])
 		if info.tm != null: UIK.para(box, "Trade marker: %s %s, up to %d." % [info.tm.side, info.tm.type, info.limit])
 		if info.why != null: UIK.para(box, info.why, UIK.DIM)
-		else: UIK.button(box, "Trade", func(): Game.act(E.trade(G, {"w": k}, info.limit)))
+		else: UIK.button(box, "Trade", func(): trade_ask(G, {"w": k}, info.tm, int(info.limit), "Trade at %s?" % info.name))
 
 # ---------------- Faction tab ----------------
 func build_faction() -> void:
@@ -1372,6 +1494,79 @@ func build_pol_panel() -> void:
 	UIK.para(box, "You hold: " + (", ".join(held) if held.size() else "none") + ".")
 	UIK.para(box, "At most one Unified policy and ten policy levels in total.", UIK.DIM, 13)
 	UIK.button(box, "Back to the map", func(): tabs.current_tab = TAB_TURN)
+
+# ---------------- purchases, refunds and scrapping ----------------
+func buy_unit(o, where: String, reserved := false) -> void:
+	var G = Game.G
+	var cost: Dictionary = o.cost.duplicate()
+	if reserved:
+		cost.SUP = maxi(0, int(cost.SUP) - 1)
+		cost.FUEL = maxi(0, int(cost.FUEL) - 1)
+	var txt: String = E.earthCostTxt(G, cost) if where == "earth" else E.resTxt(cost)
+	confirm("Build %s?" % o.u.n, "%s %s%s at %s.\nCost: %s.\n\nYou can refund it again during this phase." % [o.kind, o.u.n, " (reserved)" if reserved else "", "Earth" if where == "earth" else E._baseById(G, where).name, txt], func(): return E.buildUnit(G, o.key, where, reserved), "Build")
+
+func buy_lv(z: int, where: String) -> void:
+	var G = Game.G
+	var cost := {"ORE": 1, "FUEL": z}
+	var txt: String = E.earthCostTxt(G, cost) if where == "earth" else E.resTxt(cost)
+	confirm("Build LV-%d?" % z, "A launch vehicle LV-%d at %s.\nCost: %s.\n\nYou can refund it again during this phase." % [z, "Earth" if where == "earth" else E._baseById(G, where).name, txt], func(): return E.buildLV(G, z, where), "Build")
+
+func _buy_name(G, b: Dictionary) -> String:
+	match b.k:
+		"ship":
+			for sh in G.ships:
+				if sh.id == b.sid: return "%s (%s)" % [sh.name, ("CV-%d" % sh.sz) if sh.cls == "CV" else sh.kind]
+			return "ship"
+		"probe": return "Probe " + String(b.name)
+		_: return "LV-%d" % int(b.z)
+
+## everything bought this build phase, each with a Refund button (good for trying other combinations)
+func refund_list(box) -> void:
+	var G = Game.G
+	var buys: Array = E.refundable(G)
+	if not buys.size(): return
+	UIK.head(box, "Bought this phase · refundable")
+	UIK.para(box, "Just planning? Refund a purchase to get back exactly what you paid, then try another combination.", UIK.DIM, 12)
+	for b in buys:
+		var h := UIK.hbox(box)
+		var paid: String = E.earthRefundTxt(b.paid) if b.where == "earth" else E.resTxt(b.paid.cost)
+		var l := UIK.rich(h, "[b]%s[/b]\n[color=#8fa3b8]%s · paid %s[/color]" % [_buy_name(G, b), "Earth" if b.where == "earth" else E._baseById(G, b.where).name, paid], 13)
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		UIK.button(h, "Refund", func(): Game.act(E.refundBuy(G, b.uid)))
+	if buys.size() > 1:
+		UIK.button(box, "Refund everything", func():
+			var err = null
+			for i in range(buys.size() - 1, -1, -1):
+				err = E.refundBuy(G, buys[i].uid)
+				if err != null: break
+			Game.act(err))
+
+func scrap_ask(s) -> void:
+	var G = Game.G
+	var sv = E.scrapValue(G, s)
+	var body: String
+	if sv != null:
+		body = "%s is scrapped at %s. You recover half the cost, rounded up: %s." % [s.name, "Earth" if sv.site.where == "earth" else E._baseById(G, sv.site.where).name, E.resTxt(sv.back)]
+		if E.sum(s.cargo): body += "\nIts cargo (%s) is unloaded there." % E.resTxt(s.cargo)
+	else:
+		body = "%s is not at Earth or one of your bases that can scrap it (or it is a damaged crew vehicle), so it is %s and nothing is recovered." % [s.name, "decommissioned" if s.cls == "CV" else "destroyed"]
+		if E.sum(s.cargo): body += "\nIts cargo (%s) is lost." % E.resTxt(s.cargo)
+	confirm("Scrap %s?" % s.name, body + "\n\nThis cannot be undone.", func(): return E.scrap(G, s), "Scrap")
+
+## stocked launch vehicles on Earth and at bases can be scrapped for half their cost (rounded up)
+func lv_scrap_row(box) -> void:
+	var G = Game.G
+	var f := UIK.flow(box)
+	var any := false
+	for where in G.lv.keys():
+		var st = G.lv[where]
+		for z in [1, 2, 3, 4]:
+			if int(SHRules.gi(st, z, 0)) < 1: continue
+			any = true
+			var back := E.halfOf({"ORE": 1, "FUEL": z})
+			var nm: String = "Earth" if where == "earth" else (E._baseById(G, where).name if E._baseById(G, where) != null else String(where))
+			UIK.button(f, "Scrap LV-%d at %s" % [z, nm], func(): confirm("Scrap LV-%d?" % z, "The launch vehicle at %s is scrapped. You recover half the cost, rounded up: %s. Its counter is free again." % [nm, E.resTxt(back)], func(): return E.scrapLV(G, where, z), "Scrap"), false, "Recover " + E.resTxt(back))
+	if not any: f.queue_free()
 
 # ---------------- confirmation and choice dialogs ----------------
 func _make_modal() -> void:
@@ -1679,7 +1874,7 @@ func show_menu(mode: String) -> void:
 			vp.item_selected.connect(func(i): _setup.cnbot = "rob" if i == 1 else "mil")
 		UIK.para(row, _bot_blurb(k), UIK.DIM, 12, 520)
 	var on: Array = []
-	for k in [["rerolls", "engine rerolls"], ["scrapRE", "scrap explorers and LVs"], ["enhTrade", "enhanced trading"]]:
+	for k in [["rerolls", "engine rerolls"], ["enhTrade", "enhanced trading"]]:
 		if Game.settings[k[0]]: on.append(k[1])
 	UIK.para(menu_box, "Optional rules: " + (", ".join(on) if on.size() else "none") + " (change them in Settings).", UIK.DIM, 13)
 	var go := UIK.flow(menu_box)
@@ -1771,7 +1966,6 @@ func _settings_menu() -> void:
 		["autosave", "Autosave", "Save the campaign to the autosave slot each time you press Next."],
 		["anim", "Animated board", "Spinning planets, drifting stars, the sun's corona, glowing exploration boxes and rolling dice."],
 		["rerolls", "Improved engine reliability", "Optional rule: two engine-failure rerolls per campaign (applies to new games)."],
-		["scrapRE", "Scrap explorers and launch vehicles", "Optional rule: telescopes, orbiters over your bases, rovers on your base's surface and stocked launch vehicles can be scrapped at your bases and on Earth like crew vehicles (applies to new games%s)." % (" and this one" if Game.G != null else "")],
 		["enhTrade", "Enhanced trading", "Optional rule: a trade marker at a non-player faction's base stays until every faction in play has traded there once; markers still there in the next economic phase are replaced (applies to new games, loaded saves%s)." % (" and this one" if Game.G != null else "")]]
 	for r in rows:
 		var c := UIK.card(menu_box)

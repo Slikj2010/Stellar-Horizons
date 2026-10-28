@@ -329,11 +329,21 @@ func refresh() -> void:
 		var lv := E.polLv(G, p.k)
 		if lv: pols.append(D.POL_LV[lv - 1] + p.n)
 	_p(r3[1], "%d politics markers · %d victory markers · %s" % [G.polm, G.vm, ", ".join(pols) if pols.size() else "no policies"], null, 13)
+	UIK.button(r3[1], "Convert politics markers…", func(): main.ttree.convert_dialog(), G.polm < 1, "Slide markers into cash or tech points")
 
 	UIK.head(r4[0], "New builds · drag onto the launch pad")
 	_tray(r4[0], G, ships, pad)
 	var lf := UIK.flow(r4[0])
-	for z in [1, 2, 3, 4]: UIK.button(lf, "Build LV-%d" % z, func(): Game.act(E.buildLV(G, z, "earth")), not bp, "1 ORE + %d FUEL" % z)
+	lf.add_theme_constant_override("h_separation", 12)
+	for z in [1, 2, 3, 4]:
+		var cell := UIK.vbox(lf, 3)
+		UIK.button(cell, "Build LV-%d" % z, func(): main.buy_lv(z, "earth"), not bp, "1 ORE + %d FUEL" % z)
+		var tk := _counter(G.f, "LV-%d" % z, 58, cell, "LV-%d token: 1 ORE + %d FUEL" % [z, z])
+		tk.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		if not bp: tk.modulate = Color(1, 1, 1, 0.5)
+	if main != null:
+		main.refund_list(r4[0])
+		main.lv_scrap_row(r4[0])
 	UIK.head(r4[1], "Earth shipyard" + ("" if bp else " · open in the Build & service step"))
 	for o in E.buildOptions(G, "earth"):
 		if o.why == "in service": continue
@@ -341,8 +351,8 @@ func refresh() -> void:
 		_counter(G.f, o.kind + "|" + o.u.n, 40, h)
 		var l := UIK.rich(h, "[b]%s[/b] [color=#8fa3b8]%s[/color]\n%s = %s%s" % [o.u.n, o.kind, UIK.res_bb(o.cost), E.earthCostTxt(G, o.cost), (" · [color=#ef6b5b]%s[/color]" % o.why) if o.why != null else ""], 13)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		UIK.button(h, "Build", func(): Game.act(E.buildUnit(G, o.key, "earth", false)), not bp or o.why != null or G.cash < E.earthCash(G, o.cost))
-		if o.cv and o.why == null and bp: UIK.button(h, "Reserved", func(): Game.act(E.buildUnit(G, o.key, "earth", true)), false, "Reserved: 1 SUP and 1 Fuel cheaper")
+		UIK.button(h, "Build", func(): main.buy_unit(o, "earth", false), not bp or o.why != null or G.cash < E.earthCash(G, o.cost))
+		if o.cv and o.why == null and bp: UIK.button(h, "Reserved", func(): main.buy_unit(o, "earth", true), false, "Reserved: 1 SUP and 1 Fuel cheaper")
 
 	# row 5: crew vehicles and base shipyards
 	var cvs: Array = G.ships.filter(func(s): return s.cls == "CV")
@@ -364,7 +374,7 @@ func refresh() -> void:
 			var h := UIK.hbox(r5[0])
 			var yl := UIK.rich(h, "[b]%s shipyard[/b] · stock %s" % [b.name, UIK.res_bb(b.stock)], 13)
 			yl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			for z in [1, 2, 3, 4]: UIK.button(h, "LV-%d" % z, func(): Game.act(E.buildLV(G, z, b.id)), not bp)
+			for z in [1, 2, 3, 4]: UIK.button(h, "LV-%d" % z, func(): main.buy_lv(z, b.id), not bp)
 
 	# row 6: technologies
 	var r6 := _row([12])
@@ -556,13 +566,13 @@ func _base_slot(grid: GridContainer, G, nm: String, idx: int) -> void:
 	var b = SHRules._find(G.bases, func(x): return x.name == nm)
 	var slot := Control.new()
 	slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	slot.custom_minimum_size = Vector2(0, 150)
+	slot.custom_minimum_size = Vector2(0, 170)
 	slot.clip_contents = true
 	grid.add_child(slot)
 	var art := TextureRect.new()
 	art.texture = crop(G.f, SHEET_BASES[idx])
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	art.set_anchors_preset(Control.PRESET_FULL_RECT)
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	art.modulate = Color(1, 1, 1, 1) if b != null else Color(0.42, 0.45, 0.5, 1)
