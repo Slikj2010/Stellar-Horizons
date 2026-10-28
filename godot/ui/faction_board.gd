@@ -3,7 +3,7 @@
 ## then, in the Movement step, pick a destination to launch it with the usual engine roll.
 extends Control
 
-const RELCOL := [Color("#7fb0e8"), Color("#9cc0e0"), Color("#9dd1c6"), Color("#7fa9d6"), Color("#b7b1f2"), Color("#ef6b5b")]
+const RELCOL := [Color("#7fb0e8"), Color("#9cc0e0"), Color("#9dd1c6"), Color("#7fa9d6"), Color("#e8702a"), Color("#ef6b5b")]
 const DECADES := ["2030", "2060", "2090", "2120+"]
 ## regions of the printed faction sheets (boards/<f>.webp, all 1400 x 1059 with the same layout)
 const SHEET_FLAG := Rect2(38, 15, 127, 85)
