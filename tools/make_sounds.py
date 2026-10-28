@@ -219,53 +219,59 @@ def boom():
 
 
 def build():
-    """construction: a gear ratchet, an impact wrench running bolts down, welding crackle and a final clank"""
-    D = 2.2
-    out = np.zeros(int(SR * D))
+    """a spaceport engineering bay, ~2.4 s: hangar room tone, a heavy servo lift, pneumatic hiss and wrench bursts,
+    a latch clunk, a confirmation beep pair, all in a reverberant steel space"""
+    from scipy.signal import fftconvolve
+    D = 2.4
+    n = int(SR * D)
+    dry = np.zeros(n)
 
-    def put(x, at):
+    def put(x, at, g=1.0):
         i = int(SR * at)
-        out[i:i + len(x)] += x[:len(out) - i]
-    # 1) gears: ratchet clicks speeding up (a dull tooth knock plus a metallic tick)
-    t = 0.0
-    gap = 0.11
-    while t < 0.75:
-        d = 0.06
-        knock = tone(190 + rng.uniform(-15, 15), d) * env(int(SR * d), 0.0005, 0.03, 5)
-        tick = bp(noise(d), 2500, 7000) * env(int(SR * d), 0.0003, 0.012, 5) * 0.8
-        put((knock + tick) * 0.9, t)
-        t += gap
-        gap = max(0.045, gap * 0.93)
-    # a gear whirr under it
-    whirr = tone(lambda x: 140 + 220 * x / 0.8, 0.8, 'saw') * env(int(SR * 0.8), 0.05, 0.6, 2) * 0.12
-    put(lp(whirr, 1500), 0.0)
-    # 2) bolts: impact wrench, a burst of fast pulses that ends with a hard seat
-    d = 0.55
+        if i >= n:
+            return
+        x = x[:n - i]
+        dry[i:i + len(x)] += x * g
+    # hangar room tone: a low rumble under everything
+    rum = lp(noise(D), 220) * 0.55 + tone(52, D) * 0.12 + tone(104, D) * 0.05
+    put(rum * env(n, 0.15, 1.2, 1.4), 0.0)
+    # heavy servo: a gantry arm lifting (pitch rises, slight wobble), 0.05-0.95 s
+    d = 0.9
     tt = t_(d)
-    pulse = (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 26 * tt))) * 0.6 + 0.4
-    motor = tone(lambda x: 620 + 380 * np.minimum(1, x / 0.35), d, 'saw') * pulse * env(int(SR * d), 0.01, 0.4, 3) * 0.28
-    rattle = bp(noise(d), 1200, 5000) * pulse * env(int(SR * d), 0.01, 0.4, 3) * 0.3
-    put(lp(motor, 4200) + rattle, 0.8)
-    seat = (tone(230, 0.25) + 0.5 * tone(610, 0.25) + 0.3 * tone(1490, 0.25)) * env(int(SR * 0.25), 0.0007, 0.09, 5)
-    put(seat * 0.7, 1.33)
-    # 3) welding: a hiss with random crackle pops and a flickering arc buzz
-    d = 0.8
-    hiss = bp(noise(d), 2500, 9000) * 0.18
-    flick = np.clip(lp(rng.standard_normal(int(SR * d)), 40) * 18, -1, 1) * 0.5 + 0.55
-    arc = tone(100, d, 'saw') * 0.05
-    pops = np.zeros(int(SR * d))
-    for _ in range(60):
-        i = rng.integers(0, len(pops) - 800)
-        L = rng.integers(60, 400)
-        pops[i:i + L] += hp(rng.standard_normal(L), 3000) * rng.uniform(0.2, 1.0) * np.exp(-np.arange(L) / (L / 4))
-    weld = (hiss + arc) * flick + pops * 0.5
-    weld *= env(int(SR * d), 0.02, 0.9, 2.4)
-    put(weld * 0.9, 1.0)
-    # 4) a closing clank
-    d = 0.5
-    clank = (tone(480, d) + 0.7 * tone(1325, d) + 0.5 * tone(2590, d)) * env(int(SR * d), 0.0008, 0.2, 4)
-    clank += bp(noise(d), 1800, 6500) * env(int(SR * d), 0.0004, 0.012, 5) * 0.7
-    put(clank * 0.8, 1.72)
+    servo = tone(lambda x: 85 + 150 * (x / d) ** 0.8, d, 'saw') * (0.7 + 0.3 * np.sin(2 * np.pi * 9 * tt))
+    servo = lp(servo, 900) * env(int(SR * d), 0.08, 0.5, 2.0) * 0.32
+    put(servo, 0.05)
+    # pneumatic hiss as the clamps pressurise
+    put(bp(noise(0.5), 2200, 9000) * env(int(SR * 0.5), 0.02, 0.32, 2.5) * 0.35, 0.35)
+    # impact wrench: three short bursts running bolts down
+    for k, at in enumerate((0.8, 1.05, 1.28)):
+        d = 0.19 - 0.02 * k
+        tw = t_(d)
+        pulse = 0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 34 * tw))
+        m = lp(tone(lambda x: 700 + 500 * x / d, d, 'saw'), 4000) * pulse * env(int(SR * d), 0.004, 0.08, 2.5) * 0.3
+        m += bp(noise(d), 1500, 6000) * pulse * env(int(SR * d), 0.003, 0.08, 2.5) * 0.35
+        put(m, at)
+    # a heavy latch clunk and a metallic ring
+    cl = (tone(95, 0.35) + 0.8 * tone(210, 0.35) + 0.5 * tone(540, 0.35)) * env(int(SR * 0.35), 0.0008, 0.16, 4.0)
+    put(cl * 0.8, 1.52)
+    put(bp(noise(0.06), 800, 5000) * env(int(SR * 0.06), 0.0004, 0.02, 4.0) * 0.7, 1.52)
+    ring = (tone(1480, 0.5) + 0.5 * tone(2310, 0.5)) * env(int(SR * 0.5), 0.0006, 0.3, 5.0)
+    put(ring * 0.1, 1.54)
+    # a short confirmation beep pair from a console
+    for at, f in ((1.85, 880), (2.0, 1175)):
+        bp_ = tone(f, 0.1, 'tri') * env(int(SR * 0.1), 0.004, 0.07, 2.0) * 0.22
+        put(bp_, at)
+    # reverberant steel space: a bright-then-dark decaying noise tail convolved with the dry sound
+    rl = int(SR * 0.9)
+    tr = np.arange(rl) / SR
+    ir = lp(rng.standard_normal(rl), 5000) * np.exp(-tr * 5.5)
+    ir[0] = 0
+    wet = fftconvolve(dry, ir)[:n]
+    wet *= np.max(np.abs(dry)) / (np.max(np.abs(wet)) + 1e-9) * 0.9
+    out = dry * 0.8 + wet * 0.55
+    # fade out so it ends cleanly within the length
+    out *= np.minimum(1.0, (n - np.arange(n)) / (SR * 0.25))
+    out = np.tanh(out / np.max(np.abs(out)) * 2.6)  # glue and lift the quieter servo and wrench parts
     return norm(out, 0.6)
 
 
