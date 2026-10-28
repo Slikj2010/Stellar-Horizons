@@ -26,7 +26,7 @@ func _ready() -> void:
 	custom_minimum_size = Vector2(560, 0)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.03, 0.06, 0.1, 0.97)
-	sb.border_color = Color("#4fc3d9")
+	sb.border_color = Color("#a9b0f0")
 	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(8)
 	sb.set_content_margin_all(12)
@@ -86,7 +86,7 @@ func build() -> void:
 	fo.item_selected.connect(func(i): fac = all[i].f; build())
 	fr.add_child(fo)
 	summary = Label.new()
-	summary.add_theme_color_override("font_color", Color("#8fa3b8"))
+	summary.add_theme_color_override("font_color", Color("#a7a5d6"))
 	summary.add_theme_font_size_override("font_size", 12)
 	summary.text = "$%dB · ORE %d · SUP %d · FUEL %d · Phy %d · Eng %d · Bio %d · politics %d · VM %d" % [g.cash, st.ORE, st.SUP, st.FUEL, g.bank.Phy, g.bank.Eng, g.bank.Bio, g.polm, int(g.get("vm", 0))]
 	body.add_child(summary)
@@ -168,7 +168,7 @@ func build() -> void:
 	var note := Label.new()
 	note.text = "Changes are written to the game log as [Developer]. Toggle with the ` key."
 	note.add_theme_font_size_override("font_size", 11)
-	note.add_theme_color_override("font_color", Color("#8fa3b8"))
+	note.add_theme_color_override("font_color", Color("#a7a5d6"))
 	body.add_child(note)
 
 func _row(label: String) -> HBoxContainer:
@@ -269,7 +269,7 @@ func run(line: String) -> void:
 	if line == "": return
 	hist.append(line)
 	hi = hist.size()
-	print_line("> " + line, "#4fc3d9")
+	print_line("> " + line, "#a9b0f0")
 	var parts := line.split(" ", false)
 	var c := parts[0].to_lower()
 	var a: Array = Array(parts).slice(1)

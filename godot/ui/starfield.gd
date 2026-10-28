@@ -17,7 +17,7 @@ func _ready() -> void:
 	for L in [[220, 0.06, 0.45, 1.0], [120, 0.14, 0.7, 1.4], [46, 0.28, 1.0, 2.0]]:
 		for i in L[0]:
 			var hue := Color.WHITE
-			if rng.randf() < 0.12: hue = Color("#ffd9a8") if rng.randf() < 0.5 else Color("#a8c8ff")
+			if rng.randf() < 0.12: hue = Color("#f3c4c4") if rng.randf() < 0.5 else Color("#c4c6f5")
 			stars.append([rng.randf() * TILE, rng.randf() * TILE, 0.35 + rng.randf() * L[3], L[2] * (0.35 + rng.randf() * 0.65), rng.randf() * TAU, 0.4 + rng.randf() * 2.2, L[1], hue])
 	for c in [[Color(79 / 255.0, 195 / 255.0, 217 / 255.0), 0.07], [Color(120 / 255.0, 80 / 255.0, 200 / 255.0), 0.08], [Color(242 / 255.0, 169 / 255.0, 59 / 255.0), 0.035], [Color(60 / 255.0, 90 / 255.0, 200 / 255.0), 0.07]]:
 		for i in 5:
@@ -45,7 +45,7 @@ func _draw() -> void:
 	var vs := get_viewport_rect().size
 	# background gradient (top-left lighter)
 	draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(vs.x, 0), vs, Vector2(0, vs.y)]),
-		PackedColorArray([Color("#060a12"), Color("#05080f"), Color("#03050a"), Color("#05080f")]))
+		PackedColorArray([Color("#050c30"), Color("#050c30"), Color("#030828"), Color("#050c30")]))
 	if cam == null: return
 	# the world origin's position on screen
 	var o: Vector2 = -cam.get_screen_center_position() * cam.zoom + vs / 2.0
@@ -56,7 +56,7 @@ func _draw() -> void:
 		var size := ts * sc
 		var margin := (size - vs) / 2.0
 		var drift := Vector2(tanh(o.x * 0.00035), tanh(o.y * 0.00035)) * margin
-		draw_texture_rect(_bg, Rect2(-margin + drift, size), false, Color(0.8, 0.82, 0.85))
+		draw_texture_rect(_bg, Rect2(-margin + drift, size), false, Color(1.0, 0.72, 1.15))
 	else:
 		var nox := fposmod(o.x * 0.04, 1024.0)
 		var noy := fposmod(o.y * 0.04, 1024.0)

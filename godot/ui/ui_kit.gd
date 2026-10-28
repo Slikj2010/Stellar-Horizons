@@ -2,12 +2,12 @@
 class_name UIK
 extends RefCounted
 
-const AMBER := Color("#f2a93b")
-const CYAN := Color("#4fc3d9")
-const DIM := Color("#8fa3b8")
+const AMBER := Color("#da8a8b")
+const CYAN := Color("#a9b0f0")
+const DIM := Color("#a7a5d6")
 const GOOD := Color("#5fcf8a")
 const BAD := Color("#ef6b5b")
-const FIELD_COL := {"Phy": Color("#6fb3ff"), "Eng": Color("#c9d4e0"), "Bio": Color("#5fcf8a")}
+const FIELD_COL := {"Phy": Color("#8fa2ff"), "Eng": Color("#d9d7f2"), "Bio": Color("#5fcf8a")}
 
 static var _tex_cache := {}
 static var _json_cache := {}
@@ -87,7 +87,7 @@ static func vbox(box: Node, sep := 4) -> VBoxContainer:
 
 static func sep(box: Node) -> void:
 	var s := HSeparator.new()
-	s.add_theme_color_override("separator", Color(0.15, 0.23, 0.31))
+	s.add_theme_color_override("separator", Color(0.290, 0.278, 0.541, 1))
 	box.add_child(s)
 
 ## a card-like row: a framed panel holding a vbox
@@ -95,7 +95,7 @@ static func card(box: Node) -> VBoxContainer:
 	var p := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.06, 0.094, 0.14, 1)
-	sb.border_color = Color(0.15, 0.23, 0.31)
+	sb.border_color = Color(0.290, 0.278, 0.541, 1)
 	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(8)
 	sb.content_margin_left = 10
@@ -202,7 +202,7 @@ static func pick(box: Node, items: Array, sel := 0) -> OptionButton:
 ## resources as text with colours: 2 ORE + 1 SUP
 static func res_bb(o) -> String:
 	var parts := []
-	var cols := {"ORE": "#c9d4e0", "SUP": "#6fb3ff", "FUEL": "#f2a93b"}
+	var cols := {"ORE": "#d9d7f2", "SUP": "#8fa2ff", "FUEL": "#da8a8b"}
 	for r in ["ORE", "SUP", "FUEL"]:
 		var v := int(SHRules.gi(o, r, 0))
 		if v: parts.append("[color=%s]%d %s[/color]" % [cols[r], v, r])
