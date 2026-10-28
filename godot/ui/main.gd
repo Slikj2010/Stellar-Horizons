@@ -116,6 +116,7 @@ var warm_enabled := true  ## the screenshot tests turn this off
 ## start-up: pull in every image the game uses and build the 2.5D scene now, behind a loading screen
 func _startup_load() -> void:
 	if not warm_enabled: return
+	var t0 := Time.get_ticks_msec()
 	loading.begin("Loading the solar system…")
 	await get_tree().process_frame
 	var paths: Array = []
@@ -129,14 +130,17 @@ func _startup_load() -> void:
 			loading.step(0.5 * i / maxf(1, paths.size()), "Loading art… %d / %d" % [i, paths.size()])
 			await get_tree().process_frame
 		ResourceLoader.load(paths[i])
+	if OS.get_cmdline_user_args().has("--timing"): print("TIMING art ", Time.get_ticks_msec() - t0)
 	loading.step(0.55, "Building the 2.5D scene…")
 	await get_tree().process_frame
 	board.set_layout(false)  # the 2.5D scene is built on the printed sheet's geometry, not the flat winding layout
 	v25.ensure()
+	if OS.get_cmdline_user_args().has("--timing"): print("TIMING ensure ", Time.get_ticks_msec() - t0)
 	loading.step(0.75, "Building models…")
 	await get_tree().process_frame
 	if v25.MODELS.is_empty(): v25._build_models()
 	board.set_layout(true)
+	if OS.get_cmdline_user_args().has("--timing"): print("TIMING total ", Time.get_ticks_msec() - t0)
 	loading.step(1.0, "Ready")
 	await get_tree().process_frame
 	loading.done()

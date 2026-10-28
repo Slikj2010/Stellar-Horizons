@@ -385,12 +385,15 @@ func ensure() -> void:
 		return
 	var m: Array = board.geo_std.maps[sunJ.map]
 	var sc := [m[0] + sunJ.cx * .4, m[1] + sunJ.cy * .4]
+	var _t0 := Time.get_ticks_msec()
 	LAY = V25Layout.new()
 	LAY.build(board.geo_std, Game.data.D, sc)
+	if OS.get_cmdline_user_args().has("--timing"): print("TIMING layout ", Time.get_ticks_msec() - _t0)
 	sunRing = {"c": Vector2(sc[0], sc[1]), "r": LAY.sunR * 1.12 / LAY.S}
 	board.v25_ring = sunRing
 	board.reset_rings()
 	ASM = placeAsm(LAY.S)
+	if OS.get_cmdline_user_args().has("--timing"): print("TIMING asm ", Time.get_ticks_msec() - _t0)
 	# belts: particle rings (gaps cut out where a pod sits on the ring)
 	var r := Mulb.new(4242)
 	for b in LAY.BELTS:
@@ -408,6 +411,7 @@ func ensure() -> void:
 			var big := r.next() < .06
 			vb.pv(x, (r.next() - .5) * (b.r1 - b.r0) * .08, z, 0, 0, 0, 0, Color(b.col[0] * sh, b.col[1] * sh, b.col[2] * sh, .95 if big else .7 * sh + .2))
 		_static["belt_" + b.k] = vb.mesh(Mesh.PRIMITIVE_POINTS)
+	if OS.get_cmdline_user_args().has("--timing"): print("TIMING belts ", Time.get_ticks_msec() - _t0)
 	# sky: stars on a distant shell all around
 	var sp := VB.new()
 	for i in 3200:
@@ -690,6 +694,12 @@ func placeAsm(S: float) -> Dictionary:
 	for it in computeBoxes(): polys.append(it.shape)
 	var placed := []
 	var out := {}
+	# the placement search below is slow and its result never changes: it is cached in data/v25_asm.json
+	# (delete the file, or run with --dump-asm, to rebuild it)
+	var cache := {}
+	if FileAccess.file_exists("res://data/v25_asm.json") and not OS.get_cmdline_user_args().has("--dump-asm"):
+		cache = board._json("res://data/v25_asm.json")
+	var found := {}
 	var order := ks.duplicate()
 	order.sort_custom(func(a, b):
 		var sa := asmSize(a)
@@ -734,7 +744,8 @@ func placeAsm(S: float) -> Dictionary:
 					off += .125
 				ex += 14
 		var best = null
-		for cd in cands:
+		if cache.has(k): best = {"sc": 0.0, "cd": [cache[k][0], cache[k][1], 0.0]}
+		for cd in (cands if best == null else []):
 			var R := [cd[0], cd[1], cd[0] + w, cd[1] + h]
 			var pen := 0.0
 			for o in circ:
@@ -770,9 +781,15 @@ func placeAsm(S: float) -> Dictionary:
 			var sc: float = pen + cd[2] + L * .3
 			if best == null or sc < best.sc: best = {"sc": sc, "cd": cd}
 		var cd: Array = best.cd
+		found[k] = [cd[0], cd[1]]
 		var rect := [cd[0], cd[1], cd[0] + w, cd[1] + h]
 		placed.append(rect)
 		out[k] = {"k": k, "x0": cd[0], "z0": cd[1], "w": w, "h": h, "rect": rect, "c": c, "r": r}
+	if cache.is_empty() and OS.get_cmdline_user_args().has("--dump-asm"):
+		var f := FileAccess.open("res://data/v25_asm.json", FileAccess.WRITE)
+		f.store_string(JSON.stringify(found))
+		f.close()
+		print("DUMPED asm cache ", found.size())
 	# the sheet positions of the base slots become anchors of their pod, so counters and bases map to the right pod
 	for k in out:
 		var A: Dictionary = out[k]
