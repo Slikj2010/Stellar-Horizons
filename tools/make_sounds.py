@@ -219,8 +219,8 @@ def boom():
 
 
 def build():
-    """a spaceport engineering bay, ~2.4 s: hangar room tone, a heavy servo lift, pneumatic hiss and wrench bursts,
-    a latch clunk, a confirmation beep pair, all in a reverberant steel space"""
+    """a spaceport engineering bay, ~2.4 s: hangar room tone, a heavy servo lift, pneumatic hiss and welding,
+    a latch clunk and a welding arc, all in a reverberant steel space"""
     from scipy.signal import fftconvolve
     D = 2.4
     n = int(SR * D)
@@ -243,24 +243,25 @@ def build():
     put(servo, 0.05)
     # pneumatic hiss as the clamps pressurise
     put(bp(noise(0.5), 2200, 9000) * env(int(SR * 0.5), 0.02, 0.32, 2.5) * 0.35, 0.35)
-    # impact wrench: three short bursts running bolts down
-    for k, at in enumerate((0.8, 1.05, 1.28)):
-        d = 0.19 - 0.02 * k
-        tw = t_(d)
-        pulse = 0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 34 * tw))
-        m = lp(tone(lambda x: 700 + 500 * x / d, d, 'saw'), 4000) * pulse * env(int(SR * d), 0.004, 0.08, 2.5) * 0.3
-        m += bp(noise(d), 1500, 6000) * pulse * env(int(SR * d), 0.003, 0.08, 2.5) * 0.35
-        put(m, at)
+    # welding: a hissing arc with a flickering buzz and crackle pops, 0.75-1.45 s
+    d = 0.7
+    nw = int(SR * d)
+    hiss = bp(noise(d), 2500, 9500) * 0.22
+    flick = np.clip(lp(rng.standard_normal(nw), 45) * 20, -1, 1) * 0.5 + 0.55
+    arc = lp(tone(100, d, 'saw'), 600) * 0.06
+    pops = np.zeros(nw)
+    for _ in range(45):
+        i = rng.integers(0, nw - 800)
+        L = rng.integers(60, 350)
+        pops[i:i + L] += hp(rng.standard_normal(L), 3000) * rng.uniform(0.2, 1.0) * np.exp(-np.arange(L) / (L / 4))
+    weld = ((hiss + arc) * flick + pops * 0.45) * env(nw, 0.03, 0.6, 2.2)
+    put(weld, 0.75)
     # a heavy latch clunk and a metallic ring
     cl = (tone(95, 0.35) + 0.8 * tone(210, 0.35) + 0.5 * tone(540, 0.35)) * env(int(SR * 0.35), 0.0008, 0.16, 4.0)
     put(cl * 0.8, 1.52)
     put(bp(noise(0.06), 800, 5000) * env(int(SR * 0.06), 0.0004, 0.02, 4.0) * 0.7, 1.52)
     ring = (tone(1480, 0.5) + 0.5 * tone(2310, 0.5)) * env(int(SR * 0.5), 0.0006, 0.3, 5.0)
     put(ring * 0.1, 1.54)
-    # a short confirmation beep pair from a console
-    for at, f in ((1.85, 880), (2.0, 1175)):
-        bp_ = tone(f, 0.1, 'tri') * env(int(SR * 0.1), 0.004, 0.07, 2.0) * 0.22
-        put(bp_, at)
     # reverberant steel space: a bright-then-dark decaying noise tail convolved with the dry sound
     rl = int(SR * 0.9)
     tr = np.arange(rl) / SR
@@ -272,7 +273,7 @@ def build():
     # fade out so it ends cleanly within the length
     out *= np.minimum(1.0, (n - np.arange(n)) / (SR * 0.25))
     out = np.tanh(out / np.max(np.abs(out)) * 2.6)  # glue and lift the quieter servo and wrench parts
-    return norm(out, 0.6)
+    return norm(out, 0.32)
 
 
 def scrap():
