@@ -288,7 +288,7 @@ func toggle_3d() -> void:
 	board.visible = not want
 	bg.visible = not want
 	_v25c.visible = want
-	_btn3d.add_theme_color_override("font_color", UIK.CYAN if want else Color(0.85, 0.9, 0.95))
+	_btn3d.add_theme_color_override("font_color", UIK.CYAN if want else Color(0.912, 0.922, 0.956))
 	if want: v25.home(board.pos_of("earth") if Game.G != null else Vector2(2500, 450))
 	else: board.queue_redraw()
 	_tip.visible = false
@@ -411,7 +411,7 @@ func _make_v25_controls() -> void:
 	_hint.position = Vector2(16, 62 + 12)
 	_hint.add_theme_font_size_override("font_size", 13)
 	_hint.add_theme_color_override("font_color", UIK.DIM)
-	_hint.add_theme_color_override("font_shadow_color", Color(0.039, 0.039, 0.043, 1))
+	_hint.add_theme_color_override("font_shadow_color", Color(0.062, 0.062, 0.062, 1))
 	_hint.add_theme_constant_override("shadow_offset_y", 1)
 	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_hint)
@@ -464,8 +464,8 @@ func _make_tip() -> void:
 	_tip.visible = false
 	_tip.z_index = 50
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.04, 0.07, 0.11, 0.96)
-	sb.border_color = Color(0.25, 0.36, 0.48)
+	sb.bg_color = Color(0.086, 0.102, 0.139, 0.96)
+	sb.border_color = Color(0.553, 0.537, 0.839)
 	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(6)
 	sb.set_content_margin_all(8)
@@ -503,7 +503,7 @@ func _show_tip(txt: String, sp: Vector2) -> void:
 	_tip.position = p
 
 func _tip_text(G, h: Dictionary) -> String:
-	var dim := "[color=#a9acb3]%s[/color]"
+	var dim := "[color=#a3a7b2]%s[/color]"
 	match h.get("t"):
 		"ship":
 			var s = E._shipById(G, h.id)
@@ -514,8 +514,8 @@ func _tip_text(G, h: Dictionary) -> String:
 			if SHRules.t(s.dmg): extra.append("%d damage" % s.dmg)
 			if E.sum(s.cargo): extra.append("cargo " + UIK.res_bb(s.cargo))
 			if SHRules.t(s.get("probe")): extra.append("carries probe " + s.probe)
-			if G.phase == "move" and E.moves(G, s).size(): extra.append("[color=#aaa6d7]can move: drag it, or click it[/color]")
-			if G.phase == "explore" and E.exploreOptions(G, s).size(): extra.append("[color=#aaa6d7]can explore[/color]")
+			if G.phase == "move" and E.moves(G, s).size(): extra.append("[color=#ced1dd]can move: drag it, or click it[/color]")
+			if G.phase == "explore" and E.exploreOptions(G, s).size(): extra.append("[color=#ced1dd]can explore[/color]")
 			if extra.size(): t += "\n" + " · ".join(extra)
 			return t + "\n" + dim % "Right-click to enlarge"
 		"oship":
@@ -856,7 +856,7 @@ func _turn_econ(box, G) -> void:
 		UIK.para(box, "Production is collected; see the log. Set what each base produces next decade:", UIK.DIM, 13)
 		for b in G.bases:
 			var h := UIK.hbox(box)
-			var l := UIK.rich(h, "[b]%s[/b]\n[color=#a9acb3]%s[/color]" % [b.name, D.W[b.w].n], 13)
+			var l := UIK.rich(h, "[b]%s[/b]\n[color=#a3a7b2]%s[/color]" % [b.name, D.W[b.w].n], 13)
 			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			var types := ["ORE", "SUP", "FUEL", "tech"]
 			var pk := UIK.pick(h, types.map(func(t): var o = E.baseOutput(G, b, t); return "%s %s" % ["Tech" if t == "tech" else t, ("(%d)" % int(o.n)) if o != null else "(none)"]))
@@ -876,7 +876,7 @@ func _turn_econ(box, G) -> void:
 		for p in D.POL:
 			var lv := E.polLv(G, p.k)
 			var c := UIK.card(box)
-			UIK.rich(c, "[b]%s%s[/b]  [color=#a9acb3]%s[/color]" % [D.POL_LV[maxi(0, lv - 1)] if lv else "", p.n, ("level %d" % lv) if lv else "not held"])
+			UIK.rich(c, "[b]%s%s[/b]  [color=#a3a7b2]%s[/color]" % [D.POL_LV[maxi(0, lv - 1)] if lv else "", p.n, ("level %d" % lv) if lv else "not held"])
 			if lv < 3:
 				UIK.para(c, "Next: " + p.d[lv], UIK.DIM, 13)
 				UIK.button(c, "Adopt " + D.POL_LV[lv] + p.n, func(): confirm("Adopt %s%s?" % [D.POL_LV[lv], p.n], String(p.d[lv]) + "\nYou can adopt one policy per decade.", func(): return E.choosePolicy(G, p.k), "Adopt"), SHRules.t(G.get("policyPicked")))
@@ -896,7 +896,7 @@ func _tech_list(box, G) -> void:
 		var c := E.techCost(G, tt)
 		var ok: bool = G.bank[tt.f] >= c
 		var h := UIK.hbox(box)
-		var l := UIK.rich(h, "[b][color=#%s]%s[/color][/b] · %d %s\n[color=#a9acb3]%s[/color]" % [UIK.FIELD_COL[tt.f].to_html(false), tt.n, c, E.FN[tt.f], tt.d], 13)
+		var l := UIK.rich(h, "[b][color=#%s]%s[/color][/b] · %d %s\n[color=#a3a7b2]%s[/color]" % [UIK.FIELD_COL[tt.f].to_html(false), tt.n, c, E.FN[tt.f], tt.d], 13)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UIK.button(h, "Develop", func(): confirm("Develop %s?" % tt.n, "%s\n\nCost: %d %s points (you have %d)." % [tt.d, c, E.FN[tt.f], G.bank[tt.f]], func(): return ttree.develop(tt.k), "Develop"), not ok, E.techCostTxt(G, tt))
 
@@ -908,7 +908,7 @@ func _turn_build(box, G) -> void:
 		if o.why == "in service": continue
 		var h := UIK.hbox(box)
 		UIK.image(h, UIK.atlas_tex("atlas_" + G.f, o.kind + "|" + o.u.n), 40)
-		var l := UIK.rich(h, "[b]%s[/b] [color=#a9acb3]%s[/color]\n%s = %s%s" % [o.u.n, o.kind, UIK.res_bb(o.cost), E.earthCostTxt(G, o.cost), (" · [color=#e8508a]%s[/color]" % o.why) if o.why != null else ""], 13)
+		var l := UIK.rich(h, "[b]%s[/b] [color=#a3a7b2]%s[/color]\n%s = %s%s" % [o.u.n, o.kind, UIK.res_bb(o.cost), E.earthCostTxt(G, o.cost), (" · [color=#e0508f]%s[/color]" % o.why) if o.why != null else ""], 13)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UIK.button(h, "Build", func(): buy_unit(o, "earth", false), o.why != null or G.cash < E.earthCash(G, o.cost))
 		if o.cv and o.why == null: UIK.button(h, "Reserved", func(): buy_unit(o, "earth", true), false, "Reserved: 1 SUP and 1 Fuel cheaper")
@@ -946,7 +946,7 @@ func _lv_txt(G) -> String:
 func _ship_row(box, G, s, sub: String) -> HBoxContainer:
 	var h := UIK.hbox(box)
 	UIK.image(h, UIK.atlas_tex("atlas_" + G.f, s.img + "|back" if SHRules.t(s.res) else s.img), 40)
-	var l := UIK.rich(h, "[b]%s[/b] [color=#a9acb3]%s[/color]\n%s" % [s.name, ("CV-%d" % s.sz) if s.cls == "CV" else s.kind, sub], 13)
+	var l := UIK.rich(h, "[b]%s[/b] [color=#a3a7b2]%s[/color]\n%s" % [s.name, ("CV-%d" % s.sz) if s.cls == "CV" else s.kind, sub], 13)
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return h
 
@@ -1000,7 +1000,7 @@ func _turn_explore(box, G) -> void:
 func _pick_row(box, G, s, sub: String) -> void:
 	var chosen: bool = Game.sel != null and Game.sel.t == "ship" and SHRules.eq(Game.sel.id, s.id)
 	var c := UIK.card(box)
-	if chosen: c.modulate = Color(1.0, 0.92, 0.7)
+	if chosen: c.modulate = Color(0.941, 0.639, 0.353)
 	var h := _ship_row(c, G, s, sub)
 	var pick := func():
 		Game.select({"t": "ship", "id": s.id})
@@ -1200,7 +1200,7 @@ func _sel_ship_panel(box, G, s) -> void:
 				det += ("" if det == "" else " · ") + (("%d turns" % int(m.eta)) if SHRules.t(m.get("eta")) else "this turn")
 				if m.get("lv") != null: det += " · LV-%d%s" % [int(m.lv.n), (" (new: %s)" % m.lv.txt) if SHRules.t(m.lv.get("buy")) else " from stock"]
 				if SHRules.t(m.get("final")): det += " · final move"
-				UIK.rich(row, "[color=#a9acb3]" + det + "[/color]", 12)
+				UIK.rich(row, "[color=#a3a7b2]" + det + "[/color]", 12)
 				if di.missions != "": UIK.rich(row, di.missions, 12)
 			fl.apply.call()
 		elif s.loc == "earth": UIK.para(box, "No launch is possible now (it needs a launch vehicle, or it has moved this turn).", UIK.DIM)
@@ -1222,7 +1222,7 @@ func _sel_ship_panel(box, G, s) -> void:
 						"produce": det = "production value %d" % int(o.value)
 						"harvest": det = ""
 						_: det = "%s · world [b]%d[/b] · explore value [b]%d[/b]%s" % [_field_bb(o.w), int(G.w[o.w].v), int(o.value), (" (−%d distance)" % int(o.pen)) if SHRules.t(o.get("pen")) else ""]
-					if det != "": UIK.rich(row, "[color=#a9acb3]" + det + "[/color]", 12)
+					if det != "": UIK.rich(row, "[color=#a3a7b2]" + det + "[/color]", 12)
 					var ms := _missions_bb(G, [o.w], false)
 					if ms != "": UIK.rich(row, ms, 12)
 			fl.apply.call()
@@ -1281,7 +1281,7 @@ func _sel_base_panel(box, G, b) -> void:
 		UIK.rich(v, "[b]%s[/b]" % (cur.n if cur != null else FACNAME[o.c] + " · none"), 13)
 		UIK.para(v, FACDESC[o.c][o.lv - 1] if o.lv > 0 else FACDESC[o.c][0], UIK.DIM, 12)
 		if SHRules.t(b.dmg[o.c]): UIK.para(v, "%d damage" % int(b.dmg[o.c]), UIK.BAD, 12)
-		if o.next != null: UIK.rich(v, "[color=#a9acb3]Next: %s[/color] %s%s" % [o.next.n, UIK.res_bb(o.next.c), (" · [color=#e8508a]%s[/color]" % o.why) if o.why != null else ""], 12)
+		if o.next != null: UIK.rich(v, "[color=#a3a7b2]Next: %s[/color] %s%s" % [o.next.n, UIK.res_bb(o.next.c), (" · [color=#e0508f]%s[/color]" % o.why) if o.why != null else ""], 12)
 		else: UIK.para(v, "Fully built", UIK.DIM, 12)
 		var bf := UIK.flow(c)
 		if SHRules.t(b.dmg[o.c]): UIK.button(bf, "Repair", func(): _repair_ask(G, b, o.c), b.stock.ORE < 1, "1 ORE per damage marker")
@@ -1371,7 +1371,7 @@ func build_tech_panel() -> void:
 	UIK.button(box, "Convert politics markers (%d)…" % G.polm, func(): ttree.convert_dialog(), G.polm < 1)
 	UIK.button(box, "Back to the map", func(): tabs.current_tab = TAB_TURN)
 
-const RES_COL := {"ORE": Color("#e0e3ea"), "SUP": Color("#8f8be0"), "FUEL": Color("#e8702a")}
+const RES_COL := {"ORE": Color("#e2e5f0"), "SUP": Color("#8d89d6"), "FUEL": Color("#e8702a")}
 ## sliders for ORE / SUP / FUEL that share one hold's free room (the web version's cargoSliders). extra = a Callable that
 ## returns other Earth costs to add (a new launch vehicle), or null. Returns {"load": Callable -> {ORE,SUP,FUEL}, "update": Callable, "ok": Callable -> bool}
 func cargo_sliders(box: Node, room: int, title: String, extra = null, on_change = null) -> Dictionary:
@@ -1398,7 +1398,7 @@ func cargo_sliders(box: Node, room: int, title: String, extra = null, on_change 
 			var pre: String = ("Cargo %s" % UIK.res_bb(L)) if E.sum(L) else "New launch vehicle"
 			if E.sum(L) and x != null and E.sum(x): pre += " plus the new launch vehicle"
 			cost.text = "%s: [b][color=#%s]%s[/color][/b]%s" % [pre, (UIK.GOOD if st.ok else UIK.BAD).to_html(false), E.earthCostTxt(G, all), "" if st.ok else " (you have $%dB)" % int(G.cash)]
-		else: cost.text = "[color=#a9acb3]No cargo.[/color]"
+		else: cost.text = "[color=#a3a7b2]No cargo.[/color]"
 		if on_change != null: on_change.call(st.ok)
 	UIK.share_cap(sls.values(), room, upd)
 	upd.call()
@@ -1406,7 +1406,7 @@ func cargo_sliders(box: Node, room: int, title: String, extra = null, on_change 
 
 # ---------------- search + research-field filter for long destination / target lists (as in the web version) ----------------
 var _lf := {"q": "", "f": ""}
-const MIS_KIND := {"mine": ["Your mission", "#e8702a"], "common": ["Common mission", "#aaa6d7"], "dated": ["Dated mission", "#e8508a"]}
+const MIS_KIND := {"mine": ["Your mission", "#e8702a"], "common": ["Common mission", "#ced1dd"], "dated": ["Dated mission", "#e0508f"]}
 
 ## a search box and All/Physics/Engineering/Biology chips above a list; rows carry meta "fn" (search text) and "ff" (fields).
 ## returns {"list": VBox to add rows to, "apply": Callable to run after the rows are added}
@@ -1447,7 +1447,7 @@ func _filter_list(box: Node, show_bar: bool) -> Dictionary:
 	return {"list": list, "apply": apply}
 
 func _field_bb(w: String) -> String:
-	if w == "alp" or D.W[w].get("f") == null: return "[color=#a9acb3]random field[/color]"
+	if w == "alp" or D.W[w].get("f") == null: return "[color=#a3a7b2]random field[/color]"
 	return "[color=#%s]%s[/color]" % [UIK.FIELD_COL[D.W[w].f].to_html(false), E.FN[D.W[w].f]]
 
 ## active missions on these worlds (yours, the common one, dated ones), as coloured text
@@ -1534,7 +1534,7 @@ func refund_list(box) -> void:
 	for b in buys:
 		var h := UIK.hbox(box)
 		var paid: String = E.earthRefundTxt(b.paid) if b.where == "earth" else E.resTxt(b.paid.cost)
-		var l := UIK.rich(h, "[b]%s[/b]\n[color=#a9acb3]%s · paid %s[/color]" % [_buy_name(G, b), "Earth" if b.where == "earth" else E._baseById(G, b.where).name, paid], 13)
+		var l := UIK.rich(h, "[b]%s[/b]\n[color=#a3a7b2]%s · paid %s[/color]" % [_buy_name(G, b), "Earth" if b.where == "earth" else E._baseById(G, b.where).name, paid], 13)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UIK.button(h, "Refund", func(): Game.act(E.refundBuy(G, b.uid)))
 	if buys.size() > 1:
@@ -1579,7 +1579,7 @@ func lv_scrap_row(box) -> void:
 # ---------------- confirmation and choice dialogs ----------------
 func _make_modal() -> void:
 	modal = ColorRect.new()
-	modal.color = Color(0.039, 0.039, 0.043, 0.55)
+	modal.color = Color(0.062, 0.062, 0.062, 0.55)
 	modal.set_anchors_preset(Control.PRESET_FULL_RECT)
 	modal.visible = false
 	modal.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -1639,7 +1639,7 @@ func _log_col(c):
 		"x": return UIK.BAD
 		"h": return UIK.AMBER
 		"e": return UIK.CYAN
-		"bot": return Color("#b39ddb")
+		"bot": return Color("#8d89d6")
 	return null
 var _log_filter := "all"
 const LOG_FILTERS := [["all", "All"], ["mine", "Yours"], ["bots", "Bots"], ["key", "Highlights"]]
@@ -1695,7 +1695,7 @@ func build_log() -> void:
 		var t: String = String(l.t).replace("[", "[lb]")
 		lines.append(("[color=#%s]%s[/color]" % [col.to_html(false), t]) if col != null else t)
 		if lines.size() >= 300: break
-	log_text.text = "\n".join(lines) if lines.size() else "[color=#a9acb3]No log lines match.[/color]"
+	log_text.text = "\n".join(lines) if lines.size() else "[color=#a3a7b2]No log lines match.[/color]"
 
 # ---------------- questions (G.ask) ----------------
 func build_dialog() -> void:

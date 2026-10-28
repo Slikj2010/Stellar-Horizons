@@ -3,7 +3,7 @@
 ## then, in the Movement step, pick a destination to launch it with the usual engine roll.
 extends Control
 
-const RELCOL := [Color("#8f8be0"), Color("#c1c5d1"), Color("#f0a35a"), Color("#aaa6d7"), Color("#e8702a"), Color("#e8508a")]
+const RELCOL := [Color("#8d89d6"), Color("#c7cbd7"), Color("#e8702a"), Color("#ced1dd"), Color("#e8702a"), Color("#e0508f")]
 const DECADES := ["2030", "2060", "2090", "2120+"]
 ## regions of the printed faction sheets (boards/<f>.webp, all 1400 x 1059 with the same layout)
 const SHEET_FLAG := Rect2(38, 15, 127, 85)
@@ -45,7 +45,7 @@ class ShipTile extends PanelContainer:
 		pv.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		pv.size = Vector2(72, 72)
 		pv.position = -pv.size / 2
-		pv.modulate = Color(1.000, 0.816, 0.839, 0.85)
+		pv.modulate = Color(0.949, 0.957, 0.980, 0.85)
 		var holder := Control.new()
 		holder.add_child(pv)
 		set_drag_preview(holder)
@@ -68,7 +68,7 @@ class LvCounter extends TextureRect:
 		pv.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		pv.size = Vector2(64, 64)
 		pv.position = -pv.size / 2
-		pv.modulate = Color(1.000, 0.816, 0.839, 0.9)
+		pv.modulate = Color(0.949, 0.957, 0.980, 0.9)
 		var holder := Control.new()
 		holder.add_child(pv)
 		set_drag_preview(holder)
@@ -102,7 +102,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var bg := Panel.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#14161c")
+	sb.bg_color = Color("#161a23")
 	bg.add_theme_stylebox_override("panel", sb)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
@@ -138,7 +138,7 @@ func _row(ratios: Array) -> Array:
 		out.append(v)
 	return out
 
-func _card_style(border := Color("#2a2d36"), bg := Color("#22252d")) -> StyleBoxFlat:
+func _card_style(border := Color("#1b2028"), bg := Color("#1b1e26")) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
 	sb.border_color = border
@@ -264,7 +264,7 @@ func refresh() -> void:
 	_p(r2[0], "Tech points banked: %d Physics, %d Engineering, %d Biology." % [G.bank.Phy, G.bank.Eng, G.bank.Bio], UIK.DIM, 13)
 
 	UIK.head(r2[1], "Earth resources")
-	UIK.rich(r2[1], UIK.res_bb(E.estock(G)) + " [color=#a9acb3]on the faction board[/color]", 14)
+	UIK.rich(r2[1], UIK.res_bb(E.estock(G)) + " [color=#a3a7b2]on the faction board[/color]", 14)
 	UIK.head(r2[1], "Launch vehicles on Earth · drag one onto a ship to pair them")
 	var lvs := UIK.flow(r2[1])
 	var any_lv := false
@@ -274,7 +274,7 @@ func refresh() -> void:
 			any_lv = true
 		for i in int(SHRules.gi(SHRules.gi(G.get("lvCool", {}), "earth", {}), z, 0)):
 			var t := _counter(G.f, "LV-%d" % z, 58, lvs, "LV-%d: recovered, ready next turn" % z)
-			t.modulate = Color(1.000, 0.816, 0.839, 0.4)
+			t.modulate = Color(0.949, 0.957, 0.980, 0.4)
 			any_lv = true
 	if not any_lv: _p(lvs, "None in stock: build one in the Build step, or buy one at launch (shown below).", UIK.DIM, 13)
 	# vehicles that can be bought at launch (ORE + FUEL on Earth) are dragged the same way
@@ -284,7 +284,7 @@ func refresh() -> void:
 		var bl := UIK.flow(r2[1])
 		for o in buyable:
 			var c := _lv_counter(G, o.n, 46, bl, "LV-%d: buy at launch for %s. Drag it onto a ship." % [o.n, o.txt], true)
-			c.modulate = Color(1.000, 0.816, 0.839, 0.6)
+			c.modulate = Color(0.949, 0.957, 0.980, 0.6)
 	_pad(r2[1], G, pad)
 
 	UIK.head(r2[2], "Base population")
@@ -316,7 +316,7 @@ func refresh() -> void:
 	vp.add_theme_color_override("font_color", UIK.AMBER)
 	_p(r3[1], sc.rating, UIK.DIM)
 	UIK.head(r3[1], "Missions")
-	for x in [[G.mis.mine, "Your mission", UIK.AMBER], [G.mis.common, "Common mission", Color("#aaa6d7")]]:
+	for x in [[G.mis.mine, "Your mission", UIK.AMBER], [G.mis.common, "Common mission", Color("#ced1dd")]]:
 		if x[0] == null: continue
 		var mh := UIK.hbox(r3[1])
 		UIK.image(mh, UIK.atlas_tex("markers", D.MIS[x[0]].mk), 46)
@@ -340,7 +340,7 @@ func refresh() -> void:
 		UIK.button(cell, "Build LV-%d" % z, func(): main.buy_lv(z, "earth"), not bp, "1 ORE + %d FUEL" % z)
 		var tk := _counter(G.f, "LV-%d" % z, 58, cell, "LV-%d token: 1 ORE + %d FUEL" % [z, z])
 		tk.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		if not bp: tk.modulate = Color(1.000, 0.816, 0.839, 0.5)
+		if not bp: tk.modulate = Color(0.949, 0.957, 0.980, 0.5)
 	if main != null:
 		main.refund_list(r4[0])
 		main.lv_scrap_row(r4[0])
@@ -349,7 +349,7 @@ func refresh() -> void:
 		if o.why == "in service": continue
 		var h := UIK.hbox(r4[1])
 		_counter(G.f, o.kind + "|" + o.u.n, 40, h)
-		var l := UIK.rich(h, "[b]%s[/b] [color=#a9acb3]%s[/color]\n%s = %s%s" % [o.u.n, o.kind, UIK.res_bb(o.cost), E.earthCostTxt(G, o.cost), (" · [color=#e8508a]%s[/color]" % o.why) if o.why != null else ""], 13)
+		var l := UIK.rich(h, "[b]%s[/b] [color=#a3a7b2]%s[/color]\n%s = %s%s" % [o.u.n, o.kind, UIK.res_bb(o.cost), E.earthCostTxt(G, o.cost), (" · [color=#e0508f]%s[/color]" % o.why) if o.why != null else ""], 13)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UIK.button(h, "Build", func(): main.buy_unit(o, "earth", false), not bp or o.why != null or G.cash < E.earthCash(G, o.cost))
 		if o.cv and o.why == null and bp: UIK.button(h, "Reserved", func(): main.buy_unit(o, "earth", true), false, "Reserved: 1 SUP and 1 Fuel cheaper")
@@ -393,7 +393,7 @@ func _p(box: Node, txt: String, col = null, size := 14) -> Label:
 	return l
 
 func _chip(box: Node, txt: String) -> void:
-	_tag(box, txt, Color("#e0e3ea"))
+	_tag(box, txt, Color("#e2e5f0"))
 
 func _tag(box: Node, txt: String, col: Color, tip := "") -> void:
 	var p := PanelContainer.new()
@@ -442,9 +442,9 @@ func _ship_tile(box: Node, G, s, size: float, click: Callable) -> ShipTile:
 
 func _drop_zone(box: Node, dashed_col: Color, drop: Callable) -> DropZone:
 	var z := DropZone.new()
-	var n := _card_style(dashed_col.darkened(0.2), Color("#1b1e27"))
+	var n := _card_style(dashed_col.darkened(0.2), Color("#1b1d2c"))
 	n.set_border_width_all(2)
-	var h := _card_style(UIK.CYAN, Color("#2e333f"))
+	var h := _card_style(UIK.CYAN, Color("#1f232c"))
 	h.set_border_width_all(2)
 	z.normal = n
 	z.hover = h
@@ -454,7 +454,7 @@ func _drop_zone(box: Node, dashed_col: Color, drop: Callable) -> DropZone:
 	return z
 
 func _tray(box: Node, G, ships: Array, pad) -> void:
-	var z := _drop_zone(box, Color("#2a2d36"), func(_id):
+	var z := _drop_zone(box, Color("#1b2028"), func(_id):
 		Game.pad = null
 		Game.changed.emit())
 	z.custom_minimum_size.y = 120
@@ -481,7 +481,7 @@ func _stage(id) -> void:
 
 func _pad(box: Node, G, pad) -> void:
 	UIK.head(box, "Launch pad")
-	var z := _drop_zone(box, UIK.AMBER if pad != null else Color("#5f6475"), func(id): _stage_on(id))
+	var z := _drop_zone(box, UIK.AMBER if pad != null else Color("#3c3c4e"), func(id): _stage_on(id))
 	if pad != null:
 		var pid = pad.id
 		z.on_lv = func(n): _pair(pid, n)
@@ -524,7 +524,7 @@ func _pad(box: Node, G, pad) -> void:
 	var info := UIK.vbox(inner, 4)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UIK.title(info, pad.name, 18)
-	UIK.rich(info, "[color=#a9acb3]%s%s[/color]" % [("Crew vehicle CV-%d" % pad.sz) if pad.cls == "CV" else pad.kind, (" · cargo " + UIK.res_bb(pad.cargo)) if E.sum(pad.cargo) else ""], 13)
+	UIK.rich(info, "[color=#a3a7b2]%s%s[/color]" % [("Crew vehicle CV-%d" % pad.sz) if pad.cls == "CV" else pad.kind, (" · cargo " + UIK.res_bb(pad.cargo)) if E.sum(pad.cargo) else ""], 13)
 	if lv != null:
 		_p(info, "Launch vehicle LV-%d %s%s" % [lv.n, "from stock" if SHRules.t(lv.get("stock")) else "(bought at launch: " + String(lv.txt) + ")", " · paired by you" if paired > 0 else ""], UIK.DIM, 13)
 		var lc := _lv_counter(G, lv.n, 64, inner, "The launch vehicle that will carry it. Click to go back to the automatic choice.")
@@ -533,7 +533,7 @@ func _pad(box: Node, G, pad) -> void:
 			Game.pad_msg = ""
 			Game.changed.emit()
 	_p(info, "Drag a launch vehicle here to choose which one carries it.", UIK.DIM, 11)
-	if Game.pad_msg != "": _p(info, Game.pad_msg, Color("#e8508a"), 13)
+	if Game.pad_msg != "": _p(info, Game.pad_msg, Color("#e0508f"), 13)
 	if G.phase != "move":
 		_p(box, "Launches happen in the Movement step.", UIK.DIM, 13)
 		return
@@ -617,11 +617,11 @@ func _base_slot(grid: GridContainer, G, nm: String, idx: int) -> void:
 	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	art.set_anchors_preset(Control.PRESET_FULL_RECT)
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	art.modulate = Color(1.000, 0.816, 0.839, 1) if b != null else Color(0.42, 0.45, 0.5, 1)
+	art.modulate = Color(0.949, 0.957, 0.980, 1) if b != null else Color(0.296, 0.308, 0.353, 1)
 	slot.add_child(art)
 	var info := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.02, 0.035, 0.055, 0.78)
+	sb.bg_color = Color(0.067, 0.070, 0.079, 0.78)
 	sb.set_corner_radius_all(6)
 	sb.content_margin_left = 8
 	sb.content_margin_right = 8
@@ -634,7 +634,7 @@ func _base_slot(grid: GridContainer, G, nm: String, idx: int) -> void:
 	var h := UIK.hbox(info, 8)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if b == null:
-		var e := UIK.rich(h, "[color=#8d919c]Not founded[/color]", 12)
+		var e := UIK.rich(h, "[color=#7879a2]Not founded[/color]", 12)
 		e.custom_minimum_size.x = 90
 		e.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		return
@@ -643,7 +643,7 @@ func _base_slot(grid: GridContainer, G, nm: String, idx: int) -> void:
 	var facs := []
 	for c in [["lab", "Lab"], ["mine", "Mine"], ["sup", "Supply"], ["def", "Defense"]]:
 		if SHRules.t(b.fac[c[0]]): facs.append("%s %d" % [c[1], b.fac[c[0]]])
-	var l := UIK.rich(h, "[b]%s[/b] · %d settl.\n[color=#b4b8c4]%s\nStock[/color] %s" % [D.W[b.w].n, b.set, ", ".join(facs) if facs.size() else "no facilities", UIK.res_bb(b.stock)], 12)
+	var l := UIK.rich(h, "[b]%s[/b] · %d settl.\n[color=#b8bcc8]%s\nStock[/color] %s" % [D.W[b.w].n, b.set, ", ".join(facs) if facs.size() else "no facilities", UIK.res_bb(b.stock)], 12)
 	l.custom_minimum_size.x = 170
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	slot.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -658,7 +658,7 @@ func _base_slot(grid: GridContainer, G, nm: String, idx: int) -> void:
 func _show_sheet(f: String) -> void:
 	if sheet != null: sheet.queue_free()
 	sheet = ColorRect.new()
-	sheet.color = Color(0.039, 0.039, 0.043, 0.85)
+	sheet.color = Color(0.062, 0.062, 0.062, 0.85)
 	sheet.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(sheet)
 	var t := TextureRect.new()

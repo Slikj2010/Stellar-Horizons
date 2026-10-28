@@ -68,7 +68,7 @@ func setup(b: Node2D) -> void:
 	exp = board._json("res://assets/expbox.json")
 	var g := Gradient.new()
 	g.offsets = PackedFloat32Array([0.0, 0.34, 1.0])
-	g.colors = PackedColorArray([Color(1.000, 0.816, 0.839, 1), Color(1.000, 0.816, 0.839, 1), Color(1.000, 0.816, 0.839, 0)])
+	g.colors = PackedColorArray([Color(0.949, 0.957, 0.980, 1), Color(0.949, 0.957, 0.980, 1), Color(0.949, 0.957, 0.980, 0)])
 	var gt := GradientTexture2D.new()
 	gt.gradient = g
 	gt.fill = GradientTexture2D.FILL_RADIAL
@@ -198,7 +198,7 @@ func _draw_top() -> void:
 			var s := str(v)
 			var w := font.get_string_size(s, HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
 			var bp := Vector2(-w / 2.0, fs * 0.36)
-			top.draw_string_outline(font, bp, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, maxi(2, int(fs * 0.16)), Color("#111111"))
+			top.draw_string_outline(font, bp, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, maxi(2, int(fs * 0.16)), Color("#121418"))
 			top.draw_string(font, bp, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
 		if v < 1:
 			top.draw_rect(Rect2(-h, -h, B.s, B.s), Color(10 / 255.0, 0, 0, 0.5))

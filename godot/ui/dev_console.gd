@@ -25,8 +25,8 @@ func _ready() -> void:
 	D = Game.data.D
 	custom_minimum_size = Vector2(560, 0)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.03, 0.06, 0.1, 0.97)
-	sb.border_color = Color("#aaa6d7")
+	sb.bg_color = Color(0.084, 0.098, 0.134, 0.97)
+	sb.border_color = Color("#ced1dd")
 	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(8)
 	sb.set_content_margin_all(12)
@@ -86,7 +86,7 @@ func build() -> void:
 	fo.item_selected.connect(func(i): fac = all[i].f; build())
 	fr.add_child(fo)
 	summary = Label.new()
-	summary.add_theme_color_override("font_color", Color("#a9acb3"))
+	summary.add_theme_color_override("font_color", Color("#a3a7b2"))
 	summary.add_theme_font_size_override("font_size", 12)
 	summary.text = "$%dB · ORE %d · SUP %d · FUEL %d · Phy %d · Eng %d · Bio %d · politics %d · VM %d" % [g.cash, st.ORE, st.SUP, st.FUEL, g.bank.Phy, g.bank.Eng, g.bank.Bio, g.polm, int(g.get("vm", 0))]
 	body.add_child(summary)
@@ -168,7 +168,7 @@ func build() -> void:
 	var note := Label.new()
 	note.text = "Changes are written to the game log as [Developer]. Toggle with the ` key."
 	note.add_theme_font_size_override("font_size", 11)
-	note.add_theme_color_override("font_color", Color("#a9acb3"))
+	note.add_theme_color_override("font_color", Color("#a3a7b2"))
 	body.add_child(note)
 
 func _row(label: String) -> HBoxContainer:
@@ -182,7 +182,7 @@ func _row(label: String) -> HBoxContainer:
 	return r
 
 func _err(e) -> void:
-	if e != null and e != "": print_line(str(e), "#e8508a")
+	if e != null and e != "": print_line(str(e), "#e0508f")
 
 func print_line(t: String, col := "") -> void:
 	out_lines.append([t, col])
@@ -269,7 +269,7 @@ func run(line: String) -> void:
 	if line == "": return
 	hist.append(line)
 	hi = hist.size()
-	print_line("> " + line, "#aaa6d7")
+	print_line("> " + line, "#ced1dd")
 	var parts := line.split(" ", false)
 	var c := parts[0].to_lower()
 	var a: Array = Array(parts).slice(1)
@@ -305,7 +305,7 @@ func run(line: String) -> void:
 				var st: Dictionary = E.estock(g)
 				print_line("%s: $%dB · ORE %d SUP %d FUEL %d · Phy %d Eng %d Bio %d · politics %d · VM %d\nTechs (%d): %s" % [D.FAC[g.f].n, g.cash, st.ORE, st.SUP, st.FUEL, g.bank.Phy, g.bank.Eng, g.bank.Bio, g.polm, int(g.get("vm", 0)), g.tech.size(), " ".join(g.tech.keys())])
 		_: err = "Unknown command \"%s\". Type help." % parts[0]
-	if err != null: print_line(str(err), "#e8508a")
+	if err != null: print_line(str(err), "#e0508f")
 
 func _input(ev: InputEvent) -> void:
 	if not visible: return

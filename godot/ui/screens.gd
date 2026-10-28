@@ -5,7 +5,7 @@
 class_name SHScreens
 extends RefCounted
 
-const DIE_BG := Color(0.09, 0.13, 0.19)
+const DIE_BG := Color(0.111, 0.118, 0.174)
 
 # ---------------- small parts ----------------
 ## a die face: green border for a success, red for a failure; d100 dice are round. anim = roll the number for a moment
@@ -274,7 +274,7 @@ static func _plan(box: Node, r: int, tb: Dictionary, picks_ok: bool, default_dir
 ## combat between factions: totals, the strike/direct table and the tactics plan
 static func battle(box: Node, a: Dictionary) -> void:
 	UIK.para(box, a.where, UIK.DIM, 13, 0)
-	_sides(box, "You", a.mine, a.d, "[color=#a9acb3]d10 plus combat values and 1 per extra enemy unit, then the table[/color]", a.foe, a.theirs, a.od, "")
+	_sides(box, "You", a.mine, a.d, "[color=#a3a7b2]d10 plus combat values and 1 per extra enemy unit, then the table[/color]", a.foe, a.theirs, a.od, "")
 	var sx: Dictionary = a.strike
 	var dr: Dictionary = a.direct
 	_grid(box, [["Strike", sx.tot, sx.otot, sx.dealt, sx.taken], ["Direct fire", dr.tot, dr.otot, dr.dealt, dr.taken]], ["", "Your total", "Their total", "You deal", "You take"])
@@ -373,7 +373,7 @@ static func basehit(box: Node, a: Dictionary) -> void:
 	var rc := UIK.card(box)
 	var rhead := UIK.rich(rc, "", 13)
 	var rsp := {}
-	var rcol := {"ORE": Color("#e0e3ea"), "SUP": Color("#8f8be0"), "FUEL": Color("#e8702a")}
+	var rcol := {"ORE": Color("#e2e5f0"), "SUP": Color("#8d89d6"), "FUEL": Color("#e8702a")}
 	for r in ["ORE", "SUP", "FUEL"]:
 		var sl := UIK.slider(rc, r, int(SHRules.gi(a.stock, r, 0)), 0, rcol[r])
 		(sl.get_meta("tail") as Label).text = "of %d" % int(SHRules.gi(a.stock, r, 0))

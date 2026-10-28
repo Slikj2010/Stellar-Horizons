@@ -26,8 +26,8 @@ func _ready() -> void:
 	ME = _json("res://assets/menu/menu_earth.json")
 	_fxtex = load("res://assets/menu/menu_fx.png")
 	var g := Gradient.new()
-	g.set_color(0, Color(1.000, 0.816, 0.839, 1))
-	g.set_color(1, Color(1.000, 0.816, 0.839, 0))
+	g.set_color(0, Color(0.949, 0.957, 0.980, 1))
+	g.set_color(1, Color(0.949, 0.957, 0.980, 0))
 	var gt := GradientTexture2D.new()
 	gt.gradient = g
 	gt.fill = GradientTexture2D.FILL_RADIAL
@@ -72,7 +72,7 @@ func _ready() -> void:
 	sm.set_shader_parameter("moon_c", Vector2(M.moon[0] - ME.x0, M.moon[1] - ME.y0))
 	sm.set_shader_parameter("moon_r", M.moon[2] * 1.03 + 3.0)
 	tx.material = sm
-	_earth.color = Color(0.039, 0.039, 0.043, 0)
+	_earth.color = Color(0.062, 0.062, 0.062, 0)
 	_earth.add_child(tx)
 	stage.add_child(_earth)
 	fx = Control.new()
@@ -95,11 +95,11 @@ func _ready() -> void:
 		for st in ["normal", "pressed", "focus"]:
 			btn.add_theme_stylebox_override(st, StyleBoxEmpty.new())
 		var hv := StyleBoxFlat.new()
-		hv.bg_color = Color(0.3, 0.75, 1.0, 0.12)
-		hv.border_color = Color(0.5, 0.85, 1.0, 0.75)
+		hv.bg_color = Color(0.718, 0.706, 0.925, 0.12)
+		hv.border_color = Color(0.718, 0.706, 0.925, 0.75)
 		hv.set_border_width_all(2)
 		hv.set_corner_radius_all(10)
-		hv.shadow_color = Color(0.3, 0.75, 1.0, 0.35)
+		hv.shadow_color = Color(0.718, 0.706, 0.925, 0.35)
 		hv.shadow_size = 14
 		btn.add_theme_stylebox_override("hover", hv)
 		btn.pressed.connect(func(): action.emit(key))
@@ -181,8 +181,8 @@ func _draw_fx() -> void:
 	# the sun: a pulsing glare with slowly turning rays
 	var sp := Vector2(M.sun[0], M.sun[1])
 	var pulse := 1.0 + 0.08 * sin(t * 1.3) + 0.04 * sin(t * 3.1)
-	_blob(sp, 150.0 * pulse, Color(1.0, 0.8, 0.5, 0.5))
-	_blob(sp, 60.0 * pulse, Color(1.0, 0.9, 0.7, 0.35))
+	_blob(sp, 150.0 * pulse, Color(0.941, 0.639, 0.353, 0.5))
+	_blob(sp, 60.0 * pulse, Color(0.941, 0.639, 0.353, 0.35))
 	for i in 12:
 		var ang := t * 0.05 + TAU / 12.0 * (i + 1)
 		var L := 140.0 + 70.0 * sin(t * 0.8 + i * 1.7)
@@ -190,9 +190,9 @@ func _draw_fx() -> void:
 		var nrm := Vector2(-dir.y, dir.x)
 		var a0 := 0.16 + 0.06 * sin(t + i)
 		fx.draw_polygon(PackedVector2Array([sp - nrm * 2.5, sp + nrm * 2.5, sp + dir * L]),
-			PackedColorArray([Color(1, 0.82, 0.59, a0), Color(1, 0.82, 0.59, a0), Color(1, 0.7, 0.4, 0)]))
+			PackedColorArray([Color(1, 0.82, 0.59, a0), Color(1, 0.82, 0.59, a0), Color(0.941, 0.639, 0.353, 0)]))
 	# lens flare ghosts along the sun-to-centre line
-	for gh in [[0.35, 18.0, Color(0.47, 0.78, 1.0), 0.10], [0.55, 10.0, Color(1.0, 0.78, 0.47), 0.12], [0.8, 30.0, Color(0.35, 0.63, 1.0), 0.06]]:
+	for gh in [[0.35, 18.0, Color(0.718, 0.706, 0.925), 0.10], [0.55, 10.0, Color(0.941, 0.639, 0.353), 0.12], [0.8, 30.0, Color(0.718, 0.706, 0.925), 0.06]]:
 		var k: float = gh[0]
 		var fp: Vector2 = sp + (Vector2(M.w, M.h) * 0.5 - sp) * k * 1.6
 		var cc: Color = gh[2]

@@ -7,10 +7,10 @@ extends Node2D
 const CS := 62.0  ## counter size on the board (map pixels)
 const DOTR := {"ear": 152, "mar": 136, "jup": 312, "ura": 232, "bel": 136, "kui": 142, "sca": 149}
 const STATION_ALT := {"as": true, "sa": true}  ## factions whose alternate base image is the station
-const MIS_COL := {"mine": Color("#e8702a"), "common": Color("#aaa6d7"), "dated": Color("#e8508a")}
+const MIS_COL := {"mine": Color("#e8702a"), "common": Color("#ced1dd"), "dated": Color("#e0508f")}
 const C_SEL := Color("#e8702a")
-const C_READY := Color("#aaa6d7")
-const C_ZONE := Color(0.667, 0.651, 0.843, 0.16)
+const C_READY := Color("#ced1dd")
+const C_ZONE := Color(0.807, 0.821, 0.867, 0.16)
 const WB := {"LS": 56.0, "BS": CS + 10, "TS": 50.0, "GAP": 14.0}
 const RING_LABEL := {"jup": [-PI / 2, .2]}
 
@@ -443,11 +443,11 @@ func _paint_lanes() -> void:
 			var u := 1.0 - t
 			pts.append(u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3)
 		for j in range(0, 40, 2):
-			draw_line(pts[j], pts[j + 1], Color(0.45, 0.8, 0.95, 0.16), 14.0, true)
-			draw_line(pts[j], pts[j + 1], Color(0.7, 0.92, 1.0, 0.75), 4.0, true)
+			draw_line(pts[j], pts[j + 1], Color(0.718, 0.706, 0.925, 0.16), 14.0, true)
+			draw_line(pts[j], pts[j + 1], Color(0.718, 0.706, 0.925, 0.75), 4.0, true)
 		var dir := (pts[40] - pts[38]).normalized()
 		var n := Vector2(-dir.y, dir.x)
-		draw_colored_polygon(PackedVector2Array([pts[40] + dir * 8, pts[40] - dir * 52 + n * 30, pts[40] - dir * 52 - n * 30]), Color(0.7, 0.92, 1.0, 0.85))
+		draw_colored_polygon(PackedVector2Array([pts[40] + dir * 8, pts[40] - dir * 52 + n * 30, pts[40] - dir * 52 - n * 30]), Color(0.718, 0.706, 0.925, 0.85))
 
 # ---------------- the board ----------------
 func _draw() -> void:
@@ -523,7 +523,7 @@ func paint_objects() -> void:
 		var i := 0
 		for pr in G.fly[s].pir:
 			draw_frame(markers_tex, markers_fr.get("pir_l" if SHRules.t(pr.strong) else "pir_s"), p + Vector2(-26 + i * 22, -34), 46)
-			if SHRules.t(pr.dmg): text("dmg %d" % pr.dmg, p + Vector2(-26 + i * 22, -4), 11, Color("#e8508a"))
+			if SHRules.t(pr.dmg): text("dmg %d" % pr.dmg, p + Vector2(-26 + i * 22, -4), 11, Color("#e0508f"))
 			i += 1
 		for j in int(G.fly[s].ast): draw_frame(markers_tex, markers_fr.get("ast"), p + Vector2(26 + j * 16, 34), 42)
 	_mode("flat", 0)
@@ -575,10 +575,10 @@ func paint_objects() -> void:
 				continue
 			var ready: bool = (G.phase == "move" and E.moves(G, s).size() > 0) or (G.phase == "explore" and E.exploreOptions(G, s).size() > 0)
 			var is_sel: bool = sel != null and sel.t == "ship" and SHRules.eq(sel.get("id"), s.id)
-			if R != null and (ready or is_sel): R.ring(c.x, c.y, CS * .62, "#e8702a" if is_sel else "#aaa6d7", 3)
+			if R != null and (ready or is_sel): R.ring(c.x, c.y, CS * .62, "#e8702a" if is_sel else "#ced1dd", 3)
 			if ready or is_sel: draw_box(c, CS + 8, C_SEL if is_sel else C_READY, 3, rot)
 			draw_frame(atl[G.f].tex, unit_frame(G.f, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
-			if SHRules.t(s.dmg): text("▼%d" % s.dmg, c + Vector2(22, -24), 13, Color("#e8508a"))
+			if SHRules.t(s.dmg): text("▼%d" % s.dmg, c + Vector2(22, -24), 13, Color("#e0508f"))
 			if SHRules.t(s.get("hold")): text("+%d" % s.hold, c + Vector2(22, 24), 13, C_SEL)
 			if SHRules.t(s.get("probe")): draw_frame(atl[G.f].tex, unit_frame(G.f, "Probe|" + s.probe), c + Vector2(-24, 24), 24)
 			hits.append({"t": "ship", "id": s.id, "c": c, "r": CS / 2, "f": G.f, "img": s.img})
@@ -619,7 +619,7 @@ func paint_objects() -> void:
 			var z := zone_shape(ghost.dest)
 			if z.has("poly"): draw_colored_polygon(z.poly, Color(C_SEL, 0.25))
 			else: draw_circle(z.c, z.r, Color(C_SEL, 0.25))
-		draw_frame(atl[ghost.f].tex, unit_frame(ghost.f, ghost.img), ghost.p, CS * 1.15, 0, Color(1.000, 0.816, 0.839, 0.9))
+		draw_frame(atl[ghost.f].tex, unit_frame(ghost.f, ghost.img), ghost.p, CS * 1.15, 0, Color(0.949, 0.957, 0.980, 0.9))
 
 func _paint_world_boxes(G, D: Dictionary) -> void:
 	var LS: float = WB.LS
@@ -676,7 +676,7 @@ func _paint_world_boxes(G, D: Dictionary) -> void:
 							draw_circle(dp, 5.5, Color(D.FAC[f].c))
 							draw_arc(dp, 5.5, 0, TAU, 16, Color.WHITE, 1.5)
 							j += 1
-				if SHRules.t(b.blk): text("BLOCKADED", wat(F, lx, row_y + BS / 2 + 12), 11, Color("#e8508a"))
+				if SHRules.t(b.blk): text("BLOCKADED", wat(F, lx, row_y + BS / 2 + 12), 11, Color("#e0508f"))
 				continue
 			if R != null and bf != G.f: R.box(p.x, p.y, BS + 4, F.a, D.FAC[bf].c, 3)
 			if R != null and Game.sel != null and Game.sel.t == "base" and SHRules.eq(Game.sel.get("id"), b.id): R.box(p.x, p.y, BS + 6, F.a, "#e8702a", 3)
