@@ -7,10 +7,10 @@ extends Node2D
 const CS := 62.0  ## counter size on the board (map pixels)
 const DOTR := {"ear": 152, "mar": 136, "jup": 312, "ura": 232, "bel": 136, "kui": 142, "sca": 149}
 const STATION_ALT := {"as": true, "sa": true}  ## factions whose alternate base image is the station
-const MIS_COL := {"mine": Color("#da8a8b"), "common": Color("#a9b0f0"), "dated": Color("#e2675b")}
-const C_SEL := Color("#da8a8b")
-const C_READY := Color("#a9b0f0")
-const C_ZONE := Color(0.663, 0.690, 0.941, 0.16)
+const MIS_COL := {"mine": Color("#9aeadd"), "common": Color("#6fc0e6"), "dated": Color("#e2675b")}
+const C_SEL := Color("#9aeadd")
+const C_READY := Color("#6fc0e6")
+const C_ZONE := Color(0.435, 0.753, 0.902, 0.16)
 const WB := {"LS": 56.0, "BS": CS + 10, "TS": 50.0, "GAP": 14.0}
 const RING_LABEL := {"jup": [-PI / 2, .2]}
 
@@ -495,8 +495,8 @@ func paint_objects() -> void:
 		else: hits.append({"t": "world", "k": k, "c": wx, "rad": 60.0})
 		if sel != null and sel.t == "world" and sel.k == k:
 			if R != null:
-				if raw != null: R.poly(Array(g.poly), "#da8a8b", 5)
-				else: R.ring(wx.x, wx.y, 60, "#da8a8b", 5)
+				if raw != null: R.poly(Array(g.poly), "#9aeadd", 5)
+				else: R.ring(wx.x, wx.y, 60, "#9aeadd", 5)
 			elif raw != null:
 				var closed: PackedVector2Array = raw.duplicate()
 				closed.append(raw[0])
@@ -575,7 +575,7 @@ func paint_objects() -> void:
 				continue
 			var ready: bool = (G.phase == "move" and E.moves(G, s).size() > 0) or (G.phase == "explore" and E.exploreOptions(G, s).size() > 0)
 			var is_sel: bool = sel != null and sel.t == "ship" and SHRules.eq(sel.get("id"), s.id)
-			if R != null and (ready or is_sel): R.ring(c.x, c.y, CS * .62, "#da8a8b" if is_sel else "#a9b0f0", 3)
+			if R != null and (ready or is_sel): R.ring(c.x, c.y, CS * .62, "#9aeadd" if is_sel else "#6fc0e6", 3)
 			if ready or is_sel: draw_box(c, CS + 8, C_SEL if is_sel else C_READY, 3, rot)
 			draw_frame(atl[G.f].tex, unit_frame(G.f, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
 			if SHRules.t(s.dmg): text("▼%d" % s.dmg, c + Vector2(22, -24), 13, Color("#ef6b5b"))
@@ -664,7 +664,7 @@ func _paint_world_boxes(G, D: Dictionary) -> void:
 			draw_frame(atl[bf].tex, unit_frame(bf, base_key(b, bf)), p, BS, F.a)
 			if SHRules.t(b.get("npf")):
 				hits.append({"t": "npf", "k": k, "c": p, "r": BS / 2, "f": bf, "img": base_key(b, bf)})
-				if R != null and Game.sel != null and Game.sel.t == "npf" and Game.sel.k == k: R.box(p.x, p.y, BS + 6, F.a, "#da8a8b", 3)
+				if R != null and Game.sel != null and Game.sel.t == "npf" and Game.sel.k == k: R.box(p.x, p.y, BS + 6, F.a, "#9aeadd", 3)
 				if Game.sel != null and Game.sel.t == "npf" and Game.sel.k == k: draw_box(p, BS + 6, C_SEL, 3, F.a)
 				if SHRules.t(b.trade):
 					draw_frame(markers_tex, markers_fr.get(("buy_" if b.trade.side == "buy" else "sell_") + b.trade.type), wat(F, lx + BS / 2 + 8 + TS / 2, row_y), TS, F.a)
@@ -679,12 +679,12 @@ func _paint_world_boxes(G, D: Dictionary) -> void:
 				if SHRules.t(b.blk): text("BLOCKADED", wat(F, lx, row_y + BS / 2 + 12), 11, Color("#ef6b5b"))
 				continue
 			if R != null and bf != G.f: R.box(p.x, p.y, BS + 4, F.a, D.FAC[bf].c, 3)
-			if R != null and Game.sel != null and Game.sel.t == "base" and SHRules.eq(Game.sel.get("id"), b.id): R.box(p.x, p.y, BS + 6, F.a, "#da8a8b", 3)
+			if R != null and Game.sel != null and Game.sel.t == "base" and SHRules.eq(Game.sel.get("id"), b.id): R.box(p.x, p.y, BS + 6, F.a, "#9aeadd", 3)
 			if bf != G.f:
 				draw_box(p, BS + 4, Color(D.FAC[bf].c), 3, F.a)
 				hits.append({"t": "obase", "f": bf, "id": b.id, "name": b.name, "w": b.w, "c": p, "r": BS / 2, "img": base_key(b, bf)})
 			else: hits.append({"t": "base", "id": b.id, "c": p, "r": BS / 2, "f": bf, "img": base_key(b, bf)})
-			if b.set > 0: text(str(b.set), wat(F, lx + BS / 2 - 8, row_y + BS / 2 + 10), 15, Color("#da8a8b"))
+			if b.set > 0: text(str(b.set), wat(F, lx + BS / 2 - 8, row_y + BS / 2 + 10), 15, Color("#9aeadd"))
 			if Game.sel != null and Game.sel.t == "base" and SHRules.eq(Game.sel.get("id"), b.id): draw_box(p, BS + 6, C_SEL, 3, F.a)
 			if SHRules.t(b.get("trade")) and b.set > 0: draw_frame(markers_tex, markers_fr.get(("buy_" if b.trade.side == "buy" else "sell_") + b.trade.type), wat(F, lx + BS / 2 + 8 + TS / 2, row_y), TS, F.a)
 
