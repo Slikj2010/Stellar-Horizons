@@ -6,6 +6,7 @@ extends Node2D
 
 const FIELD_GLOW := {"Phy": Color(90 / 255.0, 170 / 255.0, 1.0), "Eng": Color(200 / 255.0, 210 / 255.0, 225 / 255.0), "Bio": Color(110 / 255.0, 220 / 255.0, 140 / 255.0)}
 
+const RINGS := {"sat": {"tilt": -0.414, "k": 0.45, "kind": 0, "lim": 2.3}, "nep": {"tilt": -0.1, "k": 0.17, "kind": 1, "lim": 1.0}}
 var board: Node2D
 var t := 0.0
 var bodies: Array = []  ## [node, spd, map, cx, cy]
@@ -47,6 +48,19 @@ func setup(b: Node2D) -> void:
 		n.material = mat
 		n.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		add_child(n)
+		if RINGS.has(k):
+			# the ring's near half passes in front of the planet (the printed ring art lies behind the sprite)
+			var rn := _Ring.new()
+			rn.r = n.r * RINGS[k].lim
+			var rm := ShaderMaterial.new()
+			rm.shader = load("res://ui/shaders/ring_front.gdshader")
+			var rp: Dictionary = RINGS[k]
+			rm.set_shader_parameter("tilt", rp.tilt)
+			rm.set_shader_parameter("k", rp.k)
+			rm.set_shader_parameter("kind", rp.kind)
+			rm.set_shader_parameter("lim", rp.lim)
+			rn.material = rm
+			n.add_child(rn)
 		bodies.append([n, float(o.spd), o.map, float(o.cx), float(o.cy)])
 	_sun_j = board._json("res://data/sun.json")
 	_make_sun()
@@ -102,7 +116,7 @@ func _process(dt: float) -> void:
 	if Game.settings.get("anim", true): t += dt
 	for b in bodies:
 		var n: Node2D = b[0]
-		n.material.set_shader_parameter("rot", fmod(t * TAU / b[1], TAU))
+		n.material.set_shader_parameter("rot", 0.0 if b[1] == 0.0 else fmod(t * TAU / b[1], TAU))  # tidally locked moons do not turn
 	if sun_mat != null: sun_mat.set_shader_parameter("t", t)
 	glow.queue_redraw()
 	top.queue_redraw()
@@ -199,6 +213,11 @@ class _Body extends Node2D:
 	var tex: Texture2D
 	var r := 10.0
 	func _draw() -> void: draw_texture_rect(tex, Rect2(-r, -r, r * 2, r * 2), false)
+
+## the square a planet's ring shader paints on (the ring's near half inside the planet's disc)
+class _Ring extends Node2D:
+	var r := 10.0
+	func _draw() -> void: draw_rect(Rect2(-r, -r, r * 2, r * 2), Color.WHITE)
 
 ## a plain rectangle for a shader to paint
 class _Rect extends Node2D:

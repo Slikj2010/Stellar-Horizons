@@ -415,6 +415,17 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 			Game.changed.emit()])
 		a.append(["wait", 10])
 		a.append(["shot", "82_production"])
+	if plan == "rings":
+		for k in ["sat", "nep"]:
+			a.append(["call", func(): main.cam.fly_to(main.board.world_center(k), 0.9)])
+			a.append(["wait", 40])
+			a.append(["shot", "90_2d_" + k])
+		a.append(["call", func(): main.toggle_3d()])
+		a.append(["wait", 30])
+		for k in ["sat", "nep"]:
+			a.append(["call", func(): main.v25.focusPod(k)])
+			a.append(["wait", 30])
+			a.append(["shot", "91_3d_" + k])
 	if plan == "sliders":
 		a.append(["call", func():
 			Game.G.polm = 4

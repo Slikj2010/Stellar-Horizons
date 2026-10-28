@@ -184,6 +184,7 @@ func setup(m: Node) -> void:
 	_sh.p = load("res://ui/v25/v25_planet.gdshader")
 	_sh.r = load("res://ui/v25/v25_rock.gdshader")
 	_sh.pt = load("res://ui/v25/v25_points.gdshader")
+	_sh.g = load("res://ui/v25/v25_ring.gdshader")
 	Game.changed.connect(touch)
 	for k in ["bodies", "galaxies", "nebulae", "deep_bg", "neb_wash", "andromeda"]:
 		_tex[k] = load("res://assets/bodies.png" if k == "bodies" else "res://assets/v25/%s.png" % k)
@@ -1097,6 +1098,10 @@ func _submit() -> void:
 
 # ---------------- models for the locations that have no printed planet ----------------
 var MODELS := {}
+## planets with rings in the 2.5D view: the ring plane's normal (the planet's axis tilted towards the viewer), the outer radius in planet radii
+const RING3 := {"sat": {"n": Vector3(-.3, .75, -.5), "out": 2.3, "kind": 0}, "nep": {"n": Vector3(.2, .72, -.5), "out": 2.6, "kind": 1}}
+## moons that are tidally locked to their planet (or to each other) do not turn
+const LOCKED_MODELS := ["pho", "mim", "dio", "obe", "umb", "gal", "plu"]
 func P_(o: Dictionary) -> Dictionary:
 	var p := {"s": 1.0, "rho": 0.0, "w": .12, "ph": 0.0, "c1": [.35, .33, .31], "c2": [.6, .57, .53], "lp": .05, "ice": 0.0, "el": 1.0, "tt": 0.0, "rg": 0.0, "sd": 1.0, "spin": .5}
 	p.merge(o, true)
@@ -1190,6 +1195,9 @@ func _build_models() -> void:
 		"sed": {"u": 1, "parts": [P_({"s": .95, "lp": .05, "c1": [.22, .05, .03], "c2": [.55, .15, .08], "sd": 61.0})]},
 		"eri": {"u": 1, "parts": [P_({"s": 1.15, "rho": 0.0, "lp": .02, "c1": [.82, .84, .86], "c2": [1, 1, 1], "ice": 1.0, "sd": 63.0, "spin": .3}), P_({"s": .38, "rho": 2.0, "w": .45, "c1": [.18, .18, .2], "c2": [.34, .34, .36], "lp": .12, "sd": 65.0})]},
 	}
+	for lk in LOCKED_MODELS:
+		for part in MODELS[lk].parts: part.spin = 0.0
+	MODELS.hyp.parts[1].spin = 0.0  # Iapetus is locked; Hyperion tumbles
 	ALPHA_PL = {"giant": P_({"lp": .015, "tt": 1.0, "spin": .7, "c1": [.74, .5, .3], "c2": [.97, .86, .66], "sd": 71.0}), "b": P_({"lp": .1, "c1": [.34, .3, .26], "c2": [.62, .55, .48], "sd": 72.0, "spin": .8}),
 		"c": P_({"lp": .03, "c1": [.3, .4, .55], "c2": [.62, .74, .88], "sd": 73.0, "spin": .6}), "d": P_({"lp": .12, "c1": [.3, .27, .25], "c2": [.5, .46, .42], "sd": 74.0, "spin": 1.0})}
 var ALPHA_PL := {}
@@ -1465,7 +1473,16 @@ func frame() -> void:
 			quad(a, [p - R + U, p + R + U, p + R - U, p - R - U], UV1, WHITE)
 			var Ld := (-Vector3(it.x, 0, it.z)).normalized()
 			flush("p", a, null, 0, {"T": bt, "AW": float(bt.get_width()), "AH": float(bt.get_height()), "TW": float(B.tw), "TH": float(B.th), "DS": float(B.ds), "row": float(it.b.row),
-				"rot": fmod(T * 6.2832 / it.b.spd, 6.2832), "L": Vector3(Ld.dot(rgt), Ld.dot(cup) * .6 + .25, .55)})
+				"rot": 0.0 if it.b.spd == 0 else fmod(T * 6.2832 / it.b.spd, 6.2832), "L": Vector3(Ld.dot(rgt), Ld.dot(cup) * .6 + .25, .55)})
+			if RING3.has(it.k):
+				var rg: Dictionary = RING3[it.k]
+				var N: Vector3 = rg.n.normalized()
+				var ax: Vector3 = N.cross(Vector3.RIGHT if absf(N.x) < .9 else Vector3.FORWARD).normalized()
+				var bx: Vector3 = N.cross(ax).normalized()
+				var ro: float = it.r * rg.out
+				var rv := VB.new()
+				quad(rv, [p - ax * ro + bx * ro, p + ax * ro + bx * ro, p + ax * ro - bx * ro, p - ax * ro - bx * ro], UV1, WHITE)
+				flush("g", rv, null, 0, {"C": p, "R": float(it.r), "N": N, "EYE": eye, "LS": Ld, "kind": int(rg.kind)})
 			var c = proj(it.x, it.y, it.z)
 			var e = proj(it.x + rgt.x * it.r, it.y + rgt.y * it.r, it.z + rgt.z * it.r)
 			if c != null and e != null and D.W.has(it.k): picks.append({"sx": c[0], "sy": c[1], "pr": Vector2(e[0] - c[0], e[1] - c[1]).length(), "hit": {"t": "world", "k": it.k}, "z": c[2], "planet": true})
