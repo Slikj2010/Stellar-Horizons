@@ -291,7 +291,7 @@ func _paint_panel(n: Node2D, P: Dictionary) -> void:
 	# explore tile
 	var hx := _hex(100, 200, 82)
 	x.fill_poly(hx, "rgba(60,20,20,.8)" if dead else "rgba(255,255,255,.07)")
-	x.stroke_poly(hx, "#ef6b5b" if dead else fc, 5)
+	x.stroke_poly(hx, "#e8508a" if dead else fc, 5)
 	var hw := func(yy: float) -> float: return maxf(0, minf(71, (82 - absf(yy)) * 1.732))
 	var fitHex := func(t: String, wt: int, size: float, yc: float, mn: float) -> float:
 		var f := size
@@ -302,9 +302,9 @@ func _paint_panel(n: Node2D, P: Dictionary) -> void:
 	x.text("EXPLORE", 100, 200 - 52, 700, fitHex.call("EXPLORE", 700, 18, -52, 9), "#a9bfd2", "center")
 	var vt := str(maxi(0, int(ws.v)))
 	var changed: bool = int(ws.v) != int(w.v)
-	x.text(vt, 100, 200 + (6 if changed or dead else 12), 700, fitHex.call(vt, 700, 86, 4, 40), "#fff", "center", null, 0, "#ef6b5b" if dead else fc, 22)
+	x.text(vt, 100, 200 + (6 if changed or dead else 12), 700, fitHex.call(vt, 700, 86, 4, 40), "#fff", "center", null, 0, "#e8508a" if dead else fc, 22)
 	var lt = "DEPLETED" if dead else (("printed " + str(w.v)) if changed else null)
-	if lt != null: x.text(lt, 100, 254, 600, fitHex.call(lt, 600, 17, 54, 8), "#ef6b5b" if dead else "#a9bfd2", "center")
+	if lt != null: x.text(lt, 100, 254, 600, fitHex.call(lt, 600, 17, 54, 8), "#e8508a" if dead else "#a9bfd2", "center")
 	# stat boxes
 	var stat := func(a: float, label: String, val: String, c: String):
 		x.fill_rrect(a, 112, 128, 92, 12, "rgba(255,255,255,.06)")
@@ -332,7 +332,7 @@ func _paint_panel(n: Node2D, P: Dictionary) -> void:
 	if SHRules.t(ws.get("sol")): chips.append(["Solar power", "#f2b13c", false])
 	if D.TERRA.has(k): chips.append(["Terraform %s/%s" % [str(ws.get("terra", 0)), str(D.TERRA[k])], "#6edc8c", false])
 	if SHRules.t(ws.get("npf")): chips.append(["%s base" % _npf_name(k, ws), "#c9a6ff", false])
-	if SHRules.t(ws.get("blk")): chips.append(["BLOCKADED", "#ef6b5b", false])
+	if SHRules.t(ws.get("blk")): chips.append(["BLOCKADED", "#e8508a", false])
 	var limit: float = 314.0 if w.get("rng") != null else 338.0
 	var W0 := 428.0
 	var lay := func(f: float) -> Dictionary:

@@ -72,7 +72,7 @@ func _ready() -> void:
 	sm.set_shader_parameter("moon_c", Vector2(M.moon[0] - ME.x0, M.moon[1] - ME.y0))
 	sm.set_shader_parameter("moon_r", M.moon[2] * 1.03 + 3.0)
 	tx.material = sm
-	_earth.color = Color(0.004, 0.012, 0.051, 0)
+	_earth.color = Color(0.016, 0.020, 0.051, 0)
 	_earth.add_child(tx)
 	stage.add_child(_earth)
 	fx = Control.new()

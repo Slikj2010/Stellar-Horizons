@@ -7,10 +7,10 @@ extends Node2D
 const CS := 62.0  ## counter size on the board (map pixels)
 const DOTR := {"ear": 152, "mar": 136, "jup": 312, "ura": 232, "bel": 136, "kui": 142, "sca": 149}
 const STATION_ALT := {"as": true, "sa": true}  ## factions whose alternate base image is the station
-const MIS_COL := {"mine": Color("#e8702a"), "common": Color("#7fa9d6"), "dated": Color("#e2675b")}
+const MIS_COL := {"mine": Color("#e8702a"), "common": Color("#8f96e8"), "dated": Color("#e8508a")}
 const C_SEL := Color("#e8702a")
-const C_READY := Color("#7fa9d6")
-const C_ZONE := Color(0.498, 0.663, 0.839, 0.16)
+const C_READY := Color("#8f96e8")
+const C_ZONE := Color(0.561, 0.588, 0.910, 0.16)
 const WB := {"LS": 56.0, "BS": CS + 10, "TS": 50.0, "GAP": 14.0}
 const RING_LABEL := {"jup": [-PI / 2, .2]}
 
@@ -513,7 +513,7 @@ func paint_objects() -> void:
 			if R == null: draw_rect(Rect2(mp - Vector2(S / 2 + 2, S / 2 + 2), Vector2(S + 4, S + 4)), MIS_COL[x.kind], false, 3)
 			hits.append({"t": "world", "k": k, "c": mp, "rad": S / 2})
 			i += 1
-		if D.TERRA.has(k) and SHRules.t(ws.get("terra")): text("Terraformed %d/%d" % [ws.terra, D.TERRA[k]], wx + Vector2(0, -64), 14, Color("#5fcf8a"))
+		if D.TERRA.has(k) and SHRules.t(ws.get("terra")): text("Terraformed %d/%d" % [ws.terra, D.TERRA[k]], wx + Vector2(0, -64), 14, Color("#e8702a"))
 	# flyby boxes: pirates and asteroids
 	_mode("stand", 22)
 	for s in G.fly:
@@ -523,7 +523,7 @@ func paint_objects() -> void:
 		var i := 0
 		for pr in G.fly[s].pir:
 			draw_frame(markers_tex, markers_fr.get("pir_l" if SHRules.t(pr.strong) else "pir_s"), p + Vector2(-26 + i * 22, -34), 46)
-			if SHRules.t(pr.dmg): text("dmg %d" % pr.dmg, p + Vector2(-26 + i * 22, -4), 11, Color("#ef6b5b"))
+			if SHRules.t(pr.dmg): text("dmg %d" % pr.dmg, p + Vector2(-26 + i * 22, -4), 11, Color("#e8508a"))
 			i += 1
 		for j in int(G.fly[s].ast): draw_frame(markers_tex, markers_fr.get("ast"), p + Vector2(26 + j * 16, 34), 42)
 	_mode("flat", 0)
@@ -575,10 +575,10 @@ func paint_objects() -> void:
 				continue
 			var ready: bool = (G.phase == "move" and E.moves(G, s).size() > 0) or (G.phase == "explore" and E.exploreOptions(G, s).size() > 0)
 			var is_sel: bool = sel != null and sel.t == "ship" and SHRules.eq(sel.get("id"), s.id)
-			if R != null and (ready or is_sel): R.ring(c.x, c.y, CS * .62, "#e8702a" if is_sel else "#7fa9d6", 3)
+			if R != null and (ready or is_sel): R.ring(c.x, c.y, CS * .62, "#e8702a" if is_sel else "#8f96e8", 3)
 			if ready or is_sel: draw_box(c, CS + 8, C_SEL if is_sel else C_READY, 3, rot)
 			draw_frame(atl[G.f].tex, unit_frame(G.f, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
-			if SHRules.t(s.dmg): text("▼%d" % s.dmg, c + Vector2(22, -24), 13, Color("#ef6b5b"))
+			if SHRules.t(s.dmg): text("▼%d" % s.dmg, c + Vector2(22, -24), 13, Color("#e8508a"))
 			if SHRules.t(s.get("hold")): text("+%d" % s.hold, c + Vector2(22, 24), 13, C_SEL)
 			if SHRules.t(s.get("probe")): draw_frame(atl[G.f].tex, unit_frame(G.f, "Probe|" + s.probe), c + Vector2(-24, 24), 24)
 			hits.append({"t": "ship", "id": s.id, "c": c, "r": CS / 2, "f": G.f, "img": s.img})
@@ -676,7 +676,7 @@ func _paint_world_boxes(G, D: Dictionary) -> void:
 							draw_circle(dp, 5.5, Color(D.FAC[f].c))
 							draw_arc(dp, 5.5, 0, TAU, 16, Color.WHITE, 1.5)
 							j += 1
-				if SHRules.t(b.blk): text("BLOCKADED", wat(F, lx, row_y + BS / 2 + 12), 11, Color("#ef6b5b"))
+				if SHRules.t(b.blk): text("BLOCKADED", wat(F, lx, row_y + BS / 2 + 12), 11, Color("#e8508a"))
 				continue
 			if R != null and bf != G.f: R.box(p.x, p.y, BS + 4, F.a, D.FAC[bf].c, 3)
 			if R != null and Game.sel != null and Game.sel.t == "base" and SHRules.eq(Game.sel.get("id"), b.id): R.box(p.x, p.y, BS + 6, F.a, "#e8702a", 3)
