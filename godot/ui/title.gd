@@ -26,8 +26,8 @@ func _ready() -> void:
 	ME = _json("res://assets/menu/menu_earth.json")
 	_fxtex = load("res://assets/menu/menu_fx.png")
 	var g := Gradient.new()
-	g.set_color(0, Color(1, 1, 1, 1))
-	g.set_color(1, Color(1, 1, 1, 0))
+	g.set_color(0, Color(1.000, 0.878, 0.541, 1))
+	g.set_color(1, Color(1.000, 0.878, 0.541, 0))
 	var gt := GradientTexture2D.new()
 	gt.gradient = g
 	gt.fill = GradientTexture2D.FILL_RADIAL

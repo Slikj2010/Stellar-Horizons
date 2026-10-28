@@ -9,7 +9,7 @@ extends Node3D
 const FOV := 0.72
 const NEAR := 20.0
 const FAR := 90000.0
-const WHITE := Color(1, 1, 1, 1)
+const WHITE := Color(1.000, 0.878, 0.541, 1)
 const PAL := {"box": {"top": Color(.03, .11, .19, .84), "rim": Color(.35, .85, 1, .95), "side": [.25, .7, .9], "gc": "#59d5ff"},
 	"fly": {"top": Color(.13, .08, .03, .66), "rim": Color(1, .72, .28, .95), "side": [.95, .6, .22], "gc": "#ffb347"}}
 ## Earth and Mercury print an irregular flyby outline; they get the same slanted long box as the rest

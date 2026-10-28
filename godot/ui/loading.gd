@@ -35,7 +35,7 @@ func _init() -> void:
 		sky.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		sky.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		sky.set_anchors_preset(Control.PRESET_FULL_RECT)
-		sky.modulate = Color(1, 1, 1, 0.9)
+		sky.modulate = Color(1.000, 0.878, 0.541, 0.9)
 		_root.add_child(sky)
 	_dots = Control.new()
 	_dots.set_anchors_preset(Control.PRESET_FULL_RECT)
