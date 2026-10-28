@@ -429,7 +429,7 @@ func _build_pol(G) -> void:
 		var y: float = PP + r * (PH + PGY)
 		var my := E.polLv(G, p.k)
 		var why = pol_why(G, p.k)
-		canvas.lines.append({"pts": PackedVector2Array([Vector2(PP, y + PH / 2), Vector2(W - PP, y + PH / 2)]), "col": Color("#76101e"), "w": 10.0, "arrow": null})
+		canvas.lines.append({"pts": PackedVector2Array([Vector2(PP, y + PH / 2), Vector2(W - PP, y + PH / 2)]), "col": Color("#f8bc04"), "w": 10.0, "arrow": null})
 		for c in 3:
 			var x := PP + c * (PW + PGX)
 			var lv := c + 1
