@@ -31,7 +31,7 @@ def fade(n, fi, fo):
     return np.minimum(1, t / fi) * np.minimum(1, (n / SR - t) / fo)
 
 
-def make(seed, d, pitch=1.0, weld_at=0.8, weld_len=1.3, ticks=(1.45, 1.62, 1.8), hiss_at=0.45):
+def make(seed, d, pitch=1.0, weld_at=0.8, weld_len=1.3, ticks=(1.45, 1.62, 1.8), hiss_at=0.45, extras=()):
     r = np.random.default_rng(seed)
     n = int(SR * d)
     out = np.zeros(n)
@@ -65,6 +65,7 @@ def make(seed, d, pitch=1.0, weld_at=0.8, weld_len=1.3, ticks=(1.45, 1.62, 1.8),
         tk = bp(r.standard_normal(dt), 1800 * pitch, 5500 * pitch) * env(dt, 0.0006, 0.018, 3) * 0.28
         tk += np.sin(2 * np.pi * 900 * pitch * np.arange(dt) / SR) * env(dt, 0.0006, 0.03, 3) * 0.07
         put(tk, at)
+    for x, at, g in extras: put(x, at, g)  # recorded workshop layers (already filtered)
     # steel-hall reverb
     rl = int(SR * 0.8)
     ir = lp(r.standard_normal(rl), 4500) * np.exp(-np.arange(rl) / SR * 6)
@@ -83,7 +84,8 @@ def save(x, name):
     print(name, len(x) / SR)
 
 
-# building: lifting servo, hiss, a welding arc, then ticks as the parts settle
-save(make(11, 2.6), 'build.ogg')
-# scrapping: the same bay, lower and slower, a longer cutting arc, fewer ticks
-save(make(23, 2.4, pitch=0.8, weld_at=0.5, weld_len=1.5, ticks=(1.75, 1.95), hiss_at=0.3), 'scrap.ogg')
+if __name__ == '__main__':
+    # building: lifting servo, hiss, a welding arc, then ticks as the parts settle
+    save(make(11, 2.6), 'build.ogg')
+    # scrapping: the same bay, lower and slower, a longer cutting arc, fewer ticks
+    save(make(23, 2.4, pitch=0.8, weld_at=0.5, weld_len=1.5, ticks=(1.75, 1.95), hiss_at=0.3), 'scrap.ogg')
