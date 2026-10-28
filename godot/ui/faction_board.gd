@@ -367,8 +367,8 @@ func refresh() -> void:
 			var l := UIK.rich(h, "[b]%s[/b] CV-%d · %s%s%s%s" % [s.name, s.sz, E.locName(s.loc), " · reserved" if SHRules.t(s.res) else "", (" · %d damage" % s.dmg) if SHRules.t(s.dmg) else "", (" · cargo " + UIK.res_bb(s.cargo)) if E.sum(s.cargo) else ""], 13)
 			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			if bp:
-				if SHRules.t(s.res): UIK.button(h, "Unreserve", func(): Game.act(E.unreserve(G, s)), not E.unreserveInfo(G, s).ok, String(E.unreserveInfo(G, s).get("why", "")))
-				else: UIK.button(h, "Reserve", func(): Game.act(E.setReserve(G, s)))
+				if SHRules.t(s.res): UIK.button(h, "Unreserve", func(): main.confirm("Unreserve %s?" % s.name, "%s leaves reserve and can be used again." % s.name, func(): return E.unreserve(G, s), "Unreserve"), not E.unreserveInfo(G, s).ok, String(E.unreserveInfo(G, s).get("why", "")))
+				else: UIK.button(h, "Reserve", func(): main.reserve_ask(s))
 				if SHRules.t(s.dmg): UIK.button(h, "Repair", func(): Game.act(E.repair(G, s)))
 		for b in yards:
 			var h := UIK.hbox(r5[0])
@@ -547,13 +547,55 @@ func _pad(box: Node, G, pad) -> void:
 		var sy = E.sysOf(m.dest)
 		if not by_sys.has(sy): by_sys[sy] = []
 		if not by_sys[sy].any(func(x): return x.dest == m.dest): by_sys[sy].append(m)
+	# search and research-field filter, as in the Selected tab
+	var groups := []
+	var apply := func():
+		var q: String = String(main._lf.q).strip_edges().to_lower()
+		for g in groups:
+			var any := false
+			for bt in g.btns:
+				var ok: bool = (q == "" or String(bt.get_meta("fn", "")).contains(q)) and (main._lf.f == "" or String(bt.get_meta("ff", "")).split(" ").has(main._lf.f))
+				bt.visible = ok
+				if ok: any = true
+			g.head.visible = any
+			g.flow.visible = any
+	var total := 0
+	for sy in by_sys: total += by_sys[sy].size()
+	if total > 5:
+		var le := LineEdit.new()
+		le.placeholder_text = "Search destinations…"
+		le.clear_button_enabled = true
+		le.text = main._lf.q
+		le.text_changed.connect(func(t): main._lf.q = t; apply.call())
+		box.add_child(le)
+		var chips := UIK.flow(box)
+		var grp := ButtonGroup.new()
+		for kv in [["", "All"], ["Phy", "Physics"], ["Eng", "Engineering"], ["Bio", "Biology"]]:
+			var cb := Button.new()
+			cb.text = kv[1]
+			cb.toggle_mode = true
+			cb.button_group = grp
+			cb.focus_mode = Control.FOCUS_NONE
+			cb.button_pressed = main._lf.f == kv[0]
+			if kv[0] != "": cb.add_theme_color_override("font_color", UIK.FIELD_COL[kv[0]])
+			cb.pressed.connect(func(): main._lf.f = kv[0]; apply.call())
+			chips.add_child(cb)
 	for sy in D.SYS_ORDER:
 		if not by_sys.has(sy): continue
-		_p(box, D.SYS[sy].n, UIK.CYAN, 12)
+		var hd := _p(box, D.SYS[sy].n, UIK.CYAN, 12)
 		var f := UIK.flow(box)
+		var g := {"head": hd, "flow": f, "btns": []}
+		groups.append(g)
 		for m in by_sys[sy]:
-			UIK.button(f, m.label + ((" · %dt" % m.eta) if SHRules.t(m.get("eta")) else ""), func():
-				Game.act(E.move(G, pad, m.dest, {"probe": SHRules._first(G.probes.get("earth", [])), "lvSize": paired if paired > 0 else null})))
+			var di: Dictionary = main._dest_info(G, m.dest)
+			var bt := UIK.button(f, m.label + ((" · %dt" % m.eta) if SHRules.t(m.get("eta")) else ""), func():
+				var extra := {}
+				if paired > 0: extra.lvSize = paired
+				main.do_move(pad, m.dest, extra), false, String(di.names))
+			bt.set_meta("fn", (String(m.label) + " " + String(di.names)).to_lower())
+			bt.set_meta("ff", di.fields)
+			g.btns.append(bt)
+	apply.call()
 
 func _stage_on(id) -> void:
 	Game.pad_msg = ""

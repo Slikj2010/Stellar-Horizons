@@ -426,6 +426,29 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 			a.append(["call", func(): main.v25.focusPod(k)])
 			a.append(["wait", 30])
 			a.append(["shot", "91_3d_" + k])
+	if plan == "padfilter":
+		a.append(["call", func():
+			main.tabs.current_tab = 2
+			Game.G.phase = "build"
+			Game.G.cash = 40
+			var o = SHRules._find(Game.E.buildOptions(Game.G, "earth"), func(x): return x.why == null and x.kind == "Flyby")
+			Game.act(Game.E.buildUnit(Game.G, o.key, "earth"))
+			Game.act(Game.E.buildLV(Game.G, 1, "earth"))
+			Game.G.phase = "move"
+			Game.changed.emit()])
+		a.append(["wait", 20])
+		a.append(["call", func():
+			var sh = SHRules._find(Game.G.ships, func(x): return Game.E.moves(Game.G, x).size() > 0 and x.loc == "earth")
+			main.fboard._stage_on(sh.id)])
+		a.append(["wait", 20])
+		a.append(["call", func(): main.fboard.scroll.scroll_vertical = 500])
+		a.append(["wait", 10])
+		a.append(["shot", "95_pad_list"])
+		a.append(["call", func():
+			main._lf.q = "mars"
+			Game.changed.emit()])
+		a.append(["wait", 20])
+		a.append(["shot", "96_pad_filtered"])
 	if plan == "sliders":
 		a.append(["call", func():
 			Game.G.polm = 4

@@ -925,8 +925,8 @@ func _turn_build(box, G) -> void:
 			UIK.image(h, UIK.atlas_tex("atlas_" + G.f, s.img + "|back" if SHRules.t(s.res) else s.img), 40)
 			var l := UIK.rich(h, "[b]%s[/b] CV-%d · %s%s%s" % [s.name, s.sz, E.locName(s.loc), " · reserved" if SHRules.t(s.res) else "", (" · %d damage" % s.dmg) if SHRules.t(s.dmg) else ""], 13)
 			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			if SHRules.t(s.res): UIK.button(h, "Unreserve", func(): Game.act(E.unreserve(G, s)), not E.unreserveInfo(G, s).ok, String(E.unreserveInfo(G, s).get("why", "")))
-			else: UIK.button(h, "Reserve", func(): Game.act(E.setReserve(G, s)))
+			if SHRules.t(s.res): UIK.button(h, "Unreserve", func(): confirm("Unreserve %s?" % s.name, "%s leaves reserve and can be used again." % s.name, func(): return E.unreserve(G, s), "Unreserve"), not E.unreserveInfo(G, s).ok, String(E.unreserveInfo(G, s).get("why", "")))
+			else: UIK.button(h, "Reserve", func(): reserve_ask(s))
 			if SHRules.t(s.dmg): UIK.button(h, "Repair", func(): Game.act(E.repair(G, s)))
 	for b in G.bases.filter(func(x): return SHRules.t(x.fac.sup)):
 		UIK.head(box, b.name + " shipyard")
@@ -1544,6 +1544,10 @@ func refund_list(box) -> void:
 				err = E.refundBuy(G, buys[i].uid)
 				if err != null: break
 			Game.act(err))
+
+func reserve_ask(s) -> void:
+	var G = Game.G
+	confirm("Reserve %s?" % s.name, "%s is placed in reserve: it costs 1 SUP and 1 FUEL less to build, but it cannot be used until you unreserve it at Earth or a base with a Supply Station." % s.name, func(): return E.setReserve(G, s), "Reserve")
 
 func scrap_ask(s) -> void:
 	var G = Game.G
