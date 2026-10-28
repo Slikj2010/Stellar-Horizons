@@ -1371,7 +1371,7 @@ func build_tech_panel() -> void:
 	UIK.button(box, "Convert politics markers (%d)…" % G.polm, func(): ttree.convert_dialog(), G.polm < 1)
 	UIK.button(box, "Back to the map", func(): tabs.current_tab = TAB_TURN)
 
-const RES_COL := {"ORE": Color("#d6e8ee"), "SUP": Color("#7fb0e8"), "FUEL": Color("#ee5f74")}
+const RES_COL := {"ORE": Color("#d6e8ee"), "SUP": Color("#7fb0e8"), "FUEL": Color("#b7b1f2")}
 ## sliders for ORE / SUP / FUEL that share one hold's free room (the web version's cargoSliders). extra = a Callable that
 ## returns other Earth costs to add (a new launch vehicle), or null. Returns {"load": Callable -> {ORE,SUP,FUEL}, "update": Callable, "ok": Callable -> bool}
 func cargo_sliders(box: Node, room: int, title: String, extra = null, on_change = null) -> Dictionary:
@@ -1406,7 +1406,7 @@ func cargo_sliders(box: Node, room: int, title: String, extra = null, on_change 
 
 # ---------------- search + research-field filter for long destination / target lists (as in the web version) ----------------
 var _lf := {"q": "", "f": ""}
-const MIS_KIND := {"mine": ["Your mission", "#ee5f74"], "common": ["Common mission", "#7fa9d6"], "dated": ["Dated mission", "#e2675b"]}
+const MIS_KIND := {"mine": ["Your mission", "#b7b1f2"], "common": ["Common mission", "#7fa9d6"], "dated": ["Dated mission", "#e2675b"]}
 
 ## a search box and All/Physics/Engineering/Biology chips above a list; rows carry meta "fn" (search text) and "ff" (fields).
 ## returns {"list": VBox to add rows to, "apply": Callable to run after the rows are added}

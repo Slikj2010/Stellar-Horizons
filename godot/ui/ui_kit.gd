@@ -2,7 +2,7 @@
 class_name UIK
 extends RefCounted
 
-const AMBER := Color("#ee5f74")
+const AMBER := Color("#b7b1f2")
 const CYAN := Color("#7fa9d6")
 const DIM := Color("#7e9bb8")
 const GOOD := Color("#5fcf8a")
@@ -202,7 +202,7 @@ static func pick(box: Node, items: Array, sel := 0) -> OptionButton:
 ## resources as text with colours: 2 ORE + 1 SUP
 static func res_bb(o) -> String:
 	var parts := []
-	var cols := {"ORE": "#d6e8ee", "SUP": "#7fb0e8", "FUEL": "#ee5f74"}
+	var cols := {"ORE": "#d6e8ee", "SUP": "#7fb0e8", "FUEL": "#b7b1f2"}
 	for r in ["ORE", "SUP", "FUEL"]:
 		var v := int(SHRules.gi(o, r, 0))
 		if v: parts.append("[color=%s]%d %s[/color]" % [cols[r], v, r])

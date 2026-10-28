@@ -373,7 +373,7 @@ static func basehit(box: Node, a: Dictionary) -> void:
 	var rc := UIK.card(box)
 	var rhead := UIK.rich(rc, "", 13)
 	var rsp := {}
-	var rcol := {"ORE": Color("#d6e8ee"), "SUP": Color("#7fb0e8"), "FUEL": Color("#ee5f74")}
+	var rcol := {"ORE": Color("#d6e8ee"), "SUP": Color("#7fb0e8"), "FUEL": Color("#b7b1f2")}
 	for r in ["ORE", "SUP", "FUEL"]:
 		var sl := UIK.slider(rc, r, int(SHRules.gi(a.stock, r, 0)), 0, rcol[r])
 		(sl.get_meta("tail") as Label).text = "of %d" % int(SHRules.gi(a.stock, r, 0))
