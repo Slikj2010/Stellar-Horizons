@@ -376,6 +376,22 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 			Game.changed.emit()])
 		a.append(["wait", 10])
 		a.append(["shot", "87_cargo"])
+		a.append(["call", func():
+			for m in Game.data.D.MIS:
+				if m.w == "mar" or m.w == "moo" or m.w == "nea":
+					Game.G.mis.mine = m.id
+					break
+			main._lf.q = "mars"
+			Game.changed.emit()])
+		a.append(["wait", 10])
+		a.append(["shot", "88_filtered"])
+		a.append(["call", func():
+			main._lf.q = ""
+			main._lf.f = "Phy"
+			Game.G.phase = "explore"
+			Game.changed.emit()])
+		a.append(["wait", 10])
+		a.append(["shot", "89_phy"])
 	if plan == "picker":
 		a.append(["call", func():
 			main._setup.f = "cn"

@@ -103,6 +103,8 @@ static func explore_confirm(main, box: Node, G, s, o) -> void:
 	var lab: bool = s.cls == "CV" and SHRules.t(s.get("lab")) and not probe
 	UIK.title(box, "Explore %s?" % W[o.w].n)
 	UIK.rich(box, "%s: [color=#%s]%s[/color] research, world value [b]%d[/b]." % [W[o.w].n, UIK.FIELD_COL.get(W[o.w].f, UIK.DIM).to_html(false), field_name(o.w), int(G.w[o.w].v)])
+	var mbb: String = main._missions_bb(G, [o.w], false)
+	if mbb != "": UIK.rich(box, mbb)
 	var who: String = ("Probe %s (from %s)" % [s.probe, s.name]) if probe else s.name
 	UIK.rich(box, "%s explores at value [b]%d[/b]%s." % [who, v, (" (includes −%d for transfer box distance)" % int(o.pen)) if SHRules.t(o.get("pen")) else ""])
 	var odds := ""

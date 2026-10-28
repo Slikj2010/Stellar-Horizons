@@ -1090,32 +1090,52 @@ func _sel_ship_panel(box, G, s) -> void:
 					return o.cost if SHRules.t(o.get("buy")) else null
 				cargo_ui = cargo_sliders(box, int(s.cap * E.cargoMul(G) - E.sum(s.cargo)), "Load cargo on Earth", newlv)
 				if lvpick != null: lvpick.item_selected.connect(func(_i): cargo_ui.update.call())
-			var by_sys := {}
+			var uniq := []
 			for m in mv:
 				if m.dest == s.loc: continue
-				var sy = E.sysOf(m.dest)
-				if not by_sys.has(sy): by_sys[sy] = []
-				if not by_sys[sy].any(func(x): return x.dest == m.dest): by_sys[sy].append(m)
-			for sy in D.SYS_ORDER:
-				if not by_sys.has(sy): continue
-				UIK.para(box, D.SYS[sy].n, UIK.CYAN, 12)
-				var f := UIK.flow(box)
-				for m in by_sys[sy]:
-					var lbl: String = m.label + ((" · %d turns" % m.eta) if SHRules.t(m.get("eta")) else "")
-					UIK.button(f, lbl, func():
-						var extra := {}
-						if lvpick != null: extra.lvSize = lvs[lvpick.selected].n
-						if cargo_ui != null:
-							var ld: Dictionary = cargo_ui.load.call()
-							if E.sum(ld) > 0: extra.load = ld
-						do_move(s, m.dest, extra))
+				if not uniq.any(func(x): return x.dest == m.dest): uniq.append(m)
+			var fl := _filter_list(box, uniq.size() > 5)
+			for m in uniq:
+				var di := _dest_info(G, m.dest)
+				var row := UIK.vbox(fl.list, 1)
+				row.set_meta("fn", (String(m.label) + " " + di.names).to_lower())
+				row.set_meta("ff", di.fields)
+				UIK.button(row, m.label, func():
+					var extra := {}
+					if lvpick != null: extra.lvSize = lvs[lvpick.selected].n
+					if cargo_ui != null:
+						var ld: Dictionary = cargo_ui.load.call()
+						if E.sum(ld) > 0: extra.load = ld
+					do_move(s, m.dest, extra))
+				var det: String = di.bb
+				det += ("" if det == "" else " · ") + (("%d turns" % int(m.eta)) if SHRules.t(m.get("eta")) else "this turn")
+				if m.get("lv") != null: det += " · LV-%d%s" % [int(m.lv.n), (" (new: %s)" % m.lv.txt) if SHRules.t(m.lv.get("buy")) else " from stock"]
+				if SHRules.t(m.get("final")): det += " · final move"
+				UIK.rich(row, "[color=#8fa3b8]" + det + "[/color]", 12)
+				if di.missions != "": UIK.rich(row, di.missions, 12)
+			fl.apply.call()
 		elif s.loc == "earth": UIK.para(box, "No launch is possible now (it needs a launch vehicle, or it has moved this turn).", UIK.DIM)
 	if G.phase == "explore":
 		var ex := E.exploreOptions(G, s)
 		if ex.size():
 			UIK.head(box, "Explore")
-			var f := UIK.flow(box)
-			for o in ex: _explore_btn(f, G, s, o)
+			var fl := _filter_list(box, ex.size() > 5)
+			for o in ex:
+				var row := UIK.vbox(fl.list, 1)
+				var wn: String = D.W[o.w].n if o.get("w") != null else ""
+				row.set_meta("fn", (wn + " " + (D.SYS[D.W[o.w].sys].n if o.get("w") != null else "asteroid")).to_lower())
+				row.set_meta("ff", D.W[o.w].f if (o.get("w") != null and D.W[o.w].get("f") != null) else "")
+				_explore_btn(row, G, s, o)
+				if o.get("w") != null:
+					var det := ""
+					match o.kind:
+						"produce": det = "production value %d" % int(o.value)
+						"harvest": det = ""
+						_: det = "%s · world [b]%d[/b] · explore value [b]%d[/b]%s" % [_field_bb(o.w), int(G.w[o.w].v), int(o.value), (" (−%d distance)" % int(o.pen)) if SHRules.t(o.get("pen")) else ""]
+					if det != "": UIK.rich(row, "[color=#8fa3b8]" + det + "[/color]", 12)
+					var ms := _missions_bb(G, [o.w], false)
+					if ms != "": UIK.rich(row, ms, 12)
+			fl.apply.call()
 	if G.phase == "trade":
 		var c = E.canFoundBase(G, s)
 		if c != null: UIK.button(box, "Found a base at %s (%d SUP)" % [D.W[c.w].n, c.cost], func(): Game.act(E.foundBase(G, s)))
@@ -1257,6 +1277,87 @@ func cargo_sliders(box: Node, room: int, title: String, extra = null, on_change 
 	UIK.share_cap(sls.values(), room, upd)
 	upd.call()
 	return {"load": load_fn, "update": upd, "ok": func(): return st.ok}
+
+# ---------------- search + research-field filter for long destination / target lists (as in the web version) ----------------
+var _lf := {"q": "", "f": ""}
+const MIS_KIND := {"mine": ["Your mission", "#f2a93b"], "common": ["Common mission", "#4fb3e8"], "dated": ["Dated mission", "#e2675b"]}
+
+## a search box and All/Physics/Engineering/Biology chips above a list; rows carry meta "fn" (search text) and "ff" (fields).
+## returns {"list": VBox to add rows to, "apply": Callable to run after the rows are added}
+func _filter_list(box: Node, show_bar: bool) -> Dictionary:
+	var list := UIK.vbox(box, 6)
+	var none := UIK.para(list, "No matches.", UIK.DIM, 13)
+	none.visible = false
+	var apply := func():
+		var q: String = String(_lf.q).strip_edges().to_lower()
+		var shown := 0
+		for r in list.get_children():
+			if r == none: continue
+			var ok: bool = (q == "" or String(r.get_meta("fn", "")).contains(q)) and (_lf.f == "" or String(r.get_meta("ff", "")).split(" ").has(_lf.f))
+			r.visible = ok
+			if ok: shown += 1
+		none.visible = shown == 0 and list.get_child_count() > 1
+	if show_bar:
+		var bar := UIK.vbox(box, 4)
+		box.move_child(bar, list.get_index())
+		var le := LineEdit.new()
+		le.placeholder_text = "Search worlds…"
+		le.clear_button_enabled = true
+		le.text = _lf.q
+		le.text_changed.connect(func(t): _lf.q = t; apply.call())
+		bar.add_child(le)
+		var chips := UIK.flow(bar)
+		var grp := ButtonGroup.new()
+		for kv in [["", "All"], ["Phy", "Physics"], ["Eng", "Engineering"], ["Bio", "Biology"]]:
+			var b := Button.new()
+			b.text = kv[1]
+			b.toggle_mode = true
+			b.button_group = grp
+			b.focus_mode = Control.FOCUS_NONE
+			b.button_pressed = _lf.f == kv[0]
+			if kv[0] != "": b.add_theme_color_override("font_color", UIK.FIELD_COL[kv[0]])
+			b.pressed.connect(func(): _lf.f = kv[0]; apply.call())
+			chips.add_child(b)
+	return {"list": list, "apply": apply}
+
+func _field_bb(w: String) -> String:
+	if w == "alp" or D.W[w].get("f") == null: return "[color=#8fa3b8]random field[/color]"
+	return "[color=#%s]%s[/color]" % [UIK.FIELD_COL[D.W[w].f].to_html(false), E.FN[D.W[w].f]]
+
+## active missions on these worlds (yours, the common one, dated ones), as coloured text
+func _missions_bb(G, ws: Array, with_world: bool) -> String:
+	var out := []
+	for w in ws:
+		for m in E.missionsAt(G, w):
+			var md: Dictionary = D.MIS[int(m.id)]
+			var k: Array = MIS_KIND[m.kind]
+			out.append("[color=%s]★ %s[/color]: %s%d VP%s" % [k[1], k[0], (D.W[w].n + ", ") if with_world else "", int(md.vp), " (crewed)" if SHRules.t(md.cv) else ""])
+	return "   ".join(out)
+
+## research value, worlds and missions of a move destination: the world itself, or the worlds of the system a box leads to
+func _dest_info(G, dest: String) -> Dictionary:
+	var p := E.P(dest)
+	var ws: Array
+	if p.w != null: ws = [p.w]
+	elif p.s != null: ws = E.worldsIn(p.s)
+	else: ws = ["ear"]
+	var live: Array = ws.filter(func(w): return G.w.get(w) != null and not D.W[w].tags.has("tele"))
+	var names := []
+	var fields := []
+	for w in live:
+		names.append(D.W[w].n + " " + String(D.SYS[D.W[w].sys].n))
+		var f = D.W[w].get("f")
+		if f != null and not fields.has(f): fields.append(f)
+	var bb := ""
+	if p.w != null and live.size():
+		bb = "%s [b]%d[/b]" % [_field_bb(p.w), int(G.w[p.w].v)]
+	elif live.size():
+		var top: Array = live.filter(func(w): return G.w[w].v > 0)
+		top.sort_custom(func(a, b): return G.w[a].v > G.w[b].v)
+		var parts := []
+		for w in top.slice(0, 4): parts.append("%s [color=#%s]%s[/color] [b]%d[/b]" % [D.W[w].n, UIK.FIELD_COL.get(D.W[w].get("f"), UIK.DIM).to_html(false), String(E.FN.get(D.W[w].get("f"), "?")).substr(0, 3), int(G.w[w].v)])
+		bb = ", ".join(parts)
+	return {"names": " ".join(names).to_lower(), "fields": " ".join(fields), "bb": bb, "missions": _missions_bb(G, live, p.w == null)}
 
 func build_pol_panel() -> void:
 	var G = Game.G
