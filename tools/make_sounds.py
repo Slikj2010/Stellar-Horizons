@@ -360,7 +360,7 @@ if __name__ == '__main__':
     only = os.environ.get('ONLY')
     for name, fn in [('click', click), ('select', select), ('error', error), ('next', next_phase), ('year', new_year),
                      ('dice', dice), ('success', success), ('failure', failure), ('launch', launch), ('move', move),
-                     ('explore', explore), ('found', found), ('alarm', alarm), ('boom', boom), ('build', build), ('scrap', scrap), ('coins', coins)]:
+                     ('explore', explore), ('found', found), ('alarm', alarm), ('boom', boom), ('build_synth', build), ('scrap', scrap), ('coins', coins)]:
         if only and name not in only.split(','): continue
         save(name, fn())
     if not only:
