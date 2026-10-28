@@ -411,7 +411,7 @@ func _make_v25_controls() -> void:
 	_hint.position = Vector2(16, 62 + 12)
 	_hint.add_theme_font_size_override("font_size", 13)
 	_hint.add_theme_color_override("font_color", UIK.DIM)
-	_hint.add_theme_color_override("font_shadow_color", Color(0.008, 0.024, 0.059, 1))
+	_hint.add_theme_color_override("font_shadow_color", Color(0.004, 0.012, 0.051, 1))
 	_hint.add_theme_constant_override("shadow_offset_y", 1)
 	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_hint)
@@ -1579,7 +1579,7 @@ func lv_scrap_row(box) -> void:
 # ---------------- confirmation and choice dialogs ----------------
 func _make_modal() -> void:
 	modal = ColorRect.new()
-	modal.color = Color(0.008, 0.024, 0.059, 0.55)
+	modal.color = Color(0.004, 0.012, 0.051, 0.55)
 	modal.set_anchors_preset(Control.PRESET_FULL_RECT)
 	modal.visible = false
 	modal.mouse_filter = Control.MOUSE_FILTER_STOP

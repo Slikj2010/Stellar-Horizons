@@ -44,7 +44,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var bg := Panel.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#071529")
+	sb.bg_color = Color("#050c20")
 	bg.add_theme_stylebox_override("panel", sb)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
@@ -151,14 +151,14 @@ func _tags(box: Node, facs: Array) -> void:
 		var l := Label.new()
 		l.text = D.FAC[f].pre
 		l.add_theme_font_size_override("font_size", 10)
-		l.add_theme_color_override("font_color", Color("#0b1f3a"))
+		l.add_theme_color_override("font_color", Color("#070f2b"))
 		p.add_child(l)
 
 func _key(box: Node, txt: String, col: Color) -> void:
 	var h := UIK.hbox(box, 4)
 	var sw := Panel.new()
 	sw.custom_minimum_size = Vector2(14, 14)
-	sw.add_theme_stylebox_override("panel", _card_style(col, Color(0.008, 0.024, 0.059, 0)))
+	sw.add_theme_stylebox_override("panel", _card_style(col, Color(0.004, 0.012, 0.051, 0)))
 	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(sw)
 	var l := UIK.para(h, txt, UIK.DIM, 12, 0)
@@ -252,7 +252,7 @@ func facbanks_bb(G) -> String:
 		var s := "[color=#%s][b]%s%s[/b][/color]" % [Color(D.FAC[f].c).to_html(false), D.FAC[f].pre, " (you)" if f == G.f else ""]
 		for x in E.FIELDS: s += " [color=#%s]%s[/color] %d" % [UIK.FIELD_COL[x].to_html(false), x.substr(0, 1), int(g.bank[x])]
 		if passed: s += " [i]passed[/i]"
-		if RT != null and RT.cur == f: s = "[bgcolor=#133769] " + s + " [/bgcolor]"
+		if RT != null and RT.cur == f: s = "[bgcolor=#0e2358] " + s + " [/bgcolor]"
 		if passed: s = "[color=#5c7fa0]" + s + "[/color]"
 		parts.append(s)
 	return "[color=#7e9bb8]Tech banks%s:[/color]   %s" % [" (turn order)" if RT != null else "", "    ".join(parts)]
@@ -276,7 +276,7 @@ func _build_tech(G) -> void:
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(sp)
-	for kk in [["developed", UIK.GOOD], ["can develop now", UIK.AMBER], ["available", Color("#2a5a9a")], ["needs earlier tech", Color("#1d4a82")]]: _key(h, kk[0], kk[1])
+	for kk in [["developed", UIK.GOOD], ["can develop now", UIK.AMBER], ["available", Color("#2a4aa0")], ["needs earlier tech", Color("#1b3a80")]]: _key(h, kk[0], kk[1])
 	var h2 := UIK.flow(top)
 	UIK.para(h2, "Politics markers %d" % G.polm, null, 14, 0).autowrap_mode = TextServer.AUTOWRAP_OFF
 	UIK.button(h2, "Convert…", func(): convert_dialog(), G.polm < 1)
@@ -325,7 +325,7 @@ func _build_tech(G) -> void:
 			var a := _box(rk)
 			var b := _box(t.k)
 			var lit := SHRules.t(G.tech.get(rk))
-			var col: Color = LINE_COL[D.TECHK[rk].f] if lit else Color("#1d4a82")
+			var col: Color = LINE_COL[D.TECHK[rk].f] if lit else Color("#1b3a80")
 			var pts := PackedVector2Array()
 			var arrow = null
 			if _tpos(rk)[1] == _tpos(t.k)[1]:
@@ -358,9 +358,9 @@ func _build_tech(G) -> void:
 		var border: Color
 		match st:
 			"have": border = UIK.GOOD
-			"open": border = UIK.AMBER if ready else Color("#2a5a9a")
-			_: border = Color("#1d4a82")
-		var bg := Color("#0e2a4e") if st != "have" else Color("#183457")
+			"open": border = UIK.AMBER if ready else Color("#2a4aa0")
+			_: border = Color("#1b3a80")
+		var bg := Color("#0a1a45") if st != "have" else Color("#12275f")
 		var v := _card(_box(t.k), border, bg, st == "locked", func(): _tech_click(t))
 		var row := HBoxContainer.new()
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -412,7 +412,7 @@ func _build_pol(G) -> void:
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(sp)
-	for kk in [["held", UIK.GOOD], ["can adopt now", UIK.AMBER], ["next level", Color("#2a5a9a")], ["needs the level before", Color("#1d4a82")]]: _key(h, kk[0], kk[1])
+	for kk in [["held", UIK.GOOD], ["can adopt now", UIK.AMBER], ["next level", Color("#2a4aa0")], ["needs the level before", Color("#1b3a80")]]: _key(h, kk[0], kk[1])
 	const PW := 250.0
 	const PH := 96.0
 	const PGX := 64.0
@@ -433,11 +433,11 @@ func _build_pol(G) -> void:
 		for c in 3:
 			var x := PP + c * (PW + PGX)
 			var lv := c + 1
-			if c: canvas.lines.append({"pts": PackedVector2Array([Vector2(x - PGX + 10, y + PH / 2), Vector2(x - 6, y + PH / 2)]), "col": Color("#2a5a9a"), "w": 2.0, "arrow": Vector2(x - 2, y + PH / 2)})
+			if c: canvas.lines.append({"pts": PackedVector2Array([Vector2(x - PGX + 10, y + PH / 2), Vector2(x - 6, y + PH / 2)]), "col": Color("#2a4aa0"), "w": 2.0, "arrow": Vector2(x - 2, y + PH / 2)})
 			var st := "have" if my >= lv else ("open" if my == c else "locked")
 			var ready: bool = st == "open" and why == null
-			var border: Color = UIK.GOOD if st == "have" else (UIK.AMBER if ready else (Color("#2a5a9a") if st == "open" else Color("#1d4a82")))
-			var v := _card(Rect2(x, y, PW, PH), border, Color("#183457") if st == "have" else Color("#0e2a4e"), st == "locked", func(): _pol_click(p, lv))
+			var border: Color = UIK.GOOD if st == "have" else (UIK.AMBER if ready else (Color("#2a4aa0") if st == "open" else Color("#1b3a80")))
+			var v := _card(Rect2(x, y, PW, PH), border, Color("#12275f") if st == "have" else Color("#0a1a45"), st == "locked", func(): _pol_click(p, lv))
 			_lbl(v, ["Basic", "Vigorous", "Unified"][c], 10, UIK.DIM)
 			_lbl(v, D.POL_LV[c] + p.n, 14, Color("#eaf4f7"), true)
 			_lbl(v, p.d[c], 11, UIK.DIM)

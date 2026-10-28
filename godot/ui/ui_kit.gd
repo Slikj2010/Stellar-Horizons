@@ -87,7 +87,7 @@ static func vbox(box: Node, sep := 4) -> VBoxContainer:
 
 static func sep(box: Node) -> void:
 	var s := HSeparator.new()
-	s.add_theme_color_override("separator", Color(0.165, 0.353, 0.604, 1))
+	s.add_theme_color_override("separator", Color(0.165, 0.290, 0.627, 1))
 	box.add_child(s)
 
 ## a card-like row: a framed panel holding a vbox
@@ -95,7 +95,7 @@ static func card(box: Node) -> VBoxContainer:
 	var p := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.06, 0.094, 0.14, 1)
-	sb.border_color = Color(0.165, 0.353, 0.604, 1)
+	sb.border_color = Color(0.165, 0.290, 0.627, 1)
 	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(8)
 	sb.content_margin_left = 10

@@ -102,7 +102,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var bg := Panel.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#071529")
+	sb.bg_color = Color("#050c20")
 	bg.add_theme_stylebox_override("panel", sb)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
@@ -138,7 +138,7 @@ func _row(ratios: Array) -> Array:
 		out.append(v)
 	return out
 
-func _card_style(border := Color("#143a6a"), bg := Color("#0e2a4e")) -> StyleBoxFlat:
+func _card_style(border := Color("#10295f"), bg := Color("#0a1a45")) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
 	sb.border_color = border
@@ -442,9 +442,9 @@ func _ship_tile(box: Node, G, s, size: float, click: Callable) -> ShipTile:
 
 func _drop_zone(box: Node, dashed_col: Color, drop: Callable) -> DropZone:
 	var z := DropZone.new()
-	var n := _card_style(dashed_col.darkened(0.2), Color("#0b1f3a"))
+	var n := _card_style(dashed_col.darkened(0.2), Color("#070f2b"))
 	n.set_border_width_all(2)
-	var h := _card_style(UIK.CYAN, Color("#133769"))
+	var h := _card_style(UIK.CYAN, Color("#0e2358"))
 	h.set_border_width_all(2)
 	z.normal = n
 	z.hover = h
@@ -454,7 +454,7 @@ func _drop_zone(box: Node, dashed_col: Color, drop: Callable) -> DropZone:
 	return z
 
 func _tray(box: Node, G, ships: Array, pad) -> void:
-	var z := _drop_zone(box, Color("#143a6a"), func(_id):
+	var z := _drop_zone(box, Color("#10295f"), func(_id):
 		Game.pad = null
 		Game.changed.emit())
 	z.custom_minimum_size.y = 120
@@ -481,7 +481,7 @@ func _stage(id) -> void:
 
 func _pad(box: Node, G, pad) -> void:
 	UIK.head(box, "Launch pad")
-	var z := _drop_zone(box, UIK.AMBER if pad != null else Color("#2a5a9a"), func(id): _stage_on(id))
+	var z := _drop_zone(box, UIK.AMBER if pad != null else Color("#2a4aa0"), func(id): _stage_on(id))
 	if pad != null:
 		var pid = pad.id
 		z.on_lv = func(n): _pair(pid, n)
@@ -658,7 +658,7 @@ func _base_slot(grid: GridContainer, G, nm: String, idx: int) -> void:
 func _show_sheet(f: String) -> void:
 	if sheet != null: sheet.queue_free()
 	sheet = ColorRect.new()
-	sheet.color = Color(0.008, 0.024, 0.059, 0.85)
+	sheet.color = Color(0.004, 0.012, 0.051, 0.85)
 	sheet.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(sheet)
 	var t := TextureRect.new()

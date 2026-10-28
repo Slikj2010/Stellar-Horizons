@@ -45,7 +45,7 @@ func _draw() -> void:
 	var vs := get_viewport_rect().size
 	# background gradient (top-left lighter)
 	draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(vs.x, 0), vs, Vector2(0, vs.y)]),
-		PackedColorArray([Color("#040c1a"), Color("#040c1a"), Color("#02060f"), Color("#040c1a")]))
+		PackedColorArray([Color("#03081a"), Color("#03081a"), Color("#01030d"), Color("#03081a")]))
 	if cam == null: return
 	# the world origin's position on screen
 	var o: Vector2 = -cam.get_screen_center_position() * cam.zoom + vs / 2.0
