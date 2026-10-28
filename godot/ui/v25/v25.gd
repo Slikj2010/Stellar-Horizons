@@ -1455,9 +1455,9 @@ func frame() -> void:
 	items.sort_custom(func(a, b): return a.d > b.d)
 	var shad := VB.new()
 	for it in items:
-		if it.t == "planet": flatQuad(shad, it.x, it.z, it.r * 2.1, it.r * 1.2, 0, 1.6, UV1, Color(0.016, 0.020, 0.051, .38))
-		elif it.t == "model": flatQuad(shad, it.x, it.z, it.u * 4.6, it.u * 2.8, 0, 1.6, UV1, Color(0.016, 0.020, 0.051, .3))
-		elif not it.r.text: flatQuad(shad, it.r.X, it.r.Z, it.r.w * S * .9, it.r.w * S * .5, 0, 1.6, UV1, Color(0.016, 0.020, 0.051, .4))
+		if it.t == "planet": flatQuad(shad, it.x, it.z, it.r * 2.1, it.r * 1.2, 0, 1.6, UV1, Color(0.039, 0.039, 0.043, .38))
+		elif it.t == "model": flatQuad(shad, it.x, it.z, it.u * 4.6, it.u * 2.8, 0, 1.6, UV1, Color(0.039, 0.039, 0.043, .3))
+		elif not it.r.text: flatQuad(shad, it.r.X, it.r.Z, it.r.w * S * .9, it.r.w * S * .5, 0, 1.6, UV1, Color(0.039, 0.039, 0.043, .4))
 	flush("q", shad, null, 2)
 	var run := []
 	var B: Dictionary = bodies

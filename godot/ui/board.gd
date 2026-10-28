@@ -7,10 +7,10 @@ extends Node2D
 const CS := 62.0  ## counter size on the board (map pixels)
 const DOTR := {"ear": 152, "mar": 136, "jup": 312, "ura": 232, "bel": 136, "kui": 142, "sca": 149}
 const STATION_ALT := {"as": true, "sa": true}  ## factions whose alternate base image is the station
-const MIS_COL := {"mine": Color("#e8702a"), "common": Color("#8f96e8"), "dated": Color("#e8508a")}
+const MIS_COL := {"mine": Color("#e8702a"), "common": Color("#aaa6d7"), "dated": Color("#e8508a")}
 const C_SEL := Color("#e8702a")
-const C_READY := Color("#8f96e8")
-const C_ZONE := Color(0.561, 0.588, 0.910, 0.16)
+const C_READY := Color("#aaa6d7")
+const C_ZONE := Color(0.667, 0.651, 0.843, 0.16)
 const WB := {"LS": 56.0, "BS": CS + 10, "TS": 50.0, "GAP": 14.0}
 const RING_LABEL := {"jup": [-PI / 2, .2]}
 
@@ -575,7 +575,7 @@ func paint_objects() -> void:
 				continue
 			var ready: bool = (G.phase == "move" and E.moves(G, s).size() > 0) or (G.phase == "explore" and E.exploreOptions(G, s).size() > 0)
 			var is_sel: bool = sel != null and sel.t == "ship" and SHRules.eq(sel.get("id"), s.id)
-			if R != null and (ready or is_sel): R.ring(c.x, c.y, CS * .62, "#e8702a" if is_sel else "#8f96e8", 3)
+			if R != null and (ready or is_sel): R.ring(c.x, c.y, CS * .62, "#e8702a" if is_sel else "#aaa6d7", 3)
 			if ready or is_sel: draw_box(c, CS + 8, C_SEL if is_sel else C_READY, 3, rot)
 			draw_frame(atl[G.f].tex, unit_frame(G.f, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
 			if SHRules.t(s.dmg): text("▼%d" % s.dmg, c + Vector2(22, -24), 13, Color("#e8508a"))
