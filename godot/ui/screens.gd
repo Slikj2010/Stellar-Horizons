@@ -25,7 +25,7 @@ static func die(box: Node, v, ok: bool, d100 := false, anim := false, tip := "")
 	l.text = str(v)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.add_theme_font_override("font", load("res://assets/fonts/InterDisplay-Bold.otf"))
+	l.add_theme_font_override("font", load("res://assets/fonts/ksp_head.tres"))
 	l.add_theme_font_size_override("font_size", 21 if d100 else 27)
 	l.add_theme_color_override("font_color", UIK.GOOD if ok else UIK.BAD)
 	p.add_child(l)

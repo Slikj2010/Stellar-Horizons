@@ -62,7 +62,7 @@ func _ready() -> void:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(scroll)
 	canvas = TreeCanvas.new()
-	canvas.font = load("res://assets/fonts/Inter-SemiBold.otf")
+	canvas.font = load("res://assets/fonts/ksp_bold.tres")
 	scroll.add_child(canvas)
 
 func refresh() -> void:
@@ -121,7 +121,7 @@ func _lbl(box: Node, txt: String, size: int, col: Color, bold := false, wrap := 
 	l.text = txt
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", col)
-	if bold: l.add_theme_font_override("font", load("res://assets/fonts/Inter-SemiBold.otf"))
+	if bold: l.add_theme_font_override("font", load("res://assets/fonts/ksp_bold.tres"))
 	if wrap: l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL

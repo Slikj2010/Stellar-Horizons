@@ -21,6 +21,7 @@ static func head(box: Node, txt: String, col := AMBER) -> Label:
 	var l := Label.new()
 	l.text = txt.to_upper()
 	l.add_theme_color_override("font_color", col)
+	l.add_theme_font_override("font", load("res://assets/fonts/ksp_head.tres"))
 	l.add_theme_font_size_override("font_size", 12)
 	l.add_theme_constant_override("line_spacing", 0)
 	box.add_child(l)
@@ -29,7 +30,7 @@ static func head(box: Node, txt: String, col := AMBER) -> Label:
 static func title(box: Node, txt: String, size := 20) -> Label:
 	var l := Label.new()
 	l.text = txt
-	l.add_theme_font_override("font", load("res://assets/fonts/InterDisplay-Bold.otf"))
+	l.add_theme_font_override("font", load("res://assets/fonts/ksp_head.tres"))
 	l.add_theme_font_size_override("font_size", size)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(l)

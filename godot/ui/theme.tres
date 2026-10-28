@@ -1,7 +1,8 @@
 [gd_resource type="Theme" format=3]
 
-[ext_resource type="FontFile" path="res://assets/fonts/Inter-Regular.otf" id="f_reg"]
-[ext_resource type="FontFile" path="res://assets/fonts/Inter-SemiBold.otf" id="f_semi"]
+[ext_resource type="FontFile" path="res://assets/fonts/ShareTechMono-Regular.ttf" id="f_reg"]
+[ext_resource type="FontVariation" path="res://assets/fonts/ksp_bold.tres" id="f_semi"]
+[ext_resource type="FontVariation" path="res://assets/fonts/ksp_label.tres" id="f_lab"]
 
 [sub_resource type="StyleBoxFlat" id="panel"]
 content_margin_left = 12.0
@@ -142,13 +143,13 @@ corner_radius_bottom_left = 6
 
 [resource]
 default_font = ExtResource("f_reg")
-default_font_size = 15
+default_font_size = 14
 Button/colors/font_color = Color(0.888, 0.899, 0.940, 1)
 Button/colors/font_hover_color = Color(1.000, 1.000, 1.000, 1)
 Button/colors/font_pressed_color = Color(0.063, 0.063, 0.064, 1)
 Button/colors/font_disabled_color = Color(0.237, 0.235, 0.307, 1)
 Button/colors/font_focus_color = Color(0.888, 0.899, 0.940, 1)
-Button/fonts/font = ExtResource("f_semi")
+Button/fonts/font = ExtResource("f_lab")
 Button/styles/normal = SubResource("btn")
 Button/styles/hover = SubResource("btn_hover")
 Button/styles/pressed = SubResource("btn_pressed")
@@ -169,7 +170,8 @@ SpinBox/styles/normal = SubResource("line")
 TabContainer/colors/font_selected_color = Color(1.000, 1.000, 1.000, 1)
 TabContainer/colors/font_unselected_color = Color(0.639, 0.655, 0.698, 1)
 TabContainer/colors/font_hovered_color = Color(0.888, 0.899, 0.940, 1)
-TabContainer/fonts/font = ExtResource("f_semi")
+TabContainer/fonts/font = ExtResource("f_lab")
+TabContainer/font_sizes/font_size = 13
 TabContainer/styles/panel = SubResource("tab_panel")
 TabContainer/styles/tab_selected = SubResource("tab_sel")
 TabContainer/styles/tab_unselected = SubResource("tab_unsel")

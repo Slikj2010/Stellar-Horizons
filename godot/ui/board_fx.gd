@@ -23,7 +23,7 @@ var font: Font
 
 func setup(b: Node2D) -> void:
 	board = b
-	font = load("res://assets/fonts/InterDisplay-Bold.otf")
+	font = load("res://assets/fonts/ksp_head.tres")
 	var geo: Dictionary = board.geo
 	var maps: Dictionary = geo.maps
 	# spinning bodies
