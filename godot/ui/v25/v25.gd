@@ -9,7 +9,7 @@ extends Node3D
 const FOV := 0.72
 const NEAR := 20.0
 const FAR := 90000.0
-const WHITE := Color(1.000, 0.878, 0.541, 1)
+const WHITE := Color(1.000, 0.816, 0.839, 1)
 const PAL := {"box": {"top": Color(.03, .11, .19, .84), "rim": Color(.35, .85, 1, .95), "side": [.25, .7, .9], "gc": "#59d5ff"},
 	"fly": {"top": Color(.13, .08, .03, .66), "rim": Color(1, .72, .28, .95), "side": [.95, .6, .22], "gc": "#ffb347"}}
 ## Earth and Mercury print an irregular flyby outline; they get the same slanted long box as the rest
@@ -1455,9 +1455,9 @@ func frame() -> void:
 	items.sort_custom(func(a, b): return a.d > b.d)
 	var shad := VB.new()
 	for it in items:
-		if it.t == "planet": flatQuad(shad, it.x, it.z, it.r * 2.1, it.r * 1.2, 0, 1.6, UV1, Color(0, 0, 0, .38))
-		elif it.t == "model": flatQuad(shad, it.x, it.z, it.u * 4.6, it.u * 2.8, 0, 1.6, UV1, Color(0, 0, 0, .3))
-		elif not it.r.text: flatQuad(shad, it.r.X, it.r.Z, it.r.w * S * .9, it.r.w * S * .5, 0, 1.6, UV1, Color(0, 0, 0, .4))
+		if it.t == "planet": flatQuad(shad, it.x, it.z, it.r * 2.1, it.r * 1.2, 0, 1.6, UV1, Color(0.008, 0.024, 0.059, .38))
+		elif it.t == "model": flatQuad(shad, it.x, it.z, it.u * 4.6, it.u * 2.8, 0, 1.6, UV1, Color(0.008, 0.024, 0.059, .3))
+		elif not it.r.text: flatQuad(shad, it.r.X, it.r.Z, it.r.w * S * .9, it.r.w * S * .5, 0, 1.6, UV1, Color(0.008, 0.024, 0.059, .4))
 	flush("q", shad, null, 2)
 	var run := []
 	var B: Dictionary = bodies

@@ -17,7 +17,7 @@ func _ready() -> void:
 	for L in [[220, 0.06, 0.45, 1.0], [120, 0.14, 0.7, 1.4], [46, 0.28, 1.0, 2.0]]:
 		for i in L[0]:
 			var hue := Color.WHITE
-			if rng.randf() < 0.12: hue = Color("#ffe08a") if rng.randf() < 0.5 else Color("#f0d9a8")
+			if rng.randf() < 0.12: hue = Color("#ffd0d6") if rng.randf() < 0.5 else Color("#b5d2e8")
 			stars.append([rng.randf() * TILE, rng.randf() * TILE, 0.35 + rng.randf() * L[3], L[2] * (0.35 + rng.randf() * 0.65), rng.randf() * TAU, 0.4 + rng.randf() * 2.2, L[1], hue])
 	for c in [[Color(79 / 255.0, 195 / 255.0, 217 / 255.0), 0.07], [Color(120 / 255.0, 80 / 255.0, 200 / 255.0), 0.08], [Color(242 / 255.0, 169 / 255.0, 59 / 255.0), 0.035], [Color(60 / 255.0, 90 / 255.0, 200 / 255.0), 0.07]]:
 		for i in 5:
@@ -26,8 +26,8 @@ func _ready() -> void:
 			nebula.append([rng.randf() * 1024.0, rng.randf() * 1024.0, 180.0 + rng.randf() * 320.0, col])
 	_bg = load("res://assets/sky_flat.png")
 	var g := Gradient.new()
-	g.set_color(0, Color(1.000, 0.878, 0.541, 1))
-	g.set_color(1, Color(1.000, 0.878, 0.541, 0))
+	g.set_color(0, Color(1.000, 0.816, 0.839, 1))
+	g.set_color(1, Color(1.000, 0.816, 0.839, 0))
 	var gt := GradientTexture2D.new()
 	gt.gradient = g
 	gt.fill = GradientTexture2D.FILL_RADIAL
@@ -45,7 +45,7 @@ func _draw() -> void:
 	var vs := get_viewport_rect().size
 	# background gradient (top-left lighter)
 	draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(vs.x, 0), vs, Vector2(0, vs.y)]),
-		PackedColorArray([Color("#010810"), Color("#010810"), Color("#000000"), Color("#010810")]))
+		PackedColorArray([Color("#040c1a"), Color("#040c1a"), Color("#02060f"), Color("#040c1a")]))
 	if cam == null: return
 	# the world origin's position on screen
 	var o: Vector2 = -cam.get_screen_center_position() * cam.zoom + vs / 2.0
@@ -56,7 +56,7 @@ func _draw() -> void:
 		var size := ts * sc
 		var margin := (size - vs) / 2.0
 		var drift := Vector2(tanh(o.x * 0.00035), tanh(o.y * 0.00035)) * margin
-		draw_texture_rect(_bg, Rect2(-margin + drift, size), false, Color(0.9, 0.75, 0.75))
+		draw_texture_rect(_bg, Rect2(-margin + drift, size), false, Color(0.75, 0.82, 0.95))
 	else:
 		var nox := fposmod(o.x * 0.04, 1024.0)
 		var noy := fposmod(o.y * 0.04, 1024.0)

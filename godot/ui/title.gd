@@ -26,8 +26,8 @@ func _ready() -> void:
 	ME = _json("res://assets/menu/menu_earth.json")
 	_fxtex = load("res://assets/menu/menu_fx.png")
 	var g := Gradient.new()
-	g.set_color(0, Color(1.000, 0.878, 0.541, 1))
-	g.set_color(1, Color(1.000, 0.878, 0.541, 0))
+	g.set_color(0, Color(1.000, 0.816, 0.839, 1))
+	g.set_color(1, Color(1.000, 0.816, 0.839, 0))
 	var gt := GradientTexture2D.new()
 	gt.gradient = g
 	gt.fill = GradientTexture2D.FILL_RADIAL
@@ -72,7 +72,7 @@ func _ready() -> void:
 	sm.set_shader_parameter("moon_c", Vector2(M.moon[0] - ME.x0, M.moon[1] - ME.y0))
 	sm.set_shader_parameter("moon_r", M.moon[2] * 1.03 + 3.0)
 	tx.material = sm
-	_earth.color = Color(0, 0, 0, 0)
+	_earth.color = Color(0.008, 0.024, 0.059, 0)
 	_earth.add_child(tx)
 	stage.add_child(_earth)
 	fx = Control.new()

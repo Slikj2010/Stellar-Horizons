@@ -68,7 +68,7 @@ func setup(b: Node2D) -> void:
 	exp = board._json("res://assets/expbox.json")
 	var g := Gradient.new()
 	g.offsets = PackedFloat32Array([0.0, 0.34, 1.0])
-	g.colors = PackedColorArray([Color(1.000, 0.878, 0.541, 1), Color(1.000, 0.878, 0.541, 1), Color(1.000, 0.878, 0.541, 0)])
+	g.colors = PackedColorArray([Color(1.000, 0.816, 0.839, 1), Color(1.000, 0.816, 0.839, 1), Color(1.000, 0.816, 0.839, 0)])
 	var gt := GradientTexture2D.new()
 	gt.gradient = g
 	gt.fill = GradientTexture2D.FILL_RADIAL
