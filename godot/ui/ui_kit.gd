@@ -3,6 +3,8 @@ class_name UIK
 extends RefCounted
 
 const AMBER := Color("#e8702a")
+const GOLD := Color("#f8bc04")
+const GREEN := Color("#3fd27a")
 const CYAN := Color("#ced1dd")
 const DIM := Color("#a3a7b2")
 const GOOD := Color("#e8702a")
