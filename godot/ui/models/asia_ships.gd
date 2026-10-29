@@ -45,13 +45,13 @@ static func _m(col: Color, metal := 0.4, rough := 0.5, emit := 0.0) -> StandardM
 static func _gold_ring(p: Node3D, x: float, r: float, thick := 0.014) -> void:
 	UnitModels.ring(p, r - 0.004, r + 2.0 * thick, _m(GOLD, 0.9, 0.3), Vector3(x, 0, 0), Vector3(0, 0, PI / 2))
 
-static func _barrel(p: Node3D, xf: float, L: float, R: float, hull: Material) -> void:
+static func _barrel(p: Node3D, xf: float, L: float, R: float, hull: Material, lamp := Color("#58b8ff")) -> void:
 	var xb := xf - L
 	var pts: Array = [Vector2(xf, 0.001), Vector2(xf, R * 0.8), Vector2(xf - 0.02, R * 0.96), Vector2(xf - 0.055, R), Vector2(xb + 0.055, R), Vector2(xb + 0.02, R * 0.96), Vector2(xb, R * 0.8), Vector2(xb, 0.001)]
 	OrionCV2._lathe(p, pts, 32, hull, Vector3.ZERO)
 	_gold_ring(p, xf - 0.07, R)
 	_gold_ring(p, xb + 0.07, R)
-	var blue := _m(Color("#58b8ff"), 0.0, 0.3, 2.2)
+	var blue := _m(lamp, 0.0, 0.3, 2.2)
 	for a in [0.0, PI, PI * 0.5]:
 		var f := OrionCV2._radial(p, xf - L * 0.5, a, R * 0.99)
 		OrionCV2._rbox(f, Vector3(L * 0.55, 0.012, 0.03), blue, Vector3.ZERO, 4.0, 6)
@@ -203,7 +203,9 @@ static func _wing_trim(w: Node3D, span: float, chord: float, z0: float, sgn: flo
 
 static func _wings(p: Node3D, kind: String, x: float, span: float, chord: float, R: float, hull: Material) -> void:
 	var angles: Array = [0.0, PI] if kind in ["delta", "tall"] else [0.0, PI * 0.5, PI, PI * 1.5]
-	var base := 0.0 if kind != "tall" else PI * 0.5
+	if kind == "fin": angles = [0.0]
+	var base := 0.0 if kind not in ["tall", "fin"] else PI * 0.5
+	if kind == "fin": base = -PI * 0.5
 	var pts := _wing_pts(span, chord, R * 0.8)
 	for a in angles:
 		var w := Node3D.new()
