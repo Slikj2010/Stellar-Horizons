@@ -1742,9 +1742,11 @@ func _ship(r: Dictionary, S: float) -> void:
 	h.visible = true
 	# nose to the right of the screen, rolled a little towards the camera, drifting gently
 	# the ship keeps its heading in the world (it does not turn with the camera); its facing can be flipped on the Selected tab
-	var yaw := (PI if int(r.get("face", 1)) < 0 else 0.0) + sin(T * .5 + r.x * .02) * .18
-	e.p.basis = Basis(Vector3.RIGHT, .55) * Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * sc)
-	var fh: float = rw * (.45 if r.small else .8)
+	var robo: bool = RoboModels.has(String(r.img).split("|")[0])
+	var yaw := (PI if int(r.get("face", 1)) < 0 else 0.0) + (PI / 2 if robo else 0.0) + sin(T * .5 + r.x * .02) * .18
+	# seen from the side, like the printed counter, with just a little of the top: the ship leans back by the camera's pitch
+	e.p.basis = Basis(Vector3.RIGHT, -(C.pitch - .3)) * Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * sc)
+	var fh: float = rw * (.35 if r.small else .55)
 	e.flag.basis = Basis(rgt, cup, rgt.cross(cup)) * Basis.from_scale(Vector3.ONE * fh)
 	e.flag.position = cup * (want * .42) + rgt * (-want * .15)
 	var off: float = _calls.size() * 100000.0 - 50000.0
