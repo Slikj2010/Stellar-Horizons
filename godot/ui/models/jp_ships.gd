@@ -301,57 +301,54 @@ static func build(name: String) -> Node3D:
 				OrionCV2._strut(core, Vector3(-Ln - 0.35, yz.x * R * 0.9, yz.y * R * 0.9), pf + Vector3(-Ln - 0.35, 0, 0), 0.015, steel)
 			rear_r = 0.5
 		"Hakaze":
-			# arrowhead lifting body: a low cone flattened to a wide wedge, big deck windows, short swept wings, three small bells
-			var R := 0.66
-			var L := 2.4
+			# slender spindle body (token): long straight taper to a thin nose spike, constant mid-section, short tail taper;
+			# near-rectangular wings set behind the middle with only a mild sweep; three small bells
+			var R := 0.4
+			var L := 2.9
 			var body := Node3D.new()
-			body.scale = Vector3(1, 0.36, 1)
+			body.scale = Vector3(1, 0.55, 1)
 			core.add_child(body)
 			var pts: Array = []
-			var n := 20
+			var n := 26
 			for i in n + 1:
 				var u := float(i) / n
-				var r := R * pow(u, 0.95)
-				if u > 0.94:
-					r *= 1.0 - 0.5 * (u - 0.94) / 0.06
+				var r := R * minf(u / 0.62, 1.0)
+				if u > 0.84:
+					r *= 1.0 - 0.32 * (u - 0.84) / 0.16
 				pts.append(Vector2(-L * u, r + 0.001))
-			OrionCV2._lathe(body, pts, 48, hull, Vector3.ZERO)
-			# dark nose tip and gold edge lines
-			var tipm := _m(Color("#1c1d21"), 0.6, 0.4)
-			OrionCV2._lathe(body, [Vector2(0.0, 0.001), Vector2(-0.22, 0.17)], 20, tipm, Vector3.ZERO)
-			AsiaShips._gold_ring(body, -L * 0.62, R * 0.62, 0.01)
+			OrionCV2._lathe(body, pts, 40, hull, Vector3.ZERO)
+			OrionCV2._strut(core, Vector3(-0.02, 0, 0), Vector3(0.28, 0, 0), 0.009, steel)
+			UnitModels.ball(core, 0.016, _m(LAMP, 0.0, 0.3, 2.2), Vector3(0.28, 0, 0))
+			AsiaShips._gold_ring(body, -L * 0.62, R * 0.99, 0.012)
+			AsiaShips._gold_ring(body, -L * 0.9, R * 0.78, 0.012)
 			var glass := _m(Color("#14181f"), 0.7, 0.2, 0.35)
 			var frame := _m(Color("#cfcbbf"), 0.4, 0.5)
 			var red := _m(Color("#c8202a"), 0.2, 0.5, 0.4)
-			for k in 5:
-				var u := 0.52 + 0.09 * k
-				var r2 := R * pow(u, 0.95)
-				for sgn in [-1.0, 1.0]:
-					var f := OrionCV2._radial(body, -L * u, PI * 0.5 + sgn * 0.62, r2 * 0.97)
-					OrionCV2._rbox(f, Vector3(0.2, 0.035, 0.12), frame, Vector3.ZERO, 4.0, 6)
-					OrionCV2._rbox(f, Vector3(0.15, 0.045, 0.085), glass, Vector3.ZERO, 4.0, 6)
-			var fd := OrionCV2._radial(body, -L * 0.45, PI * 0.5, R * pow(0.45, 0.95) * 0.99)
-			UnitModels.ball(fd, 0.13, red, Vector3(0, 0.0, 0), Vector3(1.0, 0.12, 1.0))
-			# canopy ridge down the centre
-			var fc := OrionCV2._radial(body, -L * 0.72, PI * 0.5, R * pow(0.72, 0.95) * 0.98)
-			OrionCV2._rbox(fc, Vector3(0.7, 0.06, 0.22), frame, Vector3.ZERO, 4.0, 8)
-			OrionCV2._rbox(fc, Vector3(0.5, 0.075, 0.14), glass, Vector3(-0.02, 0.0, 0.0), 4.0, 8)
-			# short swept wings with gold outer edges
+			var fd := OrionCV2._radial(body, -L * 0.3, PI * 0.5, R * 0.48 * 0.99)
+			UnitModels.ball(fd, 0.1, red, Vector3.ZERO, Vector3(1.0, 0.12, 1.0))
+			for k in 3:
+				var fw := OrionCV2._radial(body, -L * (0.52 + 0.07 * k), PI * 0.5, R * 0.98)
+				OrionCV2._rbox(fw, Vector3(0.16, 0.035, 0.14), frame, Vector3.ZERO, 4.0, 6)
+				OrionCV2._rbox(fw, Vector3(0.11, 0.045, 0.09), glass, Vector3.ZERO, 4.0, 6)
+			var fc := OrionCV2._radial(body, -L * 0.42, PI * 0.5, R * 0.68 * 0.99)
+			OrionCV2._rbox(fc, Vector3(0.55, 0.05, 0.2), frame, Vector3.ZERO, 4.0, 8)
+			OrionCV2._rbox(fc, Vector3(0.4, 0.065, 0.13), glass, Vector3.ZERO, 4.0, 8)
+			# wings: near-rectangular, mild sweep, gold outer edge
 			var gold2 := _m(GOLD, 0.85, 0.35)
-			var zr := R * 0.62
-			var wspan := 0.78
+			var zr := R * 0.7
+			var wspan := 0.85
 			for sg in [-1.0, 1.0]:
-				var wp := PackedVector2Array([Vector2(-1.15, sg * zr), Vector2(-2.35, sg * zr), Vector2(-2.4, sg * (zr + wspan)), Vector2(-2.05, sg * (zr + wspan))])
+				var wp := PackedVector2Array([Vector2(-1.5, sg * zr), Vector2(-2.2, sg * zr), Vector2(-2.24, sg * (zr + wspan)), Vector2(-1.7, sg * (zr + wspan))])
 				if sg < 0:
 					wp.reverse()
 				AsiaShips._plate(core, wp, 0.045, hull)
-				OrionCV2._strut(core, Vector3(-2.4, 0, sg * (zr + wspan)), Vector3(-2.05, 0, sg * (zr + wspan)), 0.018, gold2)
-				OrionCV2._strut(core, Vector3(-2.05, 0, sg * (zr + wspan)), Vector3(-1.15, 0, sg * zr), 0.012, gold2)
-			# engine housing and three bells in a row
-			OrionCV2._rbox(core, Vector3(0.22, 0.2, 0.74), _m(Color("#2a2c31"), 0.7, 0.45), Vector3(-L - 0.08, 0, 0), 4.0, 10)
-			for z in [-0.26, 0.0, 0.26]:
-				RUShips._bell(core, -L - 0.16, 0.0, z, 0.13)
-			x = -L - 0.16
+				OrionCV2._strut(core, Vector3(-2.24, 0, sg * (zr + wspan)), Vector3(-1.7, 0, sg * (zr + wspan)), 0.02, gold2)
+				OrionCV2._strut(core, Vector3(-2.2, 0, sg * zr), Vector3(-2.24, 0, sg * (zr + wspan)), 0.014, gold2)
+			var tr := R * 0.68
+			OrionCV2._rbox(core, Vector3(0.22, 0.2, 0.72), _m(Color("#2a2c31"), 0.7, 0.45), Vector3(-L - 0.06, 0, 0), 4.0, 10)
+			for z in [-0.24, 0.0, 0.24]:
+				RUShips._bell(core, -L - 0.14, 0.0, z, 0.12)
+			x = -L - 0.14
 			rear_r = 0.0
 	if rear_r > 0.0:
 		AsiaShips._engines(core, x, rear_r, 3, hull)
