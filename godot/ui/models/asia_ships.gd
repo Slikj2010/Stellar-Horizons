@@ -195,8 +195,10 @@ static func _wing_pts(span: float, chord: float, z0: float) -> PackedVector2Arra
 	# swept trapezoid on +Z: root front, root back, tip back, tip front
 	return PackedVector2Array([Vector2(chord * 0.5, z0), Vector2(-chord * 0.5, z0), Vector2(-chord * 0.62, z0 + span), Vector2(-chord * 0.12, z0 + span)])
 
+static var trim_col := Color("#58b8ff")
+
 static func _wing_trim(w: Node3D, span: float, chord: float, z0: float, sgn: float) -> void:
-	var blue := _m(Color("#58b8ff"), 0.0, 0.3, 2.0)
+	var blue := _m(trim_col, 0.0, 0.3, 2.0)
 	var gold := _m(GOLD, 0.9, 0.3)
 	OrionCV2._rbox(w, Vector3(chord * 0.55, 0.012, 0.02), blue, Vector3(-chord * 0.1, 0.02, sgn * (z0 + span * 0.45)), 4.0, 6)
 	OrionCV2._strut(w, Vector3(chord * 0.5, 0, z0), Vector3(-chord * 0.12, 0, z0 + span), 0.011, gold)
