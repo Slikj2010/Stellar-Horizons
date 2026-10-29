@@ -29,19 +29,22 @@ func _ready() -> void:
 	fill.light_color = Color("#8fa8ff")
 	fill.rotation = Vector3(-0.2, -2.4, 0)
 	svp.add_child(fill)
-	var m := OrionCV2.build()
-	svp.add_child(m)
-	var r: float = m.get_meta("radius")
 	var cam := Camera3D.new()
 	cam.fov = 34
 	svp.add_child(cam)
-	var views := {"side": [0.0, 0.0, 2.75], "three_quarter": [0.65, -0.28, 2.9], "rear": [2.55, -0.2, 3.0], "top": [0.0, -1.2, 3.0], "nose": [-0.5, -0.15, 2.9]}
-	for vname in views:
-		var v: Array = views[vname]
-		m.rotation = Vector3(0, v[0], 0)
-		cam.position = Vector3(0, 0, v[2] * r).rotated(Vector3.RIGHT, v[1])
-		cam.look_at(Vector3.ZERO, Vector3.UP)
-		for i in 4: await get_tree().process_frame
-		svp.get_texture().get_image().save_png("%s/orion_%s.png" % [out, vname])
-		print("saved ", vname)
+	var views := {"side": [0.0, 0.0, 2.75], "three_quarter": [0.65, -0.28, 2.9], "rear": [2.55, -0.2, 3.0], "top": [0.0, -1.5708, 3.6], "nose": [-1.5708, 0.0, 2.9], "rear_on": [1.5708, 0.0, 2.9]}
+	for variant in ["orion", "discovery"]:
+		var m := OrionCV2.build(variant)
+		svp.add_child(m)
+		var r: float = m.get_meta("radius")
+		for vname in views:
+			if variant == "discovery" and not (vname in ["side", "three_quarter"]): continue
+			var v: Array = views[vname]
+			m.rotation = Vector3(0, v[0], 0)
+			cam.position = Vector3(0, 0, v[2] * r).rotated(Vector3.RIGHT, v[1])
+			cam.look_at(Vector3.ZERO, Vector3.UP if absf(v[1]) < 1.5 else Vector3.RIGHT)
+			for i in 4: await get_tree().process_frame
+			svp.get_texture().get_image().save_png("%s/%s_%s.png" % [out, variant, vname])
+			print("saved ", variant, " ", vname)
+		m.queue_free()
 	get_tree().quit()
