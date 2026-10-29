@@ -320,10 +320,10 @@ func _ship_tag(f: String, s: Dictionary, c: Vector2, strong: bool, ready: bool, 
 	var kn: PackedStringArray = String(s.img).split("|")
 	var own: bool = f == Game.G.f
 	var sel: bool = own and strong
-	R.ring(c.x, c.y, cs * .58, col, 4 if sel else 2)
+	R.ring(c.x, c.y, cs * (.58 if n <= 2 else .46), col, 4 if sel else 2)
 	var nm: String = kn[1] if kn.size() > 1 else kn[0]
-	# labels thin out as a location fills up: name and kind, then the name alone, then only the selected ship's
-	if n <= 4 or sel:
+	# labels thin out as a location fills up: name and kind, then only the selected ship's
+	if n <= 2 or sel:
 		var fs := 12 if n <= 2 else 10
 		R.text(nm, c.x, c.y + cs * .78, fs, "#ffffff" if own else col)
 		if n <= 2: R.text(("%s · %s" % [kn[0], String(Game.data.D.FAC[f].get("n", f))]) if not own else kn[0], c.x, c.y + cs * .78 + 13, 9, col)
@@ -600,8 +600,8 @@ func paint_objects() -> void:
 					# 2.5D: the counters fill the box in a tidy grid, turned with the box
 					var bc := 2 if nl == 4 else mini(nl, 3)
 					var br := ceili(nl / float(bc))
-					var gx := ((i % bc) - (bc - 1) / 2.0) * CS * ck * .95
-					var gy := (floorf(i / float(bc)) - (br - 1) / 2.0) * CS * ck * .8
+					var gx := ((i % bc) - (bc - 1) / 2.0) * CS * ck * 1.15
+					var gy := (floorf(i / float(bc)) - (br - 1) / 2.0) * CS * ck * .95
 					c = B.c + Vector2(gx * cos(rot) - gy * sin(rot), gx * sin(rot) + gy * cos(rot))
 			elif lp.t == "surf" and geo.worlds.has(lp.w) and not geo.worlds[lp.w].has("spoly"):
 				var Rr := ring_of(lp.w)
