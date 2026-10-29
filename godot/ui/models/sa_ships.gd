@@ -21,8 +21,8 @@ const SPECS := {
 	"Saturno": {"nose": ["ogive", 0.34, 0.65, "grey"], "mods": [["barrel", 0.5, 0.34], ["tanks", 0.85, 0.19, 0.28, 4]], "eng": 4},
 	"Nebula": {"nose": ["ogive", 0.4, 0.8, "black"], "mods": [["dark", 0.65, 0.42], ["cage", 0.75, 0.42]], "eng": 4},
 	"Nova": {"nose": ["ogive", 0.4, 0.75, "black"], "mods": [["dark", 0.55, 0.42], ["cage", 0.85, 0.42]], "eng": 4},
-	"Cosmos": {"nose": ["needle", 0.34, 0.9, "grey"], "mods": [["barrel", 0.8, 0.36], ["tanks", 0.95, 0.22, 0.3, 4]], "eng": 4},
-	"Galaxia": {"nose": ["needle", 0.34, 1.0, "grey"], "mods": [["barrel", 0.7, 0.36], ["tanks", 1.05, 0.22, 0.3, 4]], "eng": 4},
+	"Cosmos": {"nose": ["ogive", 0.2, 0.3, "grey"], "mods": [["barrel", 1.3, 0.2], ["hub", 0.3, 0.22], ["barrel", 1.2, 0.2], ["tanks", 0.9, 0.19, 0.21, 4]], "eng": 4},
+	"Galaxia": {"nose": ["ogive", 0.2, 0.3, "grey"], "mods": [["barrel", 1.2, 0.2], ["hub", 0.3, 0.22], ["barrel", 0.9, 0.2], ["hub", 0.25, 0.21], ["barrel", 0.4, 0.2], ["tanks", 1.0, 0.2, 0.22, 4]], "eng": 4},
 }
 
 const GOLD := Color("#c9a24a")
