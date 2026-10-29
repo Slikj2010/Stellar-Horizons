@@ -1742,15 +1742,19 @@ func _ship(r: Dictionary, S: float) -> void:
 	# on a world's surface the counter is small and stands on the ground: on the planet's disc, or on the rocks' plate
 	var surf: String = r.get("surf", "")
 	var fsz: float = rw
+	var surf_roll := 0.0
 	if surf != "":
 		var bd = bodies.b.get(surf)
 		if bd != null:
 			var mm: Array = board.geo_std.maps[bd.map]
 			var q := mapP(mm[0] + bd.cx * .4, mm[1] + bd.cy * .4)
 			var rr: float = bd.r * .4 * S
-			want = minf(rw * .5 * .42, rr * .22)
-			var dx: float = (float(hash(String(r.img)) % 7) - 3.0) / 3.0 * rr * .45
-			h.position = Vector3(q.x, rr * .55, q.y) + rgt * dx + cup * (-rr * .3) - fwd * (rr * .3) + cup * want * .55
+			want = minf(rw * .5 * .45, rr * .26)
+			# it drives along the planet's upper rim, wheels on the surface and turned to follow the curve
+			var th: float = (float(hash(String(r.img)) % 9) - 4.0) / 4.0 * .75
+			var dirv: Vector3 = rgt * sin(th) + cup * cos(th)
+			h.position = Vector3(q.x, rr * .55, q.y) + dirv * (rr + want * .42) - fwd * (rr * .15)
+			surf_roll = -th
 		else:
 			want = rw * .5 * .4
 			h.position = Vector3(r.X, want * .6, r.Z)
@@ -1763,7 +1767,7 @@ func _ship(r: Dictionary, S: float) -> void:
 	var robo: bool = RoboModels.has(String(r.img).split("|")[0])
 	var yaw := (PI if int(r.get("face", 1)) < 0 else 0.0) + (PI / 2 - 0.6 if robo else 0.0) + sin(T * .5 + r.x * .02) * .18
 	# seen from the side, like the printed counter, with just a little of the top: the ship leans back by the camera's pitch
-	e.p.basis = Basis(Vector3.RIGHT, -(C.pitch - (.65 if robo else .3))) * Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * sc)
+	e.p.basis = Basis(rgt.cross(cup).normalized(), surf_roll) * Basis(Vector3.RIGHT, -(C.pitch - (.65 if robo else .3))) * Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * sc)
 	var fh: float = fsz * (.35 if r.small else .55)
 	e.flag.basis = Basis(rgt, cup, rgt.cross(cup)) * Basis.from_scale(Vector3.ONE * fh)
 	e.flag.position = cup * (want * .42) + rgt * (-want * .15)

@@ -320,10 +320,13 @@ func _ship_tag(f: String, s: Dictionary, c: Vector2, strong: bool, ready: bool, 
 	var kn: PackedStringArray = String(s.img).split("|")
 	var own: bool = f == Game.G.f
 	var sel: bool = own and strong
-	R.ring(c.x, c.y, cs * (.58 if n <= 2 else .32) * (.45 if surf != "" else 1.0), col, 4 if sel else 2)
+	if surf == "" or sel: R.ring(c.x, c.y, cs * (.58 if n <= 2 else .32) * (.45 if surf != "" else 1.0), col, 4 if sel else 2)
 	var nm: String = kn[1] if kn.size() > 1 else kn[0]
 	# labels thin out as a location fills up: name and kind, then only the selected ship's
-	if n <= 2 or sel:
+	if surf != "":
+		# on a world's surface the label sits below the world so it does not hide the planet
+		if n <= 3 or sel: R.text(nm, c.x, c.y + CS * 1.15 + (hash(nm) % 3) * 11, 10, "#ffffff" if own else col)
+	elif n <= 2 or sel:
 		var fs := 12 if n <= 2 else 10
 		R.text(nm, c.x, c.y + cs * .78, fs, "#ffffff" if own else col)
 		if n <= 2: R.text(("%s · %s" % [kn[0], String(Game.data.D.FAC[f].get("n", f))]) if not own else kn[0], c.x, c.y + cs * .78 + 13, 9, col)
