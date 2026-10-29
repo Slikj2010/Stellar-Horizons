@@ -513,7 +513,7 @@ func paint_objects() -> void:
 			if R == null: draw_rect(Rect2(mp - Vector2(S / 2 + 2, S / 2 + 2), Vector2(S + 4, S + 4)), MIS_COL[x.kind], false, 3)
 			hits.append({"t": "world", "k": k, "c": mp, "rad": S / 2})
 			i += 1
-		if D.TERRA.has(k) and SHRules.t(ws.get("terra")): text("Terraformed %d/%d" % [ws.terra, D.TERRA[k]], wx + Vector2(0, -64), 14, Color("#e8702a"))
+		if D.TERRA.has(k) and SHRules.t(ws.get("terra")): text("Terraformed %d/%d" % [ws.terra, D.TERRA[k]], wx + Vector2(0, -64), 14, Color("#5fcf8a"))
 	# flyby boxes: pirates and asteroids
 	_mode("stand", 22)
 	for s in G.fly:

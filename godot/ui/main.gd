@@ -545,7 +545,7 @@ func _tip_text(G, h: Dictionary) -> String:
 			t += "\nExploration value [b]%d[/b]%s" % [int(ws.v), (" (printed %d)" % int(w.v)) if int(ws.v) != int(w.v) else ""]
 			if SHRules.t(w.get("life")): t += " · life chance %d%%" % int(w.life)
 			if SHRules.t(ws.get("card")): t += "\nWorld card: " + str(ws.card)
-			if SHRules.t(ws.get("life")): t += "\n[color=#e8702a]Life found[/color]"
+			if SHRules.t(ws.get("life")): t += "\n[color=#5fcf8a]Life found[/color]"
 			for x in E.missionsAt(G, k): t += "\nMission: " + E.misTxt(x.id)
 			return t
 	return ""

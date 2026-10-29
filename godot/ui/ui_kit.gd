@@ -4,12 +4,12 @@ extends RefCounted
 
 const AMBER := Color("#e8702a")
 const GOLD := Color("#f8bc04")
-const GREEN := Color("#3fd27a")
+const GREEN := Color("#5fcf8a")
 const CYAN := Color("#ced1dd")
 const DIM := Color("#a3a7b2")
-const GOOD := Color("#e8702a")
+const GOOD := Color("#5fcf8a")
 const BAD := Color("#e0508f")
-const FIELD_COL := {"Phy": Color("#8d89d6"), "Eng": Color("#e2e5f0"), "Bio": Color("#e8702a")}
+const FIELD_COL := {"Phy": Color("#4f9be6"), "Eng": Color("#a9b4bf"), "Bio": Color("#5fcf8a")}
 
 static var _tex_cache := {}
 static var _json_cache := {}
