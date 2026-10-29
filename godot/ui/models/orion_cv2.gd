@@ -58,7 +58,7 @@ static func _plates(key: String, w: int, h: int, o: Dictionary) -> Array:
 	rng.seed = int(o.get("seed", 1))
 	var alb := Image.create(w, h, false, Image.FORMAT_RGBA8)
 	var hgt := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	alb.fill(Color("#25262a"))
+	alb.fill(o.get("seam", Color("#25262a")))
 	hgt.fill(Color(0.28, 0.28, 0.28))
 	var cols: int = o.get("cols", 36)
 	var tones: Array = o.get("tones", [Color("#dcdcd8"), Color("#cfcfca"), Color("#c3c3be"), Color("#e6e6e2"), Color("#b9b9b4")])
