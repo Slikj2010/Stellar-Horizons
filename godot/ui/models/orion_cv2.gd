@@ -6,7 +6,8 @@
 class_name OrionCV2
 extends RefCounted
 
-const SIDES := 12
+const SIDES := 12          ## texture pattern columns around the hull
+const HULL := 24           ## actual hull facets (smooth shaded, so it reads rounded)
 const CAP_L := 0.76
 const CAP_R_NOSE := 0.15
 const CAP_R_BASE := 0.42
@@ -187,7 +188,7 @@ static func _m(col: Color, metal := 0.4, rough := 0.5, emit := 0.0) -> StandardM
 	return UnitModels.mat(col, metal, rough, emit)
 
 # ------------------------------------------------------------------ geometry
-static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, outward: Vector3, uva: Vector2, uvb: Vector2, uvc: Vector2) -> void:
+static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, outward: Vector3, uva: Vector2, uvb: Vector2, uvc: Vector2, sg := -1) -> void:
 	# front faces are clockwise; the cross product of a clockwise triangle points inward
 	if (b - a).cross(c - a).dot(outward) > 0.0:
 		var t := b
@@ -196,40 +197,12 @@ static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, outward: V
 		var tu := uvb
 		uvb = uvc
 		uvc = tu
-	st.set_smooth_group(-1)
-	st.set_uv(uva)
-	st.add_vertex(a)
-	st.set_smooth_group(-1)
-	st.set_uv(uvb)
-	st.add_vertex(b)
-	st.set_smooth_group(-1)
-	st.set_uv(uvc)
-	st.add_vertex(c)
+	for v in [[a, uva], [b, uvb], [c, uvc]]:
+		st.set_smooth_group(sg)
+		st.set_uv(v[1])
+		st.add_vertex(v[0])
 
-## Flat-shaded N-sided frustum along X (front at +X). Face i is centred on angle i*step measured from +Z towards +Y;
-## u covers one face per 1/N, v runs 0 (front) .. 1 (back).
-static func _prism(parent: Node3D, r_front: float, r_back: float, length: float, sides: int, m: Material, pos: Vector3, caps := true) -> MeshInstance3D:
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var step := TAU / sides
-	var xf := length * 0.5
-	var xb := -length * 0.5
-	for i in sides:
-		var a0 := (i - 0.5) * step
-		var a1 := (i + 0.5) * step
-		var am := i * step
-		var out := Vector3(0, sin(am), cos(am))
-		var f0 := Vector3(xf, r_front * sin(a0), r_front * cos(a0))
-		var f1 := Vector3(xf, r_front * sin(a1), r_front * cos(a1))
-		var b0 := Vector3(xb, r_back * sin(a0), r_back * cos(a0))
-		var b1 := Vector3(xb, r_back * sin(a1), r_back * cos(a1))
-		var u0 := float(i) / sides
-		var u1 := float(i + 1) / sides
-		_tri(st, f0, f1, b1, out, Vector2(u0, 0), Vector2(u1, 0), Vector2(u1, 1))
-		_tri(st, f0, b1, b0, out, Vector2(u0, 0), Vector2(u1, 1), Vector2(u0, 1))
-		if caps:
-			_tri(st, Vector3(xf, 0, 0), f0, f1, Vector3.RIGHT, Vector2(u0, 0), Vector2(u0, 0), Vector2(u1, 0))
-			_tri(st, Vector3(xb, 0, 0), b0, b1, Vector3.LEFT, Vector2(u0, 1), Vector2(u0, 1), Vector2(u1, 1))
+static func _commit(st: SurfaceTool, parent: Node3D, m: Material, pos := Vector3.ZERO) -> MeshInstance3D:
 	st.generate_normals()
 	st.generate_tangents()
 	var mi := MeshInstance3D.new()
@@ -239,35 +212,125 @@ static func _prism(parent: Node3D, r_front: float, r_back: float, length: float,
 	parent.add_child(mi)
 	return mi
 
-## Triangular wedge: flush with the hull at the front (+X), rising to height h at the back. Local +Y is radial.
-static func _wedge(parent: Node3D, length: float, h: float, width: float, m: Material) -> MeshInstance3D:
+## N-sided frustum along X (front at +X); smooth shaded when sides >= 16.  Face i is centred on angle i*step measured
+## from +Z towards +Y.  u wraps once around, aligned so the 12-column texture pattern stays centred on +Z.
+static func _prism(parent: Node3D, r_front: float, r_back: float, length: float, sides: int, m: Material, pos: Vector3, caps := true) -> MeshInstance3D:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var step := TAU / sides
+	var xf := length * 0.5
+	var xb := -length * 0.5
+	var sg := 0 if sides >= 16 else -1
+	for i in sides:
+		var a0 := (i - 0.5) * step
+		var a1 := (i + 0.5) * step
+		var out := Vector3(0, sin(i * step), cos(i * step))
+		var f0 := Vector3(xf, r_front * sin(a0), r_front * cos(a0))
+		var f1 := Vector3(xf, r_front * sin(a1), r_front * cos(a1))
+		var b0 := Vector3(xb, r_back * sin(a0), r_back * cos(a0))
+		var b1 := Vector3(xb, r_back * sin(a1), r_back * cos(a1))
+		var u0 := (a0 + PI / SIDES) / TAU
+		var u1 := (a1 + PI / SIDES) / TAU
+		_tri(st, f0, f1, b1, out, Vector2(u0, 0), Vector2(u1, 0), Vector2(u1, 1), sg)
+		_tri(st, f0, b1, b0, out, Vector2(u0, 0), Vector2(u1, 1), Vector2(u0, 1), sg)
+		if caps:
+			_tri(st, Vector3(xf, 0, 0), f0, f1, Vector3.RIGHT, Vector2(u0, 0), Vector2(u0, 0), Vector2(u1, 0), -1)
+			_tri(st, Vector3(xb, 0, 0), b0, b1, Vector3.LEFT, Vector2(u0, 1), Vector2(u0, 1), Vector2(u1, 1), -1)
+	return _commit(st, parent, m, pos)
+
+## Surface of revolution about X. pts = [Vector2(x, radius)] from the front backwards; flip for inward-facing (inner bell wall).
+static func _lathe(parent: Node3D, pts: Array, seg: int, m: Material, pos: Vector3, flip := false) -> MeshInstance3D:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for j in pts.size() - 1:
+		var p0: Vector2 = pts[j]
+		var p1: Vector2 = pts[j + 1]
+		for i in seg:
+			var a0 := TAU * i / seg
+			var a1 := TAU * (i + 1) / seg
+			var am := (a0 + a1) * 0.5
+			var out := Vector3(0, sin(am), cos(am)) * (-1.0 if flip else 1.0)
+			var v00 := Vector3(p0.x, p0.y * sin(a0), p0.y * cos(a0))
+			var v01 := Vector3(p0.x, p0.y * sin(a1), p0.y * cos(a1))
+			var v10 := Vector3(p1.x, p1.y * sin(a0), p1.y * cos(a0))
+			var v11 := Vector3(p1.x, p1.y * sin(a1), p1.y * cos(a1))
+			var uu0 := float(i) / seg
+			var uu1 := float(i + 1) / seg
+			var vv0 := float(j) / (pts.size() - 1)
+			var vv1 := float(j + 1) / (pts.size() - 1)
+			_tri(st, v00, v01, v11, out, Vector2(uu0, vv0), Vector2(uu1, vv0), Vector2(uu1, vv1), 0)
+			_tri(st, v00, v11, v10, out, Vector2(uu0, vv0), Vector2(uu1, vv1), Vector2(uu0, vv1), 0)
+	return _commit(st, parent, m, pos)
+
+## Rounded box (superellipsoid): size is the full extent, k > 2 squarer.
+static func _rbox(parent: Node3D, size: Vector3, m: Material, pos: Vector3, k := 5.0, res := 10) -> MeshInstance3D:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var grid: Array = []
+	for i in res + 1:
+		var th := PI * float(i) / res - PI * 0.5        # latitude
+		var row: Array = []
+		for j in res * 2 + 1:
+			var ph := TAU * float(j) / (res * 2)
+			var ct := signf(cos(th)) * pow(absf(cos(th)), 2.0 / k)
+			var st_ := signf(sin(th)) * pow(absf(sin(th)), 2.0 / k)
+			var cp := signf(cos(ph)) * pow(absf(cos(ph)), 2.0 / k)
+			var sp := signf(sin(ph)) * pow(absf(sin(ph)), 2.0 / k)
+			row.append(Vector3(ct * cp * size.x * 0.5, st_ * size.y * 0.5, ct * sp * size.z * 0.5))
+		grid.append(row)
+	for i in res:
+		for j in res * 2:
+			var a: Vector3 = grid[i][j]
+			var b: Vector3 = grid[i][j + 1]
+			var c: Vector3 = grid[i + 1][j + 1]
+			var d: Vector3 = grid[i + 1][j]
+			var out := (a + b + c + d) * 0.25
+			var uv := Vector2(0.5, 0.5)
+			_tri(st, a, b, c, out, uv, uv, uv, 0)
+			_tri(st, a, c, d, out, uv, uv, uv, 0)
+	return _commit(st, parent, m, pos)
+
+## Rounded wing: rises smoothly from the hull to height h at the back, narrowing in the front, with a domed cross-section.
+## Local +Y is radial, +X forward.
+static func _fin(parent: Node3D, length: float, h: float, width: float, m: Material) -> MeshInstance3D:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var NT := 14
+	var NS := 12
 	var l2 := length * 0.5
-	var w2 := width * 0.5
-	var A := Vector3(l2, 0, w2)
-	var B := Vector3(-l2, 0, w2)
-	var C := Vector3(-l2, h, w2)
-	var A2 := Vector3(l2, 0, -w2)
-	var B2 := Vector3(-l2, 0, -w2)
-	var C2 := Vector3(-l2, h, -w2)
-	var uv := Vector2(0.5, 0.5)
-	_tri(st, A, B, C, Vector3(0, 0, 1), uv, uv, uv)
-	_tri(st, A2, B2, C2, Vector3(0, 0, -1), uv, uv, uv)
-	_tri(st, B, B2, C2, Vector3(-1, 0, 0), uv, uv, uv)
-	_tri(st, B, C2, C, Vector3(-1, 0, 0), uv, uv, uv)
-	var sl := Vector3(h, length, 0).normalized()
-	_tri(st, A, C, C2, sl, uv, uv, uv)
-	_tri(st, A, C2, A2, sl, uv, uv, uv)
-	_tri(st, A, A2, B2, Vector3.DOWN, uv, uv, uv)
-	_tri(st, A, B2, B, Vector3.DOWN, uv, uv, uv)
-	st.generate_normals()
-	st.generate_tangents()
-	var mi := MeshInstance3D.new()
-	mi.mesh = st.commit()
-	mi.material_override = m
-	parent.add_child(mi)
-	return mi
+	var rows: Array = []
+	for i in NT + 5:
+		var t: float
+		var hh: float
+		var ww: float
+		var x: float
+		if i <= NT:
+			t = float(i) / NT
+			x = l2 - t * length
+			hh = h * pow(t, 1.15) + 0.004
+			ww = width * 0.5 * (0.5 + 0.5 * smoothstep(0.0, 0.5, t))
+		else:
+			var k := float(i - NT) / 4.0
+			x = -l2 - 0.05 * sin(k * PI * 0.5)
+			hh = h * cos(k * PI * 0.5) + 0.004 * (1.0 - k)
+			ww = width * 0.5 * cos(k * PI * 0.35)
+		var row: Array = []
+		for sj in NS + 1:
+			var s := -1.0 + 2.0 * float(sj) / NS
+			var dome := pow(maxf(1.0 - pow(absf(s), 3.0), 0.0), 1.0 / 3.0)
+			row.append(Vector3(x, -0.03 + (hh + 0.03) * dome, s * ww))
+		rows.append(row)
+	for i in rows.size() - 1:
+		for sj in NS:
+			var a: Vector3 = rows[i][sj]
+			var b: Vector3 = rows[i][sj + 1]
+			var c: Vector3 = rows[i + 1][sj + 1]
+			var d: Vector3 = rows[i + 1][sj]
+			var out := Vector3(0.0, 1.0, 0.0) + Vector3(0, 0, (a.z + c.z) * 0.5 / maxf(width, 0.01)) * 1.5
+			var uv := Vector2(0.5, 0.5)
+			_tri(st, a, b, c, out, uv, uv, uv, 0)
+			_tri(st, a, c, d, out, uv, uv, uv, 0)
+	return _commit(st, parent, m)
 
 static func _strut(parent: Node3D, a: Vector3, b: Vector3, r: float, m: Material) -> void:
 	var d := b - a
@@ -275,7 +338,7 @@ static func _strut(parent: Node3D, a: Vector3, b: Vector3, r: float, m: Material
 	c.top_radius = r
 	c.bottom_radius = r
 	c.height = d.length()
-	c.radial_segments = 6
+	c.radial_segments = 8
 	c.rings = 1
 	var n := MeshInstance3D.new()
 	n.mesh = c
@@ -283,7 +346,57 @@ static func _strut(parent: Node3D, a: Vector3, b: Vector3, r: float, m: Material
 	n.transform = Transform3D(Basis(Quaternion(Vector3.UP, d.normalized())), (a + b) * 0.5)
 	parent.add_child(n)
 
-## frame on a flat hull face: local +Y is the outward radial direction at angle a (from +Z towards +Y)
+## a small RCS nozzle: flared cone, rim and dark throat, pointing along dir
+static func _nozzle(parent: Node3D, pos: Vector3, dir: Vector3, scale: float, steel: Material, black: Material) -> void:
+	var q := Basis(Quaternion(Vector3.UP, dir.normalized()))
+	var c := CylinderMesh.new()
+	c.top_radius = 0.03 * scale
+	c.bottom_radius = 0.011 * scale
+	c.height = 0.07 * scale
+	c.radial_segments = 14
+	c.rings = 1
+	var n := MeshInstance3D.new()
+	n.mesh = c
+	n.material_override = black
+	n.transform = Transform3D(q, pos + dir.normalized() * 0.035 * scale)
+	parent.add_child(n)
+	var rim := CylinderMesh.new()
+	rim.top_radius = 0.034 * scale
+	rim.bottom_radius = 0.034 * scale
+	rim.height = 0.008 * scale
+	rim.radial_segments = 14
+	var rn := MeshInstance3D.new()
+	rn.mesh = rim
+	rn.material_override = steel
+	rn.transform = Transform3D(q, pos + dir.normalized() * 0.07 * scale)
+	parent.add_child(rn)
+	var th := CylinderMesh.new()
+	th.top_radius = 0.022 * scale
+	th.bottom_radius = 0.022 * scale
+	th.height = 0.004 * scale
+	th.radial_segments = 12
+	var tn := MeshInstance3D.new()
+	tn.mesh = th
+	tn.material_override = _m(Color("#07080a"), 0.2, 0.6)
+	tn.transform = Transform3D(q, pos + dir.normalized() * 0.071 * scale)
+	parent.add_child(tn)
+
+## A four-nozzle RCS cluster on a hull frame (+Y radial, +X axial, +Z tangent).
+static func _cluster(parent: Node3D, steel: Material, dsteel: Material, black: Material, s := 1.0) -> void:
+	_rbox(parent, Vector3(0.075, 0.045, 0.075) * s, dsteel, Vector3(0, 0.012 * s, 0), 4.0, 8)
+	var base := Vector3(0, 0.025 * s, 0)
+	for d in [Vector3(1, 0.25, 0), Vector3(-1, 0.25, 0), Vector3(0, 0.25, 1), Vector3(0, 0.25, -1)]:
+		_nozzle(parent, base + (d as Vector3).normalized() * 0.03 * s, d, s, steel, black)
+	_nozzle(parent, base + Vector3(0, 0.03, 0) * s, Vector3(0, 1, 0), 0.8 * s, steel, black)
+
+## Louvred vent: dark recess with raised rounded slats. Faces +Y.
+static func _vent(parent: Node3D, w: float, l: float, slats: int, steel: Material, black: Material) -> void:
+	_rbox(parent, Vector3(l, 0.014, w), black, Vector3(0, 0.004, 0), 6.0, 6)
+	for i in slats:
+		var x := -l * 0.5 + l * (i + 0.5) / slats
+		_rbox(parent, Vector3(l / slats * 0.5, 0.012, w * 0.86), steel, Vector3(x, 0.014, 0), 3.0, 6)
+
+## frame on the hull at axial x, angle a and radius rad: +Y radial, +X axial, +Z tangent
 static func _radial(parent: Node3D, x: float, a: float, rad: float) -> Node3D:
 	var n := Node3D.new()
 	var b := Basis(Vector3.RIGHT, PI * 0.5 - a)
@@ -291,8 +404,20 @@ static func _radial(parent: Node3D, x: float, a: float, rad: float) -> Node3D:
 	parent.add_child(n)
 	return n
 
+## frame on the capsule cone (surface tilted towards the nose)
+static func _on_cone(parent: Node3D, x: float, a: float) -> Node3D:
+	var rr := lerpf(CAP_R_BASE, CAP_R_NOSE, x / CAP_L) * cos(PI / HULL)
+	var f := _radial(parent, x, a, rr)
+	var tilt := Node3D.new()
+	tilt.basis = Basis(Vector3(0, 0, 1), -atan2(CAP_R_BASE - CAP_R_NOSE, CAP_L))
+	f.add_child(tilt)
+	return tilt
+
+static func _sm_r(x: float) -> float:
+	return lerpf(SM_R0, SM_R1, clampf((SM_X0 - x) / SM_L, 0.0, 1.0)) * cos(PI / HULL)
+
 # ------------------------------------------------------------------ the model
-## variant: "orion" or "discovery" (same hull, different plate layout and light colours)
+## variant: "orion" or "discovery" (same hull, different plate layout and lamp colours)
 static func build(variant := "orion") -> Node3D:
 	var disc := variant == "discovery"
 	var sd := 100 if disc else 0
@@ -305,74 +430,121 @@ static func build(variant := "orion") -> Node3D:
 	var dsteel := _m(Color("#5b5f66"), 0.8, 0.38)
 	var black := _m(Color("#17181b"), 0.5, 0.45)
 	var lamp := _m(Color("#ffb347") if disc else Color("#8fdcff"), 0.0, 0.3, 2.0)
+	var copper := _m(Color("#b9794a"), 0.85, 0.35)
 	var warm := [Color("#e0dccf"), Color("#d3cfc2"), Color("#c7c3b7"), Color("#ebe7da"), Color("#bdb9ad")]
+	var cool := [Color("#dcdcd8"), Color("#cfcfca"), Color("#c3c3be"), Color("#e6e6e2"), Color("#b9b9b4")]
 
-	# --- capsule
-	var cap_mat := _smat("cap%d" % sd, 1152, 288, {"seed": 4 + sd, "cols": SIDES, "min_len": 110, "max_len": 300, "black_rate": 0.0, "grime": 0.8, "overlay": Callable(OrionCV2, "_capsule_overlay"), "tones": warm if disc else [Color("#dcdcd8"), Color("#cfcfca"), Color("#c3c3be"), Color("#e6e6e2"), Color("#b9b9b4")]})
-	var cap := _prism(core, CAP_R_NOSE, CAP_R_BASE, CAP_L, SIDES, cap_mat, Vector3(CAP_L * 0.5, 0, 0))
+	# --- capsule (smooth 24-facet cone)
+	var cap_mat := _smat("cap%d" % sd, 1152, 288, {"seed": 4 + sd, "cols": SIDES, "min_len": 110, "max_len": 300, "black_rate": 0.0, "grime": 0.8, "overlay": Callable(OrionCV2, "_capsule_overlay"), "tones": warm if disc else cool})
+	var cap := _prism(core, CAP_R_NOSE, CAP_R_BASE, CAP_L, HULL, cap_mat, Vector3(CAP_L * 0.5, 0, 0))
 	cap.name = "Capsule"
-	# nose cap, dark lens and four lamps
-	UnitModels.cylx(core, 0.12, 0.155, 0.09, steel, Vector3(CAP_L + 0.04, 0, 0), 24)
-	UnitModels.cylx(core, 0.085, 0.1, 0.03, black, Vector3(CAP_L + 0.095, 0, 0), 24)
-	UnitModels.ball(core, 0.07, _m(Color("#232c36"), 0.9, 0.12), Vector3(CAP_L + 0.1, 0, 0), Vector3(0.45, 1, 1))
+	# rounded nose cap, dark lens and four lamps
+	UnitModels.cylx(core, 0.12, 0.155, 0.09, steel, Vector3(CAP_L + 0.04, 0, 0), 32)
+	UnitModels.ring(core, 0.135, 0.165, steel, Vector3(CAP_L - 0.005, 0, 0), Vector3(0, 0, PI / 2))
+	UnitModels.ball(core, 0.095, _m(Color("#232c36"), 0.9, 0.12), Vector3(CAP_L + 0.085, 0, 0), Vector3(0.5, 1, 1))
 	for k in 4:
 		var a := PI * 0.25 + k * PI * 0.5
-		UnitModels.ball(core, 0.016, lamp, Vector3(CAP_L - 0.02, 0.13 * sin(a), 0.13 * cos(a)))
-	# separation ring, collar and ring
-	UnitModels.cylx(core, CAP_R_BASE * 1.02, CAP_R_BASE * 1.02, 0.035, steel, Vector3(0.0, 0, 0), 36)
-	var collar_mat := _smat("collar%d" % sd, 256, 128, {"seed": 17 + sd, "cols": SIDES, "min_len": 30, "max_len": 90, "black_rate": 0.45, "grime": 0.8, "tones": warm if disc else [Color("#dcdcd8"), Color("#cfcfca"), Color("#e6e6e2")]})
-	_prism(core, COLLAR_R, COLLAR_R, COLLAR_L, SIDES, collar_mat, Vector3(-0.075, 0, 0))
-	UnitModels.cylx(core, COLLAR_R * 1.06, COLLAR_R * 1.06, 0.03, steel, Vector3(SM_X0 + 0.015, 0, 0), 36)
-	# hazard ticks and lamps just under the separation ring
+		UnitModels.ball(core, 0.018, lamp, Vector3(CAP_L - 0.035, 0.135 * sin(a), 0.135 * cos(a)))
+	# separation ring, collar and ring (rounded torus rails)
+	UnitModels.ring(core, CAP_R_BASE + 0.01, CAP_R_BASE + 0.035, steel, Vector3(0.0, 0, 0), Vector3(0, 0, PI / 2))
+	var collar_mat := _smat("collar%d" % sd, 256, 128, {"seed": 17 + sd, "cols": SIDES, "min_len": 30, "max_len": 90, "black_rate": 0.45, "grime": 0.8, "tones": warm if disc else cool})
+	_prism(core, COLLAR_R, COLLAR_R, COLLAR_L, HULL, collar_mat, Vector3(-0.075, 0, 0))
+	UnitModels.ring(core, COLLAR_R + 0.02, COLLAR_R + 0.045, steel, Vector3(SM_X0 + 0.01, 0, 0), Vector3(0, 0, PI / 2))
+	# hazard ticks under the separation ring
 	var haz := _m(Color("#e6c010"), 0.1, 0.55)
 	for k in 4:
-		var a := k * PI * 0.5
-		var hp := _radial(core, -0.03, a, 0.405)
-		UnitModels.box(hp, Vector3(0.05, 0.012, 0.07), haz, Vector3.ZERO)
-		UnitModels.box(hp, Vector3(0.02, 0.014, 0.025), black, Vector3.ZERO)
-	# small pods at the capsule shoulders
-	for a in [PI * 0.25, PI * 1.25]:
-		var pod := _radial(core, 0.08, a + 0.0, 0.42)
-		UnitModels.box(pod, Vector3(0.06, 0.05, 0.06), dsteel, Vector3.ZERO)
+		var hp := _radial(core, -0.03, k * PI * 0.5, 0.395)
+		_rbox(hp, Vector3(0.05, 0.014, 0.07), haz, Vector3.ZERO, 4.0, 6)
+		_rbox(hp, Vector3(0.02, 0.016, 0.025), black, Vector3.ZERO, 4.0, 6)
+	# capsule RCS clusters and louvred vents
+	for k in 4:
+		var cf := _on_cone(core, 0.15, PI * 0.25 + k * PI * 0.5)
+		_cluster(cf, steel, dsteel, black, 0.85)
+	for k in 4:
+		var vf := _on_cone(core, 0.27, PI * 0.25 + k * PI * 0.5 + 0.38)
+		_vent(vf, 0.06, 0.11, 5, steel, black)
 
-	# --- service module
-	var sm_mat := _smat("sm%d" % sd, 1024, 512, {"seed": 21 + sd, "cols": 36, "min_len": 70, "max_len": 300, "black_rate": 0.1, "grime": 0.95, "overlay": Callable(OrionCV2, "_sm_overlay"), "tones": warm if disc else [Color("#dcdcd8"), Color("#cfcfca"), Color("#c3c3be"), Color("#e6e6e2"), Color("#b9b9b4")]})
-	var sm := _prism(core, SM_R0, SM_R1, SM_L, SIDES, sm_mat, Vector3(SM_X0 - SM_L * 0.5, 0, 0))
+	# --- service module (smooth 24-facet drum)
+	var sm_mat := _smat("sm%d" % sd, 1024, 512, {"seed": 21 + sd, "cols": 36, "min_len": 70, "max_len": 300, "black_rate": 0.1, "grime": 0.95, "overlay": Callable(OrionCV2, "_sm_overlay"), "tones": warm if disc else cool})
+	var sm := _prism(core, SM_R0, SM_R1, SM_L, HULL, sm_mat, Vector3(SM_X0 - SM_L * 0.5, 0, 0))
 	sm.name = "ServiceModule"
 	var tail := SM_X0 - SM_L
-	# rear plate
-	UnitModels.cylx(core, SM_R1 * 0.95, SM_R1 * 0.95, 0.04, dsteel, Vector3(tail - 0.02, 0, 0), 12)
-	# four black compartments on the flat faces near the rear
+	UnitModels.ring(core, SM_R1 * 0.9, SM_R1 * 1.02, dsteel, Vector3(tail, 0, 0), Vector3(0, 0, PI / 2))
+	UnitModels.cylx(core, SM_R1 * 0.95, SM_R1 * 0.95, 0.04, dsteel, Vector3(tail - 0.02, 0, 0), 24)
+	# vents, thruster clusters and black compartments
 	for k in 4:
 		var a := k * PI * 0.5
-		var bp := _radial(core, tail + 0.24, a, SM_R1 * cos(PI / SIDES) + 0.035)
-		UnitModels.box(bp, Vector3(0.22, 0.05, 0.2), black, Vector3.ZERO)
-		UnitModels.box(bp, Vector3(0.18, 0.01, 0.16), dsteel, Vector3(0, 0.028, 0))
-	# four wedge fins on the diagonals
+		var cl := _radial(core, SM_X0 - 0.3, a, _sm_r(SM_X0 - 0.3))
+		_cluster(cl, steel, dsteel, black, 1.0)
+		var vv := _radial(core, SM_X0 - 0.62, a, _sm_r(SM_X0 - 0.62))
+		_vent(vv, 0.16, 0.26, 8, steel, black)
+		var vd := _radial(core, SM_X0 - 0.5, a + PI * 0.25, _sm_r(SM_X0 - 0.5))
+		_vent(vd, 0.1, 0.2, 6, steel, black)
+		var bp := _radial(core, tail + 0.24, a, _sm_r(tail + 0.24) + 0.012)
+		_rbox(bp, Vector3(0.22, 0.05, 0.2), black, Vector3.ZERO, 4.5, 8)
+		_rbox(bp, Vector3(0.18, 0.012, 0.16), dsteel, Vector3(0, 0.022, 0), 4.5, 8)
+		var rc := _radial(core, tail + 0.62, a + PI * 0.25, _sm_r(tail + 0.62))
+		_cluster(rc, steel, dsteel, black, 0.8)
+	# four rounded wing fins on the diagonals
 	var fin_mat := _m(Color("#d6d4cb") if disc else Color("#d3d4d4"), 0.35, 0.5)
 	for k in 4:
 		var a := PI * 0.25 + k * PI * 0.5
-		var fp := _radial(core, tail + 0.3, a, SM_R1 * 0.98)
-		_wedge(fp, 0.5, 0.17, 0.2, fin_mat)
-		UnitModels.box(fp, Vector3(0.12, 0.1, 0.17), black, Vector3(-0.15, 0.13, 0))
+		var fp := _radial(core, tail + 0.3, a, SM_R1 * 0.97)
+		_fin(fp, 0.5, 0.17, 0.2, fin_mat)
+		_rbox(fp, Vector3(0.12, 0.09, 0.15), black, Vector3(-0.15, 0.12, 0), 4.0, 8)
 
-	# --- engines: 2x2 bells on trusses
+	# --- engines: 2x2 ribbed bells on trusses with plumbing
 	var bell_mat := _m(Color("#9ea3aa"), 0.9, 0.3)
-	var inner := _m(Color("#15161a"), 0.6, 0.4)
+	var rib_mat := _m(Color("#7c8189"), 0.9, 0.35)
+	var inner := _m(Color("#101114"), 0.7, 0.3)
 	for sy in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
 			var by: float = sy * 0.165
 			var bz: float = sz * 0.165
 			var cx := tail - 0.1
-			UnitModels.cylx(core, 0.05, 0.055, 0.11, steel, Vector3(cx, by, bz), 16)
-			UnitModels.cylx(core, 0.034, 0.12, 0.28, bell_mat, Vector3(cx - 0.18, by, bz), 24)
-			UnitModels.cylx(core, 0.125, 0.125, 0.018, steel, Vector3(cx - 0.32, by, bz), 24)
-			UnitModels.cylx(core, 0.105, 0.105, 0.012, inner, Vector3(cx - 0.322, by, bz), 24)
-			UnitModels.cylx(core, 0.07, 0.07, 0.01, _m(Color("#2b2e36"), 0.7, 0.4), Vector3(cx - 0.328, by, bz), 16)
+			var bpos := Vector3(cx, by, bz)
+			# gimbal housing, chamber and turbopump bulb
+			_rbox(core, Vector3(0.12, 0.11, 0.11), dsteel, bpos + Vector3(0.0, 0, 0), 3.5, 8)
+			UnitModels.cylx(core, 0.045, 0.058, 0.1, steel, bpos + Vector3(-0.07, 0, 0), 20)
+			UnitModels.ring(core, 0.045, 0.062, steel, bpos + Vector3(-0.015, 0, 0), Vector3(0, 0, PI / 2))
+			UnitModels.ball(core, 0.034, copper, bpos + Vector3(-0.02, sy * 0.05, sz * 0.05))
+			# bell: parabolic flare as a lathe, dark inside
+			var prof: Array = []
+			var inprof: Array = []
+			var n := 14
+			for i in n + 1:
+				var t := float(i) / n
+				var xx := -0.12 - t * 0.28
+				var rr := 0.036 + 0.092 * pow(t, 0.62)
+				prof.append(Vector2(xx, rr))
+				inprof.append(Vector2(xx, rr - 0.008))
+			_lathe(core, prof, 28, bell_mat, bpos)
+			_lathe(core, inprof, 28, inner, bpos, true)
+			# stiffening ribs: rings stepping down the bell, thicker every third
+			for i in 9:
+				var t := 0.12 + i * 0.105
+				var xx := -0.12 - t * 0.28
+				var rr := 0.036 + 0.092 * pow(t, 0.62) + 0.004
+				UnitModels.ring(core, rr - 0.002, rr + (0.011 if i % 3 == 0 else 0.007), rib_mat, bpos + Vector3(xx, 0, 0), Vector3(0, 0, PI / 2))
+			# longitudinal ribs
+			for q in 8:
+				var qa := q * TAU / 8.0
+				var p0 := Vector3(-0.15, 0.04 * sin(qa), 0.04 * cos(qa)) + bpos
+				var t1 := 0.97
+				var r1 := 0.036 + 0.092 * pow(t1, 0.62) + 0.004
+				var p1 := Vector3(-0.12 - t1 * 0.28, r1 * sin(qa), r1 * cos(qa)) + bpos
+				_strut(core, p0, p1, 0.0035, rib_mat)
+			UnitModels.ring(core, 0.122, 0.141, steel, bpos + Vector3(-0.4, 0, 0), Vector3(0, 0, PI / 2))
+			# trusses and fuel lines up to the rear plate
 			for t in 3:
 				var ta := t * TAU / 3.0 + PI * 0.5
-				var p0 := Vector3(tail - 0.04, by + sy * 0.045 + 0.06 * sin(ta), bz + sz * 0.045 + 0.06 * cos(ta))
-				_strut(core, p0, Vector3(cx - 0.04, by + 0.03 * sin(ta), bz + 0.03 * cos(ta)), 0.007, dsteel)
+				var p0 := Vector3(tail - 0.045, by + sy * 0.05 + 0.065 * sin(ta), bz + sz * 0.05 + 0.065 * cos(ta))
+				_strut(core, p0, Vector3(cx - 0.05, by + 0.035 * sin(ta), bz + 0.035 * cos(ta)), 0.009, dsteel)
+			var pl := Vector3(tail - 0.04, by * 0.55, bz * 0.55)
+			_strut(core, pl, bpos + Vector3(-0.02, sy * 0.05, sz * 0.05), 0.011, copper)
+			_strut(core, pl + Vector3(0, sy * 0.012, 0), bpos + Vector3(-0.06, sy * 0.045, -sz * 0.03), 0.007, steel)
+	# cross braces tying the bell cluster together
+	UnitModels.ring(core, 0.26, 0.275, dsteel, Vector3(tail - 0.13, 0, 0), Vector3(0, 0, PI / 2))
 
 	var bb := UnitModels._bounds(core)
 	core.position = -bb.get_center()
