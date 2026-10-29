@@ -1,402 +1,333 @@
-## Japan's crew ships (CV-2 .. CV-9): weathered white plating with orange-gold bands, X-trusses, full hoops (Hiyo / Junyo / Myoko /
-## Takao), an angular faceted hub (Hiryu), a cruciform delta plane (Hakaze) and the pod-flanked Yamato.  Nose points to +X.
-## Cross-referenced with the in-game tokens (atlas_jp).  Not wired into the game yet; see tests/jp_preview.gd.
+## Japan's crew ships (CV-2 .. CV-9): white riveted hulls with amber/gold modules, dark hab blocks, lattice booms, big ladder
+## rings around the hull (Hiyo / Junyo / Myoko / Takao), an octagonal frame (Hiryu), a pod-studded ogive (Yamato) and a
+## delta spaceplane (Hakaze).  Three black engine bells on every ship.  Nose points to +X.
+## Not wired into the game yet; see tests/jp_preview.gd for renders.
 class_name JPShips
 extends RefCounted
 
-## nose: ["ogive", R, L] ; mods (applied nose to tail, x decreasing):
-##   ["band", L, R]  banded drum        ["xtruss", L, R]  X-braced truss      ["rack", L, R]  barrel with equipment racks
-##   ["gold", L, R, mast]  gold plated block with slits   ["hoop", Rh, n_tubes, braced]  full hoop around the hull
-##   ["hub8", L, R]  faceted hub with oval hatch          ["boom", span, pw, pl]  cross beam with gold panels at its ends
-##   ["drum", L, R]  engine block with door hatch
-const SPECS := {
-	"Seishin": {"nose": ["ogive", 0.3, 0.55], "mods": [["band", 0.5, 0.3], ["xtruss", 0.2, 0.2], ["rack", 0.8, 0.34], ["gold", 0.45, 0.4, 2]], "eng": 1},
-	"Kuren": {"nose": ["ogive", 0.3, 0.55], "mods": [["band", 0.5, 0.3], ["xtruss", 0.2, 0.2], ["rack", 0.65, 0.34], ["gold", 0.45, 0.4, 1]], "eng": 1},
-	"Hikawa": {"nose": ["ogive", 0.3, 0.5], "mods": [["band", 0.4, 0.3], ["xtruss", 1.0, 0.22], ["boom", 1.15, 0.7, 1.3], ["gold", 0.45, 0.4, 1]], "eng": 1},
-	"Kansai": {"nose": ["ogive", 0.3, 0.5], "mods": [["band", 0.4, 0.3], ["xtruss", 0.9, 0.22], ["boom", 1.35, 0.75, 1.4], ["gold", 0.45, 0.4, 1]], "eng": 1},
-	"Hiyo": {"nose": ["ogive", 0.28, 0.55], "mods": [["band", 0.7, 0.3], ["hoop", 0.85, 4, true], ["xtruss", 0.2, 0.2], ["rack", 0.95, 0.28], ["drum", 0.7, 0.4]], "eng": 3},
-	"Junyo": {"nose": ["ogive", 0.28, 0.55], "mods": [["band", 0.7, 0.3], ["xtruss", 0.2, 0.2], ["hoop", 0.8, 4, false], ["rack", 0.9, 0.28], ["drum", 0.7, 0.4]], "eng": 3},
-	"Myoko": {"nose": ["ogive", 0.28, 0.55], "mods": [["band", 0.7, 0.3], ["hoop", 0.85, 4, true], ["rack", 0.95, 0.26], ["hoop", 0.85, 4, true], ["drum", 0.7, 0.4]], "eng": 3},
-	"Takao": {"nose": ["ogive", 0.28, 0.55], "mods": [["band", 0.7, 0.3], ["hoop", 0.85, 4, false], ["rack", 0.95, 0.26], ["hoop", 0.85, 4, true], ["drum", 0.7, 0.4]], "eng": 3},
-	"Hiryu": {"nose": ["ogive", 0.28, 0.55], "mods": [["band", 0.8, 0.3], ["hub8", 0.95, 0.64], ["drum", 0.75, 0.4]], "eng": 3},
-	"Hakaze": {"kind": "plane", "eng": 3},
-	"Yamato": {"kind": "yamato", "eng": 3},
-}
-
-const ORANGE := Color("#d28a2a")
+const NAMES := ["Seishin", "Hakaze", "Kuren", "Hikawa", "Kansai", "Hiyo", "Junyo", "Myoko", "Takao", "Hiryu", "Yamato"]
+const GOLD := Color("#d6a82a")
+const LAMP := Color("#ffb347")
 
 static func has(name: String) -> bool:
-	return SPECS.has(name)
+	return name in NAMES
 
 static func _m(col: Color, metal := 0.4, rough := 0.5, emit := 0.0) -> StandardMaterial3D:
 	return UnitModels.mat(col, metal, rough, emit)
 
 static func _hull_mat(name: String) -> StandardMaterial3D:
 	var sd := int(absi(name.hash()) % 3)
-	return OrionCV2._smat("jp_hull%d" % sd, 1024, 512, {"seed": 811 + sd * 37, "cols": 24, "min_len": 50, "max_len": 170, "black_rate": 0.05, "grime": 1.0, "tones": [Color("#e2dfd7"), Color("#d4d0c5"), Color("#c6c1b4"), Color("#ebe8e0"), Color("#b9b4a6")], "seam": Color("#5d5648")}, 0.35, 0.55)
+	return OrionCV2._smat("jp_hull%d" % sd, 1024, 512, {"seed": 811 + sd * 29, "cols": 24, "min_len": 50, "max_len": 180, "black_rate": 0.03, "grime": 0.7, "tones": [Color("#e8e6df"), Color("#dcd9d0"), Color("#d0ccc0"), Color("#efede6"), Color("#c6c1b4")], "seam": Color("#7a705a")}, 0.3, 0.55)
 
-static func _gold_mat() -> StandardMaterial3D:
-	return OrionCV2._smat("jp_gold", 512, 256, {"seed": 881, "cols": 12, "min_len": 30, "max_len": 90, "black_rate": 0.03, "grime": 0.6, "tones": [Color("#cf8d2e"), Color("#c0811f"), Color("#d89a3c"), Color("#b87718")], "seam": Color("#4e3209")}, 0.7, 0.42)
+static func _amber_mat() -> StandardMaterial3D:
+	return OrionCV2._smat("jp_amber", 1024, 512, {"seed": 877, "cols": 20, "min_len": 50, "max_len": 160, "black_rate": 0.02, "grime": 0.8, "tones": [Color("#d9a23c"), Color("#cf972f"), Color("#e2b04f"), Color("#c68b27"), Color("#d4a040")], "seam": Color("#6b4a18")}, 0.45, 0.45)
 
-static func _band(p: Node3D, x: float, r: float, w := 0.012) -> void:
-	UnitModels.ring(p, r - 0.004, r + 2.0 * w, _m(ORANGE, 0.85, 0.35), Vector3(x, 0, 0), Vector3(0, 0, PI / 2))
+static func _grey_mat() -> StandardMaterial3D:
+	return OrionCV2._smat("jp_grey", 1024, 512, {"seed": 899, "cols": 20, "min_len": 40, "max_len": 140, "black_rate": 0.03, "grime": 0.9, "tones": [Color("#a9abae"), Color("#9a9da1"), Color("#b6b8ba"), Color("#8f9296")], "seam": Color("#3c3e42")}, 0.5, 0.5)
 
 # ------------------------------------------------------------------ parts
-static func _banded(p: Node3D, x: float, L: float, R: float, hull: Material) -> void:
-	AsiaShips._barrel(p, x, L, R, hull, Color("#ffb347"))
-	# wide orange bands with a diamond pattern, as on the tokens
-	var gold := _m(ORANGE, 0.85, 0.35)
-	for k in 2:
-		var bx := x - L * (0.28 + k * 0.38)
-		_band(p, bx, R * 1.0, 0.03)
-		for a in [0.0, PI * 0.5, PI, PI * 1.5]:
-			var f := OrionCV2._radial(p, bx, a + PI * 0.25, R * 1.01)
-			OrionCV2._rbox(f, Vector3(0.05, 0.016, 0.05), gold, Vector3.ZERO, 3.0, 4)
-	# rear collar
-	UnitModels.ring(p, R * 0.95, R * 1.03, _m(Color("#8d9198"), 0.85, 0.3), Vector3(x - L * 0.97, 0, 0), Vector3(0, 0, PI / 2))
-
-static func _rack(p: Node3D, x: float, L: float, R: float, hull: Material) -> void:
-	AsiaShips._barrel(p, x, L, R, hull, Color("#ffb347"))
-	var dark := _m(Color("#1b1c20"), 0.5, 0.45)
+## domed nose with gold diamond bands and an antenna spike; returns the x of the shoulder
+static func _dome(p: Node3D, R: float, L: float, hull: Material) -> float:
+	AsiaShips._nose(p, -L, ["ogive", R, L], hull)
+	var gold := _m(GOLD, 0.9, 0.3)
 	var steel := _m(Color("#9aa0a8"), 0.85, 0.3)
-	# equipment racks on top and bottom, dark window strips on the sides
-	for s in [-1.0, 1.0]:
-		var f := OrionCV2._radial(p, x - L * 0.5, PI * 0.5 if s > 0 else PI * 1.5, R * 1.0)
-		OrionCV2._rbox(f, Vector3(L * 0.6, 0.05, 0.16), _m(Color("#cfcbc0"), 0.4, 0.5), Vector3(0, 0.02, 0), 4.0, 6)
-		OrionCV2._rbox(f, Vector3(L * 0.5, 0.012, 0.05), dark, Vector3(0, 0.05, 0), 4.0, 4)
-	for s in [0.0, PI]:
-		var f2 := OrionCV2._radial(p, x - L * 0.5, s, R * 0.99)
-		OrionCV2._vent(f2, 0.09, L * 0.5, 6, steel, dark)
+	for k in [0.3, 0.6]:
+		var u: float = k
+		var r := R * pow(sin((1.0 - u) * PI * 0.5), 0.75)
+		AsiaShips._gold_ring(p, -L * u, r * 1.0, 0.012)
+	OrionCV2._strut(p, Vector3(-0.01, 0, 0), Vector3(0.12, 0, 0), 0.008, steel)
+	UnitModels.ball(p, 0.014, _m(LAMP, 0.0, 0.3, 2.2), Vector3(0.12, 0, 0))
+	return -L
 
-static func _xtruss(p: Node3D, x: float, L: float, R: float) -> void:
-	NAShips._truss(p, x, L, R)
+static func _windows(p: Node3D, x: float, L: float, R: float, n: int) -> void:
+	var dark := _m(Color("#14181f"), 0.5, 0.3, 0.2)
+	var white := _m(Color("#e8e6df"), 0.35, 0.5)
+	for a in [0.0, PI, PI * 0.5, -PI * 0.5]:
+		for i in n:
+			var f := OrionCV2._radial(p, x - L * (i + 0.5) / n, a, R * 0.985)
+			OrionCV2._rbox(f, Vector3(L / n * 0.8, 0.02, 0.07), white, Vector3.ZERO, 4.0, 6)
+			OrionCV2._rbox(f, Vector3(L / n * 0.6, 0.026, 0.045), dark, Vector3.ZERO, 4.0, 6)
 
-static func _goldblock(p: Node3D, x: float, L: float, R: float, mast: int) -> void:
-	var g := _gold_mat()
-	var pts: Array = [Vector2(x, 0.001), Vector2(x, R * 0.82), Vector2(x - 0.03, R * 0.98), Vector2(x - 0.06, R), Vector2(x - L + 0.06, R), Vector2(x - L + 0.03, R * 0.98), Vector2(x - L, R * 0.82), Vector2(x - L, 0.001)]
-	OrionCV2._lathe(p, pts, 8, g, Vector3.ZERO)
+## grey rear habitat block (windows, vents) ending in a dark collar
+static func _hab(p: Node3D, xf: float, L: float, R: float, grey: Material) -> void:
+	var dark := _m(Color("#17181b"), 0.5, 0.45)
+	var white := _m(Color("#e2dfd6"), 0.35, 0.5)
 	var steel := _m(Color("#8d9198"), 0.85, 0.3)
-	var dark := _m(Color("#17181b"), 0.5, 0.45)
-	for a in [0.0, PI * 0.5, PI, PI * 1.5]:
-		var f := OrionCV2._radial(p, x - L * 0.5, a + PI / 8.0, R * 0.93)
-		OrionCV2._rbox(f, Vector3(L * 0.5, 0.012, 0.06), dark, Vector3(0, 0.0, 0), 3.0, 4)
-	UnitModels.ring(p, R * 0.96, R * 1.04, steel, Vector3(x - L * 0.5, 0, 0), Vector3(0, 0, PI / 2))
-	# mast on a small box
-	var f2 := OrionCV2._radial(p, x - L * 0.55, PI * 0.5, R * 0.95)
-	OrionCV2._rbox(f2, Vector3(0.2, 0.1, 0.2), _m(Color("#cdb77d"), 0.5, 0.5), Vector3(0, 0.05, 0), 3.0, 4)
-	OrionCV2._strut(p, Vector3(x - L * 0.55, R + 0.1, 0), Vector3(x - L * 0.55, R + 0.1 + 0.18 * mast, 0), 0.008, steel)
-	if mast > 1:
-		OrionCV2._strut(p, Vector3(x - L * 0.1, R * 0.95, 0), Vector3(x - L * 0.1, R * 0.95 + 0.12, 0), 0.006, steel)
+	var xb := xf - L
+	var pts: Array = [Vector2(xf, 0.001), Vector2(xf, R * 0.86), Vector2(xf - 0.03, R * 0.97), Vector2(xf - 0.07, R), Vector2(xb + 0.1, R), Vector2(xb + 0.03, R * 0.9), Vector2(xb, R * 0.8), Vector2(xb, 0.001)]
+	OrionCV2._lathe(p, pts, 32, grey, Vector3.ZERO)
+	AsiaShips._gold_ring(p, xf - 0.08, R * 1.0, 0.01)
+	for a in [0.0, PI, PI * 0.5, -PI * 0.5]:
+		var f := OrionCV2._radial(p, xf - L * 0.5, a, R * 0.99)
+		OrionCV2._rbox(f, Vector3(L * 0.62, 0.02, R * 0.75), white, Vector3.ZERO, 4.0, 8)
+		OrionCV2._rbox(f, Vector3(L * 0.46, 0.028, R * 0.34), dark, Vector3.ZERO, 4.0, 6)
+		OrionCV2._vent(f, 0.05, L * 0.4, 4, steel, dark)
+	for k in 3:
+		var rx := xb + 0.04 + k * 0.04
+		UnitModels.ring(p, R * 0.8, R * 0.86, steel, Vector3(rx, 0, 0), Vector3(0, 0, PI / 2))
 
-static func _hoop(p: Node3D, x: float, Rh: float, R: float, n_tubes: int, braced: bool, hull: Material) -> void:
-	var w := 0.14
-	var t := 0.075
+## amber painted barrel with long ribs
+static func _amber_barrel(p: Node3D, xf: float, L: float, R: float, amber: Material) -> void:
+	AsiaShips._barrel(p, xf, L, R, amber, LAMP)
+	var rib := _m(Color("#8a5f1c"), 0.6, 0.45)
+	for i in 14:
+		var f := OrionCV2._radial(p, xf - L * 0.5, i * TAU / 14.0 + 0.1, R * 0.995)
+		OrionCV2._rbox(f, Vector3(L * 0.86, 0.016, 0.025), rib, Vector3.ZERO, 4.0, 6)
+
+## flat ladder ring standing around the hull: a squashed torus, rungs, spokes and outrigger rods
+static func _ring(p: Node3D, x: float, R: float, Ro: float, solid: bool, hull: Material) -> void:
 	var steel := _m(Color("#9aa0a8"), 0.85, 0.3)
-	var dsteel := _m(Color("#4d5058"), 0.8, 0.4)
-	var gold := _m(ORANGE, 0.85, 0.35)
-	var pts: Array = [Vector2(x + w * 0.5, Rh - t), Vector2(x + w * 0.5, Rh), Vector2(x - w * 0.5, Rh), Vector2(x - w * 0.5, Rh - t), Vector2(x + w * 0.5, Rh - t)]
-	OrionCV2._lathe(p, pts, 48, hull, Vector3.ZERO)
-	# raised plates round the outer face
-	var segs := 36
-	for i in segs:
-		var a := i * TAU / segs
-		var f := OrionCV2._radial(p, x, a, Rh)
-		OrionCV2._rbox(f, Vector3(w * 0.8, 0.02, Rh * TAU / segs * 0.8), hull, Vector3(0, 0.008, 0), 3.0, 4)
-	for sx in [-1.0, 1.0]:
-		UnitModels.ring(p, Rh - 0.012, Rh + 0.014, gold, Vector3(x + sx * w * 0.5, 0, 0), Vector3(0, 0, PI / 2))
-		UnitModels.ring(p, Rh - t - 0.014, Rh - t + 0.01, steel, Vector3(x + sx * w * 0.5, 0, 0), Vector3(0, 0, PI / 2))
-	# collar on the hull and spokes
-	UnitModels.cylx(p, R * 1.12, R * 1.12, w * 1.2, hull, Vector3(x, 0, 0), 24)
+	var dsteel := _m(Color("#4a4d55"), 0.8, 0.4)
+	var dark := _m(Color("#1d1e22"), 0.5, 0.5)
+	var gold := _m(GOLD, 0.9, 0.3)
+	var band := Ro * 0.12
+	var rc := Ro - band * 0.5
+	var mi := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = rc - band * 0.5
+	tm.outer_radius = rc + band * 0.5
+	tm.rings = 48
+	tm.ring_segments = 12
+	mi.mesh = tm
+	mi.material_override = hull if solid else steel
+	mi.rotation = Vector3(0, 0, PI / 2)
+	mi.scale = Vector3(1, 1, 1)
+	mi.position = Vector3(x, 0, 0)
+	p.add_child(mi)
+	# ladder rungs across the band (both faces) and gold edge bands
+	var n := 40
+	for i in n:
+		var f := OrionCV2._radial(p, x, i * TAU / n, rc)
+		OrionCV2._rbox(f, Vector3(band * 0.5 * 1.7, band * 0.78, 0.028), dark if solid else dsteel, Vector3.ZERO, 3.5, 5)
+	UnitModels.ring(p, Ro - 0.004, Ro + 0.014, gold, Vector3(x, 0, 0), Vector3(0, 0, PI / 2))
+	UnitModels.ring(p, rc - band * 0.5 - 0.014, rc - band * 0.5 + 0.004, gold, Vector3(x, 0, 0), Vector3(0, 0, PI / 2))
+	# spokes from the hull
+	for k in 6:
+		var a := k * TAU / 6.0 + PI / 6.0
+		OrionCV2._strut(p, Vector3(x, R * 0.92 * sin(a), R * 0.92 * cos(a)), Vector3(x, (rc - band * 0.5) * sin(a), (rc - band * 0.5) * cos(a)), 0.014, steel)
+	# outrigger rods along the axis with small nodes
+	for k in 4:
+		var a := k * TAU / 4.0 + PI / 4.0
+		var y := rc * sin(a)
+		var z := rc * cos(a)
+		OrionCV2._strut(p, Vector3(x - 0.2, y, z), Vector3(x + 0.2, y, z), 0.009, steel)
+		UnitModels.ball(p, 0.022, gold, Vector3(x + 0.2, y, z))
+		UnitModels.ball(p, 0.022, gold, Vector3(x - 0.2, y, z))
+
+## octagonal frame (Hiryu): beams, loops, bracing and a few solid face panels
+static func _frame(p: Node3D, xf: float, L: float, R: float, hull: Material) -> void:
+	var white := _m(Color("#dedbd2"), 0.45, 0.5)
+	var steel := _m(Color("#9aa0a8"), 0.85, 0.3)
+	var gold := _m(GOLD, 0.9, 0.3)
+	var corners: Array = []
 	for k in 8:
-		var a := k * TAU / 8.0
-		var cardinal := k % 2 == 0
-		var dy := sin(a)
-		var dz := cos(a)
-		var r_in := R * 1.05
-		var r_out := Rh - t
-		if cardinal or braced:
-			OrionCV2._strut(p, Vector3(x + 0.045, r_in * dy, r_in * dz), Vector3(x + 0.045, r_out * dy, r_out * dz), 0.012 if cardinal else 0.008, dsteel)
-			OrionCV2._strut(p, Vector3(x - 0.045, r_in * dy, r_in * dz), Vector3(x - 0.045, r_out * dy, r_out * dz), 0.012 if cardinal else 0.008, dsteel)
-			if cardinal:
-				var rm := lerpf(r_in, r_out, 0.5)
-				OrionCV2._strut(p, Vector3(x + 0.045, r_in * dy, r_in * dz), Vector3(x - 0.045, rm * dy, rm * dz), 0.007, steel)
-				OrionCV2._strut(p, Vector3(x - 0.045, rm * dy, rm * dz), Vector3(x + 0.045, r_out * dy, r_out * dz), 0.007, steel)
-	# capped canisters standing on the ring at the four compass points, with orange bands and small side pegs
-	var count := n_tubes
-	for k in count:
-		var a := k * TAU / count
-		var f := OrionCV2._radial(p, x, a, Rh)
-		var cap := CapsuleMesh.new()
-		cap.radius = 0.062
-		cap.height = 0.36
-		var mi := MeshInstance3D.new()
-		mi.mesh = cap
-		mi.material_override = hull
-		mi.position = Vector3(0, 0.02, 0)
-		f.add_child(mi)
-		for off in [-0.11, 0.0, 0.11]:
-			var tr := TorusMesh.new()
-			tr.inner_radius = 0.058
-			tr.outer_radius = 0.07
-			var rm := MeshInstance3D.new()
-			rm.mesh = tr
-			rm.material_override = gold
-			rm.position = Vector3(0, 0.02 + off * 1.0, 0)
-			f.add_child(rm)
-		OrionCV2._strut(f, Vector3(0.1, 0.02, 0), Vector3(-0.1, 0.02, 0), 0.01, dsteel)
-
-static func _hub8(p: Node3D, x: float, L: float, R: float, hull: Material) -> void:
-	var steel := _m(Color("#aeb3ba"), 0.85, 0.3)
-	var dsteel := _m(Color("#4a4d55"), 0.8, 0.4)
-	var gold := _m(ORANGE, 0.85, 0.35)
-	var dark := _m(Color("#17181b"), 0.5, 0.45)
-	# faceted 8-sided block (flat shaded, chamfered ends) with an inner core
-	var pts: Array = [Vector2(x, 0.001), Vector2(x, R * 0.72), Vector2(x - 0.12, R), Vector2(x - L + 0.12, R), Vector2(x - L, R * 0.72), Vector2(x - L, 0.001)]
-	_octa(p, pts, hull)
-	# frame edges
+		var a := PI / 8.0 + k * PI / 4.0
+		corners.append(Vector2(sin(a), cos(a)) * R)
+	var xs: Array = [xf - 0.12, xf - L * 0.33, xf - L * 0.67, xf - L + 0.12]
+	for c in corners:
+		OrionCV2._strut(p, Vector3(xs[0], c.x, c.y), Vector3(xs[3], c.x, c.y), 0.03, white)
+	for i in xs.size():
+		for k in 8:
+			var c0: Vector2 = corners[k]
+			var c1: Vector2 = corners[(k + 1) % 8]
+			OrionCV2._strut(p, Vector3(xs[i], c0.x, c0.y), Vector3(xs[i], c1.x, c1.y), 0.024, white)
+		for k in 8:
+			var c0: Vector2 = corners[k]
+			UnitModels.ball(p, 0.04, gold if i % 3 == 0 else steel, Vector3(xs[i], c0.x, c0.y))
+	for i in 3:
+		for k in 8:
+			var c0: Vector2 = corners[k]
+			var c1: Vector2 = corners[(k + 1) % 8]
+			if k % 2 == 0:
+				OrionCV2._strut(p, Vector3(xs[i], c0.x, c0.y), Vector3(xs[i + 1], c1.x, c1.y), 0.011, steel)
+			else:
+				OrionCV2._strut(p, Vector3(xs[i], c1.x, c1.y), Vector3(xs[i + 1], c0.x, c0.y), 0.011, steel)
+	# solid armour panels on the four diagonal faces (upper and lower), open on the axes
 	for k in 8:
-		var a := (k + 0.5) * TAU / 8.0
-		var rr := R / cos(PI / 8.0)
-		OrionCV2._strut(p, Vector3(x - 0.12, rr * 0.72 / R * R * sin(a) * 0.98, rr * 0.72 / R * R * cos(a) * 0.98), Vector3(x - 0.12, rr * sin(a), rr * cos(a)), 0.012, dsteel)
-		OrionCV2._strut(p, Vector3(x - 0.12, rr * sin(a), rr * cos(a)), Vector3(x - L + 0.12, rr * sin(a), rr * cos(a)), 0.016, steel)
-		OrionCV2._strut(p, Vector3(x - L + 0.12, rr * sin(a), rr * cos(a)), Vector3(x - L + 0.12, rr * 0.72 * sin(a), rr * 0.72 * cos(a)), 0.012, dsteel)
-	# gold oval hatches on the +Z / -Z / +Y faces
-	for a in [0.0, PI, PI * 0.5]:
-		var f := OrionCV2._radial(p, x - L * 0.45, a, R * 1.0)
-		OrionCV2._rbox(f, Vector3(0.26, 0.03, 0.17), gold, Vector3(0, 0.01, 0), 4.0, 10)
-		OrionCV2._rbox(f, Vector3(0.16, 0.034, 0.08), dark, Vector3(0, 0.014, 0), 4.0, 8)
-		OrionCV2._rbox(f, Vector3(0.14, 0.02, 0.5), _m(Color("#cfcbc0"), 0.4, 0.5), Vector3(0.28, 0.0, 0.0), 3.0, 4)
-	# vertical canisters on top / bottom, offset along the hub as on the sheet
-	for s in [1.0, -1.0]:
-		var cx := x - L * (0.28 if s > 0 else 0.62)
-		var cap := CapsuleMesh.new()
-		cap.radius = 0.075
-		cap.height = 0.55
-		var mi := MeshInstance3D.new()
-		mi.mesh = cap
-		mi.material_override = hull
-		mi.position = Vector3(cx, s * (R + 0.2), 0)
-		p.add_child(mi)
-		for off in [-0.2, 0.2]:
-			UnitModels.ring(p, 0.07, 0.085, gold, Vector3(cx, s * (R + 0.2) + off, 0))
-		OrionCV2._strut(p, Vector3(cx, s * R * 0.9, 0), Vector3(cx, s * (R + 0.1), 0), 0.02, dsteel)
-	# small box turret on top
-	OrionCV2._rbox(p, Vector3(0.2, 0.12, 0.2), _m(Color("#cdb77d"), 0.5, 0.5), Vector3(x - L * 0.5, R + 0.06, 0), 3.0, 4)
+		if k % 2 == 1:
+			continue
+		var c0: Vector2 = corners[k]
+		var c1: Vector2 = corners[(k + 1) % 8]
+		var mid := (c0 + c1) * 0.5
+		var len := (c1 - c0).length()
+		var a := atan2(mid.x, mid.y)
+		var f := OrionCV2._radial(p, xf - L * 0.5, a, mid.length() * 0.985)
+		OrionCV2._rbox(f, Vector3(L * 0.84, 0.026, len * 0.82), hull, Vector3.ZERO, 5.0, 8)
+	# conical braces from the hull to the end loops
+	for e in [0, 3]:
+		for k in range(0, 8, 2):
+			var c0: Vector2 = corners[k]
+			var xr: float = xs[e]
+			var xh := xr - 0.3 if e == 0 else xr + 0.3
+			OrionCV2._strut(p, Vector3(xr, c0.x, c0.y), Vector3(xh, c0.x * 0.45, c0.y * 0.45), 0.012, steel)
 
-static func _octa(p: Node3D, pts: Array, hull: Material) -> void:
-	# flat shaded 8-sided revolve of the profile (x, r) using the shared lathe with few segments
-	OrionCV2._lathe(p, pts, 8, hull, Vector3.ZERO)
-
-static func _drum(p: Node3D, x: float, L: float, R: float, hull: Material) -> void:
-	var gold := _m(ORANGE, 0.85, 0.35)
-	var dark := _m(Color("#17181b"), 0.5, 0.45)
-	var steel := _m(Color("#9aa0a8"), 0.85, 0.3)
-	AsiaShips._barrel(p, x, L, R, hull, Color("#ffb347"))
-	# broad orange front band, hatch with light doors, grille
-	UnitModels.cylx(p, R * 1.03, R * 1.03, 0.09, gold, Vector3(x - 0.05, 0, 0), 32)
-	for a in [0.0, PI]:
-		var f := OrionCV2._radial(p, x - L * 0.55, a, R * 0.99)
-		OrionCV2._rbox(f, Vector3(L * 0.5, 0.02, 0.26), dark, Vector3.ZERO, 3.0, 4)
-		for d in [-0.07, 0.07]:
-			OrionCV2._rbox(f, Vector3(L * 0.4, 0.024, 0.09), _m(Color("#e8e5dc"), 0.3, 0.5), Vector3(0, 0.004, d), 3.0, 4)
-	var f3 := OrionCV2._radial(p, x - L * 0.55, PI * 0.5, R * 0.99)
-	OrionCV2._vent(f3, 0.22, L * 0.5, 6, steel, dark)
-	UnitModels.ring(p, R * 0.96, R * 1.04, steel, Vector3(x - L * 0.92, 0, 0), Vector3(0, 0, PI / 2))
-
-static func _boom(p: Node3D, x: float, span: float, pw: float, pl: float, hull: Material) -> void:
-	var steel := _m(Color("#aeb3ba"), 0.85, 0.3)
-	var dsteel := _m(Color("#4a4d55"), 0.8, 0.4)
-	var gold := _m(ORANGE, 0.85, 0.35)
-	var gmat := _gold_mat()
-	# cross beam along Z (twin rails with braces) and a shorter spiked beam along Y
-	for off in [-0.05, 0.05]:
-		OrionCV2._strut(p, Vector3(x, off, -span), Vector3(x, off, span), 0.016, steel)
-		OrionCV2._strut(p, Vector3(x, -0.0, 0), Vector3(x, off, 0), 0.01, dsteel)
-	var n := int(span / 0.12)
-	for i in 2 * n + 1:
-		var z := -span + span * i / n
-		OrionCV2._strut(p, Vector3(x, -0.05, z), Vector3(x, 0.05, z + span / n * 0.5), 0.007, dsteel)
-	for s in [-1.0, 1.0]:
-		# bracket and gold panel at each beam tip, lying flat in the XZ plane
-		var tip: float = s * span
-		OrionCV2._rbox(p, Vector3(0.1, 0.1, 0.1), steel, Vector3(x, 0, tip), 3.0, 4)
-		var ch := pw * 0.22
-		var pts := PackedVector2Array([Vector2(pl * 0.5 - ch, -pw * 0.5), Vector2(pl * 0.5, -pw * 0.5 + ch), Vector2(pl * 0.5, pw * 0.5 - ch), Vector2(pl * 0.5 - ch, pw * 0.5), Vector2(-pl * 0.5 + ch, pw * 0.5), Vector2(-pl * 0.5, pw * 0.5 - ch), Vector2(-pl * 0.5, -pw * 0.5 + ch), Vector2(-pl * 0.5 + ch, -pw * 0.5)])
-		var pn := Node3D.new()
-		pn.position = Vector3(x, 0.0, tip + s * (pw * 0.5 + 0.05))
-		p.add_child(pn)
-		AsiaShips._plate(pn, pts, 0.03, gmat)
-		# the inner frame of the panel
-		for q in 3:
-			OrionCV2._strut(pn, Vector3(-pl * 0.5 + pl * (q + 0.5) / 3.0, 0.02, -pw * 0.45), Vector3(-pl * 0.5 + pl * (q + 0.5) / 3.0, 0.02, pw * 0.45), 0.006, dsteel)
-		OrionCV2._strut(pn, Vector3(0, 0.02, -pw * 0.45), Vector3(0, 0.02, pw * 0.45), 0.006, dsteel)
-		OrionCV2._strut(p, Vector3(x, 0, tip), Vector3(x, 0, tip + s * 0.06), 0.02, dsteel)
-	for s in [-1.0, 1.0]:
-		OrionCV2._strut(p, Vector3(x, 0, 0), Vector3(x, s * span * 0.42, 0), 0.02, steel)
-		OrionCV2._strut(p, Vector3(x, s * span * 0.42, 0), Vector3(x, s * span * 0.58, 0), 0.007, dsteel)
-		UnitModels.ball(p, 0.04, gold, Vector3(x, s * span * 0.42, 0))
-	# cage around the beam root
-	UnitModels.cylx(p, 0.2, 0.2, 0.2, hull, Vector3(x, 0, 0), 16)
-
-static func _engine(core: Node3D, x: float, R: float, n: int, hull: Material) -> void:
-	var tr := R * 0.68
-	var pts: Array = [Vector2(x, 0.001), Vector2(x, R * 0.9), Vector2(x - 0.07, R * 0.97), Vector2(x - 0.24, tr), Vector2(x - 0.26, 0.001)]
-	OrionCV2._lathe(core, pts, 32, hull, Vector3.ZERO)
-	_band(core, x - 0.05, R * 0.97)
-	var ex := x - 0.26
-	var offs: Array = []
-	var rm := tr * 0.75
-	match n:
-		1:
-			offs = [Vector2.ZERO]
-		2:
-			offs = [Vector2(0, tr * 0.52), Vector2(0, -tr * 0.52)]
-			rm = tr * 0.5
-		_:
-			for k in 3:
-				offs.append(Vector2(sin(PI * 0.5 + k * TAU / 3), cos(PI * 0.5 + k * TAU / 3)) * tr * 0.56)
-			rm = tr * 0.46
-	for o in offs:
-		RUShips._bell(core, ex, o.x, o.y, rm)
-
-static func _finish(root: Node3D, core: Node3D) -> Node3D:
-	var bb := UnitModels._bounds(core)
-	core.position = -bb.get_center()
-	root.set_meta("radius", maxf(bb.size.length() * 0.5, 0.3))
-	return root
-
-# ------------------------------------------------------------------ special ships
-static func _plane(root: Node3D, core: Node3D, hull: Material) -> Node3D:
-	var gold := _m(ORANGE, 0.85, 0.35)
-	var glass := _m(Color("#1f3f66"), 0.8, 0.12, 0.5)
-	var body := Node3D.new()
-	body.scale = Vector3(1.0, 0.62, 1.35)
-	core.add_child(body)
-	AsiaShips._nose(body, -1.4, ["needle", 0.3, 1.4], hull)
-	AsiaShips._barrel(body, -1.4, 1.5, 0.3, hull, Color("#ffb347"))
-	# nose tip cap
-	UnitModels.ball(core, 0.03, _m(Color("#2a2b30"), 0.7, 0.4), Vector3(0.0, 0, 0))
-	# cockpit windows and the red sun disc on the top of the fuselage
-	for i in 4:
-		var f := OrionCV2._radial(core, -0.7 - i * 0.14, PI * 0.5, 0.19)
-		OrionCV2._rbox(f, Vector3(0.1, 0.02, 0.07), glass, Vector3.ZERO, 3.0, 4)
-	var sun := OrionCV2._radial(core, -0.95, PI * 0.5, 0.2)
-	UnitModels.ball(sun, 0.07, _m(Color("#c8202a"), 0.2, 0.5, 0.15), Vector3(0, 0.0, 0), Vector3(1, 0.12, 1))
-	AsiaShips.trim_col = ORANGE
-	AsiaShips._wings(core, "cross", -1.55, 0.8, 0.95, 0.3, hull)
-	AsiaShips.trim_col = Color("#58b8ff")
-	_engine(core, -2.9, 0.26, 3, hull)
-	return _finish(root, core)
-
-static func _yamato(root: Node3D, core: Node3D, hull: Material) -> Node3D:
-	var gold := _m(ORANGE, 0.85, 0.35)
-	var dark := _m(Color("#17181b"), 0.5, 0.45)
-	var steel := _m(Color("#9aa0a8"), 0.85, 0.3)
-	var dsteel := _m(Color("#4a4d55"), 0.8, 0.4)
-	AsiaShips._nose(core, 0.0, ["ogive", 0.52, 1.7], hull)
-	AsiaShips._barrel(core, 0.0, 1.2, 0.52, hull, Color("#ffb347"))
-	# orange front band and a black slatted vent field on the shoulder
-	UnitModels.cylx(core, 0.54, 0.54, 0.16, gold, Vector3(-0.2, 0, 0), 32)
-	for a in [PI * 0.5, PI * 1.5, 0.0, PI]:
-		var f := OrionCV2._radial(core, -0.78, a, 0.52)
-		OrionCV2._vent(f, 0.48, 0.5, 8, steel, dark)
-	var sun := OrionCV2._radial(core, 0.55, 0.0, 0.36)
-	UnitModels.ball(sun, 0.06, _m(Color("#c8202a"), 0.2, 0.5, 0.15), Vector3(0, 0.0, 0), Vector3(0.12, 1, 1))
-	var eye := OrionCV2._radial(core, 0.3, 0.0, 0.46)
-	UnitModels.ring(eye, 0.05, 0.075, steel, Vector3.ZERO)
-	UnitModels.ball(eye, 0.05, _m(Color("#16365e"), 0.9, 0.1, 0.4), Vector3(0, 0.01, 0), Vector3(1, 0.45, 1))
-	# angular rear shoulders
-	for s in [-1.0, 1.0]:
-		OrionCV2._rbox(core, Vector3(0.55, 0.3, 0.2), _m(Color("#d4d0c5"), 0.4, 0.5), Vector3(-1.2, 0.0, s * 0.5), 3.0, 4)
-	# rear body, then three bells
-	AsiaShips._barrel(core, -1.2, 0.35, 0.5, hull, Color("#ffb347"))
-	_engine(core, -1.55, 0.46, 3, hull)
-	# two pairs of pill pods on struts, long pod with a small nose pod
-	for s in [-1.0, 1.0]:
-		var zc: float = s * 1.0
-		OrionCV2._strut(core, Vector3(-0.85, 0, s * 0.45), Vector3(-0.85, 0, zc), 0.03, dsteel)
-		OrionCV2._strut(core, Vector3(-0.35, 0, s * 0.45), Vector3(-0.35, 0, zc), 0.025, dsteel)
-		var big := CapsuleMesh.new()
-		big.radius = 0.12
-		big.height = 1.0
-		var mb := MeshInstance3D.new()
-		mb.mesh = big
-		mb.material_override = hull
-		mb.rotation = Vector3(0, 0, PI / 2)
-		mb.position = Vector3(-0.8, 0, zc)
-		core.add_child(mb)
-		var sm := CapsuleMesh.new()
-		sm.radius = 0.075
-		sm.height = 0.42
-		var ms := MeshInstance3D.new()
-		ms.mesh = sm
-		ms.material_override = hull
-		ms.rotation = Vector3(0, 0, PI / 2)
-		ms.position = Vector3(-0.05, 0, zc)
-		core.add_child(ms)
-		for bx in [-1.1, -0.5]:
-			UnitModels.ring(core, 0.095, 0.115, gold, Vector3(bx, 0, zc), Vector3(0, 0, PI / 2))
-		UnitModels.ring(core, 0.07, 0.088, gold, Vector3(-0.15, 0, zc), Vector3(0, 0, PI / 2))
-		OrionCV2._strut(core, Vector3(-0.35, 0, zc), Vector3(-0.2, 0, zc), 0.02, dsteel)
-	return _finish(root, core)
+static func _pod(p: Node3D, pos: Vector3, L: float, r: float, hull: Material) -> void:
+	var n := Node3D.new()
+	n.position = pos
+	p.add_child(n)
+	AsiaShips._barrel(n, L * 0.5, L, r, hull, LAMP)
 
 # ------------------------------------------------------------------ the model
 static func build(name: String) -> Node3D:
-	var spec: Dictionary = SPECS[name]
 	var root := Node3D.new()
 	root.name = "JP_" + name
 	var core := Node3D.new()
 	core.name = "Core"
 	root.add_child(core)
 	var hull := _hull_mat(name)
-	if spec.get("kind", "") == "plane":
-		return _plane(root, core, hull)
-	if spec.get("kind", "") == "yamato":
-		return _yamato(root, core, hull)
-	var nose: Array = spec["nose"]
-	var x: float = -float(nose[2])
-	AsiaShips._nose(core, x, nose, hull)
-	UnitModels.ball(core, 0.035, _m(ORANGE, 0.85, 0.35), Vector3(0, 0, 0))
-	var R: float = nose[1]
-	var rear_r := R
-	for m in spec["mods"]:
-		var t: String = m[0]
-		match t:
-			"band":
-				_banded(core, x, m[1], m[2], hull)
-				x -= m[1]
-				R = m[2]
-				rear_r = R
-			"xtruss":
-				_xtruss(core, x, m[1], m[2])
-				x -= m[1]
-				R = m[2]
-				rear_r = R
-			"rack":
-				_rack(core, x, m[1], m[2], hull)
-				x -= m[1]
-				R = m[2]
-				rear_r = R
-			"gold":
-				_goldblock(core, x, m[1], m[2], int(m[3]))
-				x -= m[1]
-				R = m[2]
-				rear_r = R
-			"hoop":
-				_hoop(core, x - 0.08, m[1], R, int(m[2]), bool(m[3]), hull)
-				x -= 0.16
-			"hub8":
-				_hub8(core, x, m[1], m[2], hull)
-				x -= m[1]
-				R = m[2]
-				rear_r = R
-			"boom":
-				_boom(core, x - 0.2, m[1], m[2], m[3], hull)
-				x -= 0.4
-			"drum":
-				_drum(core, x, m[1], m[2], hull)
-				x -= m[1]
-				R = m[2]
-				rear_r = R
-	_engine(core, x, rear_r, int(spec["eng"]), hull)
-	return _finish(root, core)
+	var amber := _amber_mat()
+	var grey := _grey_mat()
+	var steel := _m(Color("#9aa0a8"), 0.85, 0.3)
+	var gold := _m(GOLD, 0.9, 0.3)
+	AsiaShips.trim_col = LAMP
+	var x := 0.0
+	var rear_r := 0.3
+	match name:
+		"Seishin", "Kuren":
+			x = _dome(core, 0.3, 0.55, hull)
+			AsiaShips._barrel(core, x, 0.5, 0.3, hull, LAMP)
+			_windows(core, x, 0.5, 0.3, 2)
+			x -= 0.5
+			AsiaShips._conn(core, x, 0.12, 0.08)
+			x -= 0.08
+			_amber_barrel(core, x, 0.8, 0.37, amber)
+			var tx := x - 0.55
+			if name == "Seishin":
+				OrionCV2._strut(core, Vector3(tx, 0.34, 0), Vector3(tx, 0.52, 0), 0.02, steel)
+				OrionCV2._rbox(core, Vector3(0.14, 0.14, 0.14), hull, Vector3(tx, 0.6, 0), 4.0, 8)
+				OrionCV2._strut(core, Vector3(tx, 0.67, 0), Vector3(tx, 0.82, 0), 0.007, steel)
+			else:
+				OrionCV2._strut(core, Vector3(tx, 0.36, 0), Vector3(tx, 0.62, 0), 0.007, steel)
+			x -= 0.8
+			_hab(core, x, 0.36, 0.34, grey)
+			x -= 0.36
+			rear_r = 0.34
+		"Hikawa", "Kansai":
+			x = _dome(core, 0.3, 0.55, hull)
+			AsiaShips._barrel(core, x, 0.5, 0.3, hull, LAMP)
+			_windows(core, x, 0.5, 0.3, 2)
+			x -= 0.5
+			NAShips._truss(core, x, 1.2 if name == "Hikawa" else 1.4, 0.2)
+			x -= 1.2 if name == "Hikawa" else 1.4
+			# cross boom with gold arrays, and a lattice rear block
+			var bx := x + 0.1
+			OrionCV2._strut(core, Vector3(bx, 0, -0.9), Vector3(bx, 0, 0.9), 0.025, steel)
+			OrionCV2._strut(core, Vector3(bx + 0.18, 0, -0.9), Vector3(bx + 0.18, 0, 0.9), 0.012, steel)
+			SAShips._array(core, bx + 0.09, 0.38, 0.62 if name == "Hikawa" else 0.8, 0.4 if name == "Hikawa" else 0.32, false)
+			for s in [-1.0, 1.0]:
+				OrionCV2._strut(core, Vector3(bx - 0.1, 0.1 * s, 0.9 * s), Vector3(bx - 0.1, -0.1 * s, 0.9 * s), 0.01, steel)
+			SAShips._cage(core, x, 0.55, 0.36)
+			x -= 0.55
+			_hab(core, x, 0.3, 0.34, grey)
+			x -= 0.3
+			OrionCV2._strut(core, Vector3(x + 0.4, 0.34, 0), Vector3(x + 0.4, 0.62, 0), 0.007, steel)
+			rear_r = 0.34
+		"Hiyo", "Junyo", "Myoko", "Takao":
+			x = _dome(core, 0.3, 0.55, hull)
+			var Lm := 0.55
+			AsiaShips._barrel(core, x, Lm, 0.3, hull, LAMP)
+			_windows(core, x, Lm, 0.3, 2)
+			var xr1 := x - Lm * 0.45
+			x -= Lm
+			var Ll: float = {"Hiyo": 1.0, "Junyo": 0.85, "Myoko": 1.3, "Takao": 1.3}[name]
+			AsiaShips._barrel(core, x, Ll, 0.29, hull, LAMP)
+			_windows(core, x, Ll, 0.29, 4)
+			var xr2 := x - Ll * 0.55
+			x -= Ll
+			_ring(core, xr1, 0.3, 0.66 if name != "Junyo" else 0.58, true, hull)
+			if name in ["Myoko", "Takao"]:
+				_ring(core, xr2, 0.29, 0.66, name == "Myoko", hull)
+			_hab(core, x, 0.55, 0.37, grey)
+			x -= 0.55
+			rear_r = 0.37
+		"Hiryu":
+			x = _dome(core, 0.3, 0.55, hull)
+			AsiaShips._barrel(core, x, 0.45, 0.3, hull, LAMP)
+			_windows(core, x, 0.45, 0.3, 2)
+			x -= 0.45
+			var Lf := 1.0
+			# the inner hab with gold oval pods, wrapped by the frame
+			AsiaShips._barrel(core, x - 0.05, Lf - 0.1, 0.36, hull, LAMP)
+			for a in [PI * 0.5, -PI * 0.5, 0.0, PI]:
+				var f := OrionCV2._radial(core, x - Lf * 0.5, a, 0.36)
+				UnitModels.ball(f, 0.13, gold, Vector3(0, 0.02, 0), Vector3(1.6, 0.35, 0.9))
+				UnitModels.ring(f, 0.12, 0.15, steel, Vector3(0, 0.02, 0))
+			_frame(core, x, Lf, 0.66, hull)
+			x -= Lf
+			AsiaShips._conn(core, x, 0.14, 0.1)
+			x -= 0.1
+			_hab(core, x, 0.55, 0.37, grey)
+			x -= 0.55
+			rear_r = 0.37
+		"Yamato":
+			var R := 0.5
+			var Ln := 1.5
+			var pts: Array = []
+			var n := 18
+			for i in n + 1:
+				var u := float(i) / n
+				pts.append(Vector2(-Ln * u, R * pow(sin(u * PI * 0.5), 0.8) + 0.001))
+			pts.append(Vector2(-Ln - 0.9, R * 1.02))
+			OrionCV2._lathe(core, pts, 40, hull, Vector3.ZERO)
+			# gold band section and dark vent slats
+			AsiaShips._gold_ring(core, -Ln, R * 1.0, 0.02)
+			AsiaShips._gold_ring(core, -Ln - 0.28, R * 1.0, 0.02)
+			for a in [0.0, PI, PI * 0.5, -PI * 0.5]:
+				var f := OrionCV2._radial(core, -Ln - 0.14, a, R * 1.0)
+				var gm := _m(Color("#7a5c1e"), 0.6, 0.45)
+				OrionCV2._rbox(f, Vector3(0.22, 0.016, 0.3), gm, Vector3.ZERO, 4.0, 6)
+				UnitModels.ball(f, 0.1, gold, Vector3(0, 0.02, 0), Vector3(1.5, 0.35, 1.0))
+			# windows on the nose and the vented belt
+			var glass := _m(Color("#1f4f86"), 0.8, 0.12, 0.6)
+			for a in [PI * 0.5, -PI * 0.5]:
+				for k in 3:
+					var u := 0.45 + 0.13 * k
+					var f := OrionCV2._radial(core, -Ln * u, a, R * pow(sin(u * PI * 0.5), 0.8) * 0.99)
+					UnitModels.ball(f, 0.03, glass, Vector3(0, 0.01, 0), Vector3(1.0, 0.35, 1.0))
+			var dark := _m(Color("#17181b"), 0.5, 0.45)
+			for k in 5:
+				UnitModels.ring(core, R * 0.995, R * 1.02, dark, Vector3(-Ln - 0.5 - k * 0.07, 0, 0), Vector3(0, 0, PI / 2))
+			x = -Ln - 0.9
+			_hab(core, x, 0.4, 0.5, grey)
+			x -= 0.4
+			# eight strap-on pods on struts: long forward, short aft, at +-Y and +-Z
+			for a in [0.0, PI, PI * 0.5, -PI * 0.5]:
+				var yz := Vector2(sin(a), cos(a))
+				var off := 0.78
+				var pf := Vector3(0, yz.x * off, yz.y * off)
+				_pod(core, pf + Vector3(-Ln * 0.45 - 0.9 * 0.5 - 0.0, 0, 0), 0.9, 0.1, hull)
+				_pod(core, pf + Vector3(-Ln - 0.35, 0, 0), 0.5, 0.1, hull)
+				OrionCV2._strut(core, Vector3(-Ln * 0.45 - 0.45, yz.x * R * 0.9, yz.y * R * 0.9), pf + Vector3(-Ln * 0.45 - 0.45, 0, 0), 0.015, steel)
+				OrionCV2._strut(core, Vector3(-Ln - 0.35, yz.x * R * 0.9, yz.y * R * 0.9), pf + Vector3(-Ln - 0.35, 0, 0), 0.015, steel)
+			rear_r = 0.5
+		"Hakaze":
+			var body := Node3D.new()
+			body.scale = Vector3(1, 0.7, 1)
+			core.add_child(body)
+			var Rn := 0.4
+			var Ln := 1.7
+			AsiaShips._nose(body, -Ln, ["needle", Rn, Ln], hull)
+			AsiaShips._gold_ring(body, -Ln + 0.01, Rn * 0.97, 0.01)
+			x = -Ln
+			AsiaShips._barrel(body, x, 1.2, 0.4, hull, LAMP)
+			x -= 1.2
+			AsiaShips._wings(core, "delta", x + 1.5, 1.45, 2.0, 0.4, hull)
+			AsiaShips._wings(core, "fin", x + 0.5, 0.8, 0.7, 0.4, _m(GOLD, 0.8, 0.35))
+			# three engines in a row across the tail
+			var tr := 0.4
+			var pts: Array = [Vector2(x, 0.001), Vector2(x, tr * 0.9), Vector2(x - 0.07, tr * 0.97), Vector2(x - 0.24, tr * 0.7), Vector2(x - 0.26, 0.001)]
+			var tail := Node3D.new()
+			tail.scale = Vector3(1, 0.7, 1)
+			core.add_child(tail)
+			OrionCV2._lathe(tail, pts, 32, hull, Vector3.ZERO)
+			for z in [-0.26, 0.0, 0.26]:
+				AsiaShips._bell(core, Vector3(x - 0.26, 0, z), 0.13)
+			x -= 0.26
+			rear_r = 0.0
+	if rear_r > 0.0:
+		AsiaShips._engines(core, x, rear_r, 3, hull)
+	AsiaShips.trim_col = Color("#58b8ff")
+	var bb := UnitModels._bounds(core)
+	core.position = -bb.get_center()
+	root.set_meta("radius", maxf(bb.size.length() * 0.5, 0.3))
+	return root

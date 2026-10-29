@@ -1,4 +1,4 @@
-## Renders every South America / Africa crew ship:  godot --path . res://tests/jp_preview.tscn -- <outdir> [name]
+## Renders every Japan crew ship:  godot --path . res://tests/jp_preview.tscn -- <outdir> [name]
 extends Node
 func _ready() -> void:
 	var out := "/tmp/jp"
@@ -35,13 +35,13 @@ func _ready() -> void:
 	var cam := Camera3D.new()
 	cam.fov = 34
 	svp.add_child(cam)
-	var names: Array = JPShips.SPECS.keys()
+	var names: Array = JPShips.NAMES.duplicate()
 	if only != "": names = [only]
 	for nm in names:
 		var m := JPShips.build(nm)
 		svp.add_child(m)
 		var r: float = m.get_meta("radius")
-		for v in [["side", 0.0, 0.0], ["tq", 0.6, -0.3]]:
+		for v in [["side", 0.0, 0.0], ["tq", 0.6, -0.3], ["top", 0.0, -1.5]]:
 			m.rotation = Vector3(0, v[1], 0)
 			cam.position = Vector3(0, 0, 2.7 * r).rotated(Vector3.RIGHT, v[2])
 			cam.look_at(Vector3.ZERO, Vector3.UP)
