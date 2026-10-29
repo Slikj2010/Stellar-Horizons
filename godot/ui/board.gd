@@ -320,7 +320,7 @@ func _ship_tag(f: String, s: Dictionary, c: Vector2, strong: bool, ready: bool, 
 	var kn: PackedStringArray = String(s.img).split("|")
 	var own: bool = f == Game.G.f
 	var sel: bool = own and strong
-	R.ring(c.x, c.y, cs * (.58 if n <= 2 else .46), col, 4 if sel else 2)
+	R.ring(c.x, c.y, cs * (.58 if n <= 2 else .32), col, 4 if sel else 2)
 	var nm: String = kn[1] if kn.size() > 1 else kn[0]
 	# labels thin out as a location fills up: name and kind, then only the selected ship's
 	if n <= 2 or sel:
