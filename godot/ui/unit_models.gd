@@ -191,13 +191,36 @@ static func build(f: String, name: String, kind: String) -> Node3D:
 		"Orbiter": _orbiter(core, f, name, rng)
 		"Telescope": _telescope(core, f, name, rng)
 		_:
-			if kind.begins_with("CV-"): _crew(core, f, name, int(kind.substr(3)), rng)
+			if kind.begins_with("CV-"):
+				var fancy := _crew_model(f, name)
+				if fancy != null:
+					root.free()
+					return fancy
+				_crew(core, f, name, int(kind.substr(3)), rng)
 			else: _probe(core, f, name, rng)
 	var bb := _bounds(core)
 	core.position = -bb.get_center()
 	root.set_meta("radius", maxf(bb.size.length() * 0.5, 0.3))
 	root.set_meta("size", bb.size)
 	return root
+
+## Detailed hand-kit crew vehicles (one model per named CV); null when a unit has none, which falls back to the generic _crew.
+static func _crew_model(f: String, name: String) -> Node3D:
+	var m: Node3D = null
+	match f:
+		"na":
+			if name == "Orion": m = OrionCV2.build("orion")
+			elif name == "Discovery": m = OrionCV2.build("discovery")
+			elif NAShips.has(name): m = NAShips.build(name)
+		"as": if AsiaShips.has(name): m = AsiaShips.build(name)
+		"sa": if SAShips.has(name): m = SAShips.build(name)
+		"ru": if RUShips.has(name): m = RUShips.build(name)
+		"jp": if JPShips.has(name): m = JPShips.build(name)
+		"eu": if EUShips.has(name): m = EUShips.build(name)
+		"cn": if CNShips.has(name): m = CNShips.build(name)
+	if m != null and not m.has_meta("size"):
+		m.set_meta("size", _bounds(m).size)
+	return m
 
 static func _bounds(n: Node3D) -> AABB:
 	var out := AABB()

@@ -20,7 +20,7 @@ const SPECS := {
 	"Qing": {"nose": [0.3, 0.6], "mods": [["barrel", 0.5, 0.36], ["barrel", 1.1, 0.3], ["barrel", 0.7, 0.44], ["panels", 0.45, 0.36]], "eng": 3},
 	"Shang": {"nose": [0.3, 0.9], "mods": [["barrel", 1.3, 0.4], ["barrel", 0.7, 0.43], ["panels", 0.4, 0.36]], "eng": 3},
 	"Taizhou": {"nose": [0.3, 0.7], "mods": [["barrel", 0.5, 0.36], ["ring", 0.8, 4], ["barrel", 1.0, 0.36], ["barrel", 0.6, 0.44]], "eng": 4},
-	"Yun Baolei": {"nose": [0.3, 0.8], "mods": [["barrel", 0.5, 0.36], ["ring", 1.0, 4], ["barrel", 1.0, 0.38], ["barrel", 0.6, 0.46]], "eng": 4},
+	"Baolei": {"nose": [0.3, 0.8], "mods": [["barrel", 0.5, 0.36], ["ring", 1.0, 4], ["barrel", 1.0, 0.38], ["barrel", 0.6, 0.46]], "eng": 4},
 	"Liwei": {"kind": "plane", "R": 0.4, "L": 2.3, "span": 0.95},
 	"Song": {"kind": "plane", "R": 0.35, "L": 2.5, "span": 0.85},
 }
