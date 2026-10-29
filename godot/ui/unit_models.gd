@@ -178,6 +178,8 @@ static func _col(h: String) -> Color: return Color(h)
 ## Build the model for a unit. `kind` is "Probe" ... "CV-9"; returns the root Node3D (meta "radius" = framing radius).
 static func build(f: String, name: String, kind: String) -> Node3D:
 	if not LIVERY.has(f): f = "na"
+	if RoboModels.has(kind):
+		return RoboModels.build_named(kind, name)
 	var root := Node3D.new()
 	root.name = "Model_" + name.replace(" ", "_")
 	var rng := _rng(f + "|" + name)
@@ -270,7 +272,6 @@ static func _probe(p: Node3D, f: String, name: String, rng: RandomNumberGenerato
 	cylx(p, 0.012, 0.012, 0.6 + rng.randf() * 0.3, dark, Vector3(0.55, 0.1, 0.0), 6)
 	ball(p, 0.04, acc, Vector3(0.9, 0.1, 0.0))
 	cyly(p, 0.006, 0.006, 0.5, dark, Vector3(-0.25, 0.4, 0.25), 6)
-	name_label(p, name, _col(L.trim).darkened(0.45), Vector3(0, 0.0, 0.345), 0.2, true)
 
 static func _rover(p: Node3D, f: String, name: String, rng: RandomNumberGenerator) -> void:
 	var L: Dictionary = LIVERY[f]
@@ -307,7 +308,6 @@ static func _rover(p: Node3D, f: String, name: String, rng: RandomNumberGenerato
 	ball(p, 0.06, acc, Vector3(1.18, 0.3, -0.3))
 	# antenna
 	dish(p, 0.2, hull, Vector3(-0.65, 0.95, -0.25), Vector3(-0.3, 0, 0.3))
-	name_label(p, name, _col(L.acc).darkened(0.3), Vector3(0.0, 0.36, 0.435), 0.2, true)
 
 static func _flyby(p: Node3D, f: String, name: String, rng: RandomNumberGenerator) -> void:
 	var L: Dictionary = LIVERY[f]
@@ -338,7 +338,6 @@ static func _flyby(p: Node3D, f: String, name: String, rng: RandomNumberGenerato
 	cylx(p, 0.09, 0.09, 0.04, dark, Vector3(0.78, -0.08, -0.12), 16)
 	# thruster quads
 	for s in [-1.0, 1.0]: box(p, Vector3(0.08, 0.08, 0.08), dark, Vector3(0.35, -0.28, s * 0.25))
-	name_label(p, name, _col(L.acc).darkened(0.3), Vector3(0.0, -0.05, 0.31), 0.24, true)
 
 static func _orbiter(p: Node3D, f: String, name: String, rng: RandomNumberGenerator) -> void:
 	var L: Dictionary = LIVERY[f]
@@ -377,7 +376,6 @@ static func _orbiter(p: Node3D, f: String, name: String, rng: RandomNumberGenera
 	cyly(p, 0.03, 0.03, 0.5, dark, Vector3(0.55, 0.62, 0.0), 8)
 	dish(p, 0.38, hull, Vector3(0.55, 0.88, 0.0), Vector3(0.0, 0, 0.0))
 	cylx(p, 0.012, 0.012, 1.2, dark, Vector3(0.3, -0.48, 0.0), 6)
-	name_label(p, name, _col(L.acc).darkened(0.35), Vector3(0.0, 0.0, 0.405), 0.28, true)
 
 static func _telescope(p: Node3D, f: String, name: String, rng: RandomNumberGenerator) -> void:
 	var L: Dictionary = LIVERY[f]
@@ -419,7 +417,6 @@ static func _telescope(p: Node3D, f: String, name: String, rng: RandomNumberGene
 		box(p, Vector3(0.04, 0.04, 0.4), dark, Vector3(-1.0, 0.0, s * 0.55))
 		solar(p, f, wl, 0.6, Vector3(-1.0, 0.0, s * (0.75 + wl * 0.5)), Vector3.ZERO)
 	dish(p, 0.22, hull, Vector3(-0.95, 0.4, 0.0), Vector3(0.4, 0, 0.0))
-	name_label(p, name, _col(L.acc).darkened(0.3), Vector3(0.0, 0.0, 0.465), 0.24, true)
 
 # ---------------- crew vehicles ----------------
 ## CV-n grows with n: capsule + crew module at the nose, (n-2) hab / tank sections behind it, radiators and a spin ring
@@ -508,4 +505,3 @@ static func _crew(p: Node3D, f: String, name: String, n: int, rng: RandomNumberG
 			nozzle(p, 0.24, 0.45, Vector3(tail_x + 0.2, 0, s * (R + 0.45)), true)
 	# antenna + dish on the capsule collar
 	dish(p, 0.2 + 0.015 * n, hull, Vector3(0.1, R + 0.05, R * 0.3), Vector3(0.2, 0, 0))
-	name_label(p, name, _col(L.acc).darkened(0.3), Vector3(-0.15, 0.0, R + 0.012), 0.24 + 0.008 * n, true)
