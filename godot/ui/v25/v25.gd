@@ -358,8 +358,8 @@ func sprite(tex: Texture2D, f, x: float, y: float, size: float, a := 0.0) -> voi
 	var k: float = size / maxf(f[2], f[3])
 	rec.append({"tex": tex, "f": f, "x": x, "y": y, "w": f[2] * k, "h": f[3] * k, "a": a, "mode": mode, "lift": lift, "text": false})
 ## a ship counter drawn as its 3D model (f = faction, img = "Kind|Name", col = faction colour for the flag)
-func model(f: String, img: String, x: float, y: float, size: float, col: String, small := false) -> void:
-	rec.append({"tex": null, "f": [0, 0, 1, 1], "x": x, "y": y, "w": size, "h": size, "a": 0.0, "mode": mode, "lift": lift, "text": false, "model": true, "mf": f, "img": img, "col": col, "small": small})
+func model(f: String, img: String, x: float, y: float, size: float, col: String, small := false, face := 1) -> void:
+	rec.append({"tex": null, "f": [0, 0, 1, 1], "x": x, "y": y, "w": size, "h": size, "a": 0.0, "mode": mode, "lift": lift, "text": false, "model": true, "mf": f, "img": img, "col": col, "small": small, "face": face})
 func text(t: String, x: float, y: float, size: float, color: String, align := "center") -> void:
 	var e := paint.text_sprite(t, color, size)
 	var off: float = e.sw / 2 if align == "left" else (-e.sw / 2 if align == "right" else 0.0)
@@ -1741,8 +1741,9 @@ func _ship(r: Dictionary, S: float) -> void:
 	h.position = Vector3(r.X, y, r.Z)
 	h.visible = true
 	# nose to the right of the screen, rolled a little towards the camera, drifting gently
-	var yaw := atan2(-rgt.z, rgt.x) + sin(T * .5 + r.x * .02) * .18
-	e.p.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, .55) * Basis.from_scale(Vector3.ONE * sc)
+	# the ship keeps its heading in the world (it does not turn with the camera); its facing can be flipped on the Selected tab
+	var yaw := (PI if int(r.get("face", 1)) < 0 else 0.0) + sin(T * .5 + r.x * .02) * .18
+	e.p.basis = Basis(Vector3.RIGHT, .55) * Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * sc)
 	var fh: float = rw * (.45 if r.small else .8)
 	e.flag.basis = Basis(rgt, cup, rgt.cross(cup)) * Basis.from_scale(Vector3.ONE * fh)
 	e.flag.position = cup * (want * .42) + rgt * (-want * .15)

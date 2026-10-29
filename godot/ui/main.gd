@@ -1163,6 +1163,9 @@ func _sel_ship_panel(box, G, s) -> void:
 	if SHRules.t(s.probe): facts.append("probe " + s.probe)
 	UIK.para(v, " · ".join(facts), null, 13)
 	UIK.button(v, "View 3D model", func(): hangar.open(G.f, G.f + "|" + s.name))
+	UIK.button(v, "Flip facing ⇄", func():
+		s.face = -int(s.get("face", 1))
+		Game.act(null))
 	_cargo_panel(box, G, s)
 	# movement
 	if G.phase == "move":

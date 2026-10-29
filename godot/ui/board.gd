@@ -314,7 +314,7 @@ func unit_frame(f: String, key: String):
 ## 2.5D view: a ship counter as its 3D model, with the owner's colour on its flag, a ring on the ground and a name under it
 func _ship_tag(f: String, s: Dictionary, c: Vector2, strong: bool, ready: bool) -> void:
 	var col: String = Game.data.D.FAC[f].c
-	R.model(f, s.img, c.x, c.y, CS, col)
+	R.model(f, s.img, c.x, c.y, CS, col, false, int(s.get("face", 1)))
 	var kn: PackedStringArray = String(s.img).split("|")
 	var own: bool = f == Game.G.f
 	var sel: bool = own and strong
@@ -609,7 +609,7 @@ func paint_objects() -> void:
 			if SHRules.t(s.dmg): text("▼%d" % s.dmg, c + Vector2(22, -24), 13, Color("#e0508f"))
 			if SHRules.t(s.get("hold")): text("+%d" % s.hold, c + Vector2(22, 24), 13, C_SEL)
 			if SHRules.t(s.get("probe")):
-				if R != null: R.model(G.f, "Probe|" + s.probe, c.x - 24, c.y + 24, 24, D.FAC[G.f].c, true)
+				if R != null: R.model(G.f, "Probe|" + s.probe, c.x - 24, c.y + 24, 24, D.FAC[G.f].c, true, int(s.get("face", 1)))
 				else: draw_frame(atl[G.f].tex, unit_frame(G.f, "Probe|" + s.probe), c + Vector2(-24, 24), 24)
 			hits.append({"t": "ship", "id": s.id, "c": c, "r": CS / 2, "f": G.f, "img": s.img})
 	# move targets (the 2.5D view draws its own)
@@ -649,7 +649,12 @@ func paint_objects() -> void:
 			var z := zone_shape(ghost.dest)
 			if z.has("poly"): draw_colored_polygon(z.poly, Color(C_SEL, 0.25))
 			else: draw_circle(z.c, z.r, Color(C_SEL, 0.25))
-		draw_frame(atl[ghost.f].tex, unit_frame(ghost.f, ghost.img), ghost.p, CS * 1.15, 0, Color(0.949, 0.957, 0.980, 0.9))
+		if R != null:
+			var gs = SHRules._find(Game.G.ships, func(x): return SHRules.eq(x.id, ghost.get("id")))
+			R.lift = 40
+			R.model(ghost.f, ghost.img, ghost.p.x, ghost.p.y, CS * 1.15, Game.data.D.FAC[ghost.f].c, false, int(gs.get("face", 1)) if gs != null else 1)
+			R.ring(ghost.p.x, ghost.p.y, CS * .66, "#e8702a", 4)
+		else: draw_frame(atl[ghost.f].tex, unit_frame(ghost.f, ghost.img), ghost.p, CS * 1.15, 0, Color(0.949, 0.957, 0.980, 0.9))
 
 func _paint_world_boxes(G, D: Dictionary) -> void:
 	var LS: float = WB.LS
