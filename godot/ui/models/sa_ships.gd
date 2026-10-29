@@ -11,7 +11,7 @@ extends RefCounted
 const SPECS := {
 	"Empressa": {"nose": ["ogive", 0.3, 0.6, "black"], "mods": [["barrel", 0.6, 0.32], ["barrel", 0.5, 0.34], ["mast"]], "eng": 3},
 	"Estrella": {"nose": ["ogive", 0.3, 0.55, "black"], "mods": [["barrel", 0.6, 0.32], ["panelsv", 0.75, 0.45], ["barrel", 0.45, 0.34]], "eng": 3},
-	"Amazon": {"nose": ["ogive", 0.33, 0.6, "red"], "mods": [["barrel", 0.8, 0.36], ["panels", 0.55, 0.6], ["panelsv", 0.55, 0.6], ["barrel", 0.55, 0.36]], "eng": 3},
+	"Amazon": {"nose": ["ogive", 0.34, 0.4, "redcap"], "mods": [["barrel", 1.2, 0.35], ["panelsv", 0.45, 1.1], ["barrel", 0.9, 0.34], ["barrel", 0.4, 0.3]], "eng": 3},
 	"Barroso": {"nose": ["needle", 0.3, 0.9, "grey"], "mods": [["barrel", 1.0, 0.34], ["panelsv", 0.5, 0.7]], "eng": 3},
 	"Helios": {"nose": ["sphere", 0.22], "mods": [["truss", 0.5, 0.1], ["barrel", 0.5, 0.3], ["panelsv", 0.6, 0.5], ["barrel", 0.45, 0.32]], "eng": 3},
 	"Bantu": {"nose": ["ogive", 0.26, 0.6, "black"], "mods": [["barrel", 0.45, 0.22], ["truss", 0.45, 0.13], ["hub", 0.5, 0.3], ["panels", 0.7, 0.35], ["panelsv", 0.7, 0.35]], "eng": 4},
@@ -35,6 +35,8 @@ static func _m(col: Color, metal := 0.4, rough := 0.5, emit := 0.0) -> StandardM
 	return UnitModels.mat(col, metal, rough, emit)
 
 static func _hull_mat(name: String) -> StandardMaterial3D:
+	if name == "Amazon":
+		return OrionCV2._smat("sa_amazon", 1024, 512, {"seed": 577, "cols": 24, "min_len": 70, "max_len": 260, "black_rate": 0.07, "grime": 0.6, "tones": [Color("#a9b8c6"), Color("#9aaabb"), Color("#8d9db0"), Color("#b6c3d0"), Color("#7f8fa3")], "seam": Color("#46515e")}, 0.4, 0.5)
 	var sd := int(absi(name.hash()) % 3)
 	return OrionCV2._smat("sa_hull%d" % sd, 1024, 512, {"seed": 511 + sd * 29, "cols": 24, "min_len": 50, "max_len": 200, "black_rate": 0.1, "grime": 1.0, "tones": [Color("#8d9097"), Color("#7b7f86"), Color("#6a6e75"), Color("#9aa0a6"), Color("#5a5e65")], "seam": Color("#26282c")}, 0.5, 0.5)
 
@@ -121,6 +123,9 @@ static func build(name: String) -> Node3D:
 	else:
 		x = -nose[2]
 		AsiaShips._nose(core, x, [nose[0], nose[1], nose[2]], _nose_mat(nose[3], hull))
+		if nose[3] == "redcap":
+			var red := _m(Color("#b3312f"), 0.4, 0.5)
+			UnitModels.cylx(core, 0.02, 0.085, 0.07, red, Vector3(-0.0, 0, 0), 24)
 	var rear_r := R
 	for m in spec["mods"]:
 		var t: String = m[0]
