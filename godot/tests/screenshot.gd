@@ -388,6 +388,12 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 			main.do_move(s, m.dest)])
 		a.append(["wait", 10])
 		a.append(["shot", "77_move_confirm"])
+	if plan == "hangar":
+		for it in [["na", "na|Orion", "orion"], ["eu", "eu|Newton", "newton"], ["ru", "ru|Sakharov", "sakharov"], ["cn", "cn|Zheng He", "zhenghe"], ["jp", "jp|Yamato", "yamato"], ["as", "as|Delhi", "delhi"], ["sa", "sa|Humboldt", "humboldt"], ["na", "na|Pathfinder", "pathfinder"], ["eu", "eu|Europa", "europa"], ["as", "as|Suri", "suri"], ["ru", "ru|Tsander", "tsander"]]:
+			a.append(["call", func(): main.hangar.open(it[0], it[1])])
+			a.append(["wait", 40])
+			a.append(["shot", "h_" + it[2]])
+		return a
 	if plan == "basepanel":
 		a.append(["call", func():
 			var G = Game.G

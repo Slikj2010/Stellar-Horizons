@@ -77,6 +77,11 @@ func _ready() -> void:
 	Game.board_node = board
 	fboard.main = self
 	ttree.main = self
+	hangar = Control.new()
+	hangar.set_script(load("res://ui/hangar.gd"))
+	hangar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	hangar.main = self
+	$HUD/Root.add_child(hangar)
 	tabs.tab_changed.connect(func(_i): _sync_fboard())
 	_make_modal()
 	_make_log_filter()
@@ -1157,6 +1162,7 @@ func _sel_ship_panel(box, G, s) -> void:
 	if SHRules.t(s.hold): facts.append("+%d turns beyond box 6" % s.hold)
 	if SHRules.t(s.probe): facts.append("probe " + s.probe)
 	UIK.para(v, " · ".join(facts), null, 13)
+	UIK.button(v, "View 3D model", func(): hangar.open(G.f, G.f + "|" + s.name))
 	if E.sum(s.cargo): UIK.rich(box, "Cargo: " + UIK.res_bb(s.cargo), 13)
 	# movement
 	if G.phase == "move":
@@ -1785,6 +1791,7 @@ func _ask_title(a: Dictionary) -> String:
 # ---------------- menus ----------------
 var title: TitleScene
 var dev: DevConsole
+var hangar: Control
 var _menu_from := "start"
 
 func _title_action(k: String) -> void:
@@ -1821,11 +1828,12 @@ func show_menu(mode: String) -> void:
 		"load", "save": return _slots_menu(mode)
 		"settings": return _settings_menu()
 	UIK.title(menu_box, "Stellar Horizons", 34)
+	if mode == "start": UIK.button(menu_box, "Fleet hangar (3D models)", func(): hangar.open(_setup.f))
 	if mode == "pause":
 		UIK.para(menu_box, "Campaign paused: %s, %d." % [D.FAC[Game.G.f].n, int(Game.G.y)], UIK.DIM)
 		var col := UIK.vbox(menu_box, 8)
 		for it in [["Resume", func(): _close_menu()], ["Save game", func(): show_menu("save")], ["Load game", func(): show_menu("load")],
-				["Settings", func(): show_menu("settings")], ["Developer console", func():
+				["Settings", func(): show_menu("settings")], ["Fleet hangar (3D models)", func(): hangar.open(Game.G.f)], ["Developer console", func():
 					_close_menu()
 					dev.open()], ["New campaign", func(): show_menu("start")], ["Quit", func(): Game.quit()]]:
 			var b := UIK.button(col, it[0], it[1], it[0] == "Load game" and not Game.any_slot())
