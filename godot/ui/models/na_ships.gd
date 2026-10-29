@@ -173,14 +173,6 @@ static func _plume(p: Node3D, x: float, R: float, hull: Material) -> void:
 	var rm := tr * 0.95
 	AsiaShips._bell(p, Vector3(ex, 0, 0), rm)
 	var k := rm / 0.128
-	var glow := StandardMaterial3D.new()
-	glow.albedo_color = Color(1.0, 0.55, 0.15, 0.3)
-	glow.emission_enabled = true
-	glow.emission = Color("#ff8a1e")
-	glow.emission_energy_multiplier = 2.2
-	glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	UnitModels.cylx(p, 0.1 * k, 0.3 * k, 0.45, glow, Vector3(ex - 0.32 * k - 0.22, 0, 0), 24)
 	UnitModels.cylx(p, 0.11 * k, 0.11 * k, 0.01, _m(Color("#ffd27a"), 0.0, 0.3, 3.0), Vector3(ex - 0.3 * k, 0, 0), 24)
 
 # ------------------------------------------------------------------ the model
