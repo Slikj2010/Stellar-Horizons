@@ -358,8 +358,8 @@ func sprite(tex: Texture2D, f, x: float, y: float, size: float, a := 0.0) -> voi
 	var k: float = size / maxf(f[2], f[3])
 	rec.append({"tex": tex, "f": f, "x": x, "y": y, "w": f[2] * k, "h": f[3] * k, "a": a, "mode": mode, "lift": lift, "text": false})
 ## a ship counter drawn as its 3D model (f = faction, img = "Kind|Name", col = faction colour for the flag)
-func model(f: String, img: String, x: float, y: float, size: float, col: String, small := false, face := 1) -> void:
-	rec.append({"tex": null, "f": [0, 0, 1, 1], "x": x, "y": y, "w": size, "h": size, "a": 0.0, "mode": mode, "lift": lift, "text": false, "model": true, "mf": f, "img": img, "col": col, "small": small, "face": face})
+func model(f: String, img: String, x: float, y: float, size: float, col: String, small := false, face := 1, surf := "") -> void:
+	rec.append({"tex": null, "f": [0, 0, 1, 1], "x": x, "y": y, "w": size, "h": size, "a": 0.0, "mode": mode, "lift": lift, "text": false, "model": true, "mf": f, "img": img, "col": col, "small": small, "face": face, "surf": surf})
 func text(t: String, x: float, y: float, size: float, color: String, align := "center") -> void:
 	var e := paint.text_sprite(t, color, size)
 	var off: float = e.sw / 2 if align == "left" else (-e.sw / 2 if align == "right" else 0.0)
@@ -1736,9 +1736,27 @@ func _ship(r: Dictionary, S: float) -> void:
 	var rw: float = r.w * S
 	var want: float = rw * .5 * (1.0 if r.small else 1.18)
 	var sc: float = want / maxf(e.rad, .05) * (1.0 if RoboModels.has(String(r.img).split("|")[0]) else 1.0)
-	var bob := sin(T * 1.3 + r.x * .013 + r.y * .017) * 3 * S
+	var bob := 0.0 if r.get("surf", "") != "" else sin(T * 1.3 + r.x * .013 + r.y * .017) * 3 * S
 	var y: float = r.lift * S + rw * .5 + bob
 	h.position = Vector3(r.X, y, r.Z)
+	# on a world's surface the counter is small and stands on the ground: on the planet's disc, or on the rocks' plate
+	var surf: String = r.get("surf", "")
+	var fsz: float = rw
+	if surf != "":
+		var bd = bodies.b.get(surf)
+		if bd != null:
+			var mm: Array = board.geo_std.maps[bd.map]
+			var q := mapP(mm[0] + bd.cx * .4, mm[1] + bd.cy * .4)
+			var rr: float = bd.r * .4 * S
+			want = minf(rw * .5 * .42, rr * .22)
+			var dx: float = (float(hash(String(r.img)) % 7) - 3.0) / 3.0 * rr * .45
+			h.position = Vector3(q.x, rr * .55, q.y) + rgt * dx + cup * (-rr * .3) - fwd * (rr * .3) + cup * want * .55
+		else:
+			want = rw * .5 * .4
+			h.position = Vector3(r.X, want * .6, r.Z)
+		sc = want / maxf(e.rad, .05)
+		fsz = want * 2.2
+		y = h.position.y
 	h.visible = true
 	# nose to the right of the screen, rolled a little towards the camera, drifting gently
 	# the ship keeps its heading in the world (it does not turn with the camera); its facing can be flipped on the Selected tab
@@ -1746,12 +1764,13 @@ func _ship(r: Dictionary, S: float) -> void:
 	var yaw := (PI if int(r.get("face", 1)) < 0 else 0.0) + (PI / 2 - 0.6 if robo else 0.0) + sin(T * .5 + r.x * .02) * .18
 	# seen from the side, like the printed counter, with just a little of the top: the ship leans back by the camera's pitch
 	e.p.basis = Basis(Vector3.RIGHT, -(C.pitch - (.65 if robo else .3))) * Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * sc)
-	var fh: float = rw * (.35 if r.small else .55)
+	var fh: float = fsz * (.35 if r.small else .55)
 	e.flag.basis = Basis(rgt, cup, rgt.cross(cup)) * Basis.from_scale(Vector3.ONE * fh)
 	e.flag.position = cup * (want * .42) + rgt * (-want * .15)
 	var off: float = _calls.size() * 100000.0 - 50000.0
 	for mi in e.meshes: (mi as MeshInstance3D).sorting_offset = off
 	_mused.append(h)
-	var c = proj(r.X, y, r.Z)
-	var e2 = proj(r.X + rgt.x * rw * .5, y, r.Z + rgt.z * rw * .5)
+	var hp: Vector3 = h.position
+	var c = proj(hp.x, hp.y, hp.z)
+	var e2 = proj(hp.x + rgt.x * fsz * .5, hp.y, hp.z + rgt.z * fsz * .5)
 	if c != null and e2 != null: picks.append({"sx": c[0], "sy": c[1], "pr": maxf(Vector2(e2[0] - c[0], e2[1] - c[1]).length(), 6.0), "x": r.x, "y": r.y, "z": c[2], "rec": r})
