@@ -1163,7 +1163,7 @@ func _sel_ship_panel(box, G, s) -> void:
 	if SHRules.t(s.probe): facts.append("probe " + s.probe)
 	UIK.para(v, " · ".join(facts), null, 13)
 	UIK.button(v, "View 3D model", func(): hangar.open(G.f, G.f + "|" + s.name))
-	if E.sum(s.cargo): UIK.rich(box, "Cargo: " + UIK.res_bb(s.cargo), 13)
+	_cargo_panel(box, G, s)
 	# movement
 	if G.phase == "move":
 		var mv := E.moves(G, s)
@@ -1235,12 +1235,6 @@ func _sel_ship_panel(box, G, s) -> void:
 	if G.phase == "trade":
 		var c = E.canFoundBase(G, s)
 		if c != null: UIK.button(box, "Found %s base here (%d SUP)" % ["an orbital" if c.pos == "orbit" else "a surface", c.cost], func(): found_ask(G, s), s.cargo.SUP < c.cost)
-		var b = E.atOwnBase(G, s)
-		if b != null and SHRules.t(s.cap):
-			UIK.head(box, "At " + b.name)
-			var lf := UIK.flow(box)
-			UIK.button(lf, "Unload all", func(): Game.act(E.unload(G, s, b)), E.sum(s.cargo) == 0)
-			for r in ["ORE", "SUP", "FUEL"]: UIK.button(lf, "Load " + r, func(): Game.act(E.loadAt(G, s, b, r, 99)), b.stock[r] < 1)
 	if s.loc == "earth" and SHRules.t(s.cap):
 		UIK.head(box, "Cargo on Earth")
 		var room: int = int(s.cap * E.cargoMul(G) - E.sum(s.cargo))
@@ -1261,6 +1255,42 @@ func _sel_ship_panel(box, G, s) -> void:
 		if E.sum(s.cargo): UIK.button(box, "Unload onto the faction board", func(): Game.act(E.sellCargo(G, s)))
 	var sv = E.scrapValue(G, s)
 	UIK.button(box, ("Scrap (recover %s)" % E.resTxt(sv.back)) if sv != null else "Scrap (destroyed, nothing recovered)", func(): scrap_ask(s))
+
+## the hold of a selected ship: a fill bar, one line per resource, and (at one of your bases, in the move or trade phase) load and unload buttons
+func _cargo_panel(box, G, s) -> void:
+	if not SHRules.t(s.cap): 
+		if E.sum(s.cargo): UIK.rich(box, "Cargo: " + UIK.res_bb(s.cargo), 13)
+		return
+	var cap: int = int(s.cap * E.cargoMul(G))
+	var used: int = int(E.sum(s.cargo))
+	UIK.head(box, "Cargo hold  %d / %d" % [used, cap])
+	var pb := ProgressBar.new()
+	pb.min_value = 0
+	pb.max_value = maxi(cap, 1)
+	pb.value = used
+	pb.show_percentage = false
+	pb.custom_minimum_size = Vector2(0, 14)
+	var fillst := StyleBoxFlat.new()
+	fillst.bg_color = Color("#ff9a3c") if used >= cap else Color("#5fcf8a")
+	pb.add_theme_stylebox_override("fill", fillst)
+	box.add_child(pb)
+	var cols := {"ORE": "#e2e5f0", "SUP": "#7cc4ff", "FUEL": "#ff9a3c"}
+	var names := {"ORE": "Ore", "SUP": "Supplies", "FUEL": "Fuel"}
+	var parts := []
+	for r in ["ORE", "SUP", "FUEL"]:
+		var v := int(s.cargo[r])
+		parts.append("%s [color=%s][b]%s %d[/b][/color]" % [UIK.res_icon(r), cols[r] if v > 0 else "#6b6f7b", names[r], v])
+	UIK.rich(box, "   ".join(parts), 15)
+	if used == 0: UIK.para(box, "The hold is empty.", UIK.DIM, 12, 0)
+	var b = E.atOwnBase(G, s)
+	if b != null and (G.phase == "move" or G.phase == "trade"):
+		UIK.head(box, "At " + b.name + " – load or unload")
+		UIK.rich(box, "Base stock " + UIK.res_bb(b.stock), 13)
+		var lf := UIK.flow(box)
+		UIK.button(lf, "Unload all", func(): Game.act(E.unload(G, s, b)), used == 0)
+		for r in ["ORE", "SUP", "FUEL"]:
+			UIK.button(lf, "+1 " + r, func(): Game.act(E.loadAt(G, s, b, r, 1)), b.stock[r] < 1 or used >= cap)
+			UIK.button(lf, "Load all " + r, func(): Game.act(E.loadAt(G, s, b, r, 99)), b.stock[r] < 1 or used >= cap)
 
 func _sel_base_panel(box, G, b) -> void:
 	var sr = E.setRow(b.set)

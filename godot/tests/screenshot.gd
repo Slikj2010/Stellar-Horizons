@@ -224,6 +224,41 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 				get_viewport().push_input(e)])
 		a.append(["wait", 10])
 		a.append(["shot", "53_zoom"])
+	if plan == "ships25":
+		a.append(["call", func():
+			for i in 150:
+				var G = Game.G
+				while G.ask.size(): Game.AI.answerAsks(G)
+				if G.phase == "move" and G.ships.any(func(x): return x.loc != "earth"): break
+				if not G.over: Game.AI.botPhase(G)
+				Game.next()
+			main.toggle_3d()])
+		a.append(["wait", 10])
+		a.append(["call", func():
+			var sh = SHRules._find(Game.G.ships, func(x): return x.loc != "earth")
+			if sh != null:
+				Game.select({"t": "ship", "id": sh.id})
+				main.v25.focus(main.board.pos_of(sh.loc), .5)])
+		a.append(["wait", 15])
+		a.append(["shot", "80_ships"])
+		a.append(["call", func():
+			main.v25.C.dist = 260
+			main.v25.clampCam()
+			main.v25.touch()])
+		a.append(["wait", 10])
+		a.append(["shot", "81_close"])
+		a.append(["call", func(): main.tabs.current_tab = 1])
+		a.append(["wait", 10])
+		a.append(["shot", "82_selected"])
+		a.append(["call", func():
+			var sh = Game.G.ships[0]
+			sh.cap = 4
+			if sh != null:
+				sh.cargo = {"ORE": 2, "SUP": 1, "FUEL": 0}
+				Game.select({"t": "ship", "id": sh.id})
+				Game.changed.emit()])
+		a.append(["wait", 10])
+		a.append(["shot", "83_cargo"])
 	if plan == "3ddrag":
 		a.append(["call", func():
 			for i in 120:

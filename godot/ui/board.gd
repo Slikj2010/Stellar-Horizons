@@ -311,6 +311,32 @@ func draw_frame(tex: Texture2D, fr, p: Vector2, size: float, rot := 0.0, mod := 
 	draw_set_transform(Vector2.ZERO)
 func unit_frame(f: String, key: String):
 	return atl[f].fr.get(key)
+## 2.5D view: a ship counter as its 3D model, with the owner's colour on its flag, a ring on the ground and a name under it
+func _ship_tag(f: String, s: Dictionary, c: Vector2, strong: bool, ready: bool) -> void:
+	var col: String = Game.data.D.FAC[f].c
+	R.model(f, s.img, c.x, c.y, CS, col)
+	var kn: PackedStringArray = String(s.img).split("|")
+	var own: bool = f == Game.G.f
+	var sel: bool = own and strong
+	R.ring(c.x, c.y, CS * .58, col, 4 if sel else 2)
+	var nm: String = kn[1] if kn.size() > 1 else kn[0]
+	var robo := not kn[0].begins_with("CV-")
+	R.text(nm, c.x, c.y + CS * .78, 12, "#ffffff" if own else col)
+	R.text(("%s · %s" % [kn[0], String(Game.data.D.FAC[f].get("n", f))]) if not own else kn[0], c.x, c.y + CS * .78 + 13, 9, col)
+
+	# what the hold carries, next to the ship: one coloured line per resource, and the load
+	if own and SHRules.t(s.get("cap")):
+		var cap: int = int(s.cap * Game.E.cargoMul(Game.G))
+		var used: int = int(Game.E.sum(s.cargo))
+		var y0 := c.y - CS * .3
+		R.text("hold %d/%d" % [used, cap], c.x + CS * .66, y0, 10, "#ff9a3c" if used >= cap else "#9fe3b4", "left")
+		var cols := {"ORE": "#e2e5f0", "SUP": "#7cc4ff", "FUEL": "#ff9a3c"}
+		var j := 1
+		for r in ["ORE", "SUP", "FUEL"]:
+			if int(s.cargo[r]) > 0:
+				R.text("%s %d" % [r, int(s.cargo[r])], c.x + CS * .66, y0 + 12 * j, 10, cols[r], "left")
+				j += 1
+
 func draw_box(p: Vector2, size: float, col: Color, w := 3.0, rot := 0.0) -> void:
 	if R != null: return
 	draw_set_transform(p, rot)
@@ -570,17 +596,21 @@ func paint_objects() -> void:
 				var of: String = owner[s]
 				if R != null: R.ring(c.x, c.y, CS * .62, D.FAC[of].c, 3)
 				draw_box(c, CS + 6, Color(D.FAC[of].c), 3, rot)
-				draw_frame(atl[of].tex, unit_frame(of, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
+				if R != null: _ship_tag(of, s, c, true, false)
+				else: draw_frame(atl[of].tex, unit_frame(of, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
 				hits.append({"t": "oship", "f": of, "id": s.id, "c": c, "r": CS / 2, "img": s.img})
 				continue
 			var ready: bool = (G.phase == "move" and E.moves(G, s).size() > 0) or (G.phase == "explore" and E.exploreOptions(G, s).size() > 0)
 			var is_sel: bool = sel != null and sel.t == "ship" and SHRules.eq(sel.get("id"), s.id)
 			if R != null and (ready or is_sel): R.ring(c.x, c.y, CS * .62, "#e8702a" if is_sel else "#ced1dd", 3)
 			if ready or is_sel: draw_box(c, CS + 8, C_SEL if is_sel else C_READY, 3, rot)
-			draw_frame(atl[G.f].tex, unit_frame(G.f, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
+			if R != null: _ship_tag(G.f, s, c, is_sel, ready)
+			else: draw_frame(atl[G.f].tex, unit_frame(G.f, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
 			if SHRules.t(s.dmg): text("▼%d" % s.dmg, c + Vector2(22, -24), 13, Color("#e0508f"))
 			if SHRules.t(s.get("hold")): text("+%d" % s.hold, c + Vector2(22, 24), 13, C_SEL)
-			if SHRules.t(s.get("probe")): draw_frame(atl[G.f].tex, unit_frame(G.f, "Probe|" + s.probe), c + Vector2(-24, 24), 24)
+			if SHRules.t(s.get("probe")):
+				if R != null: R.model(G.f, "Probe|" + s.probe, c.x - 24, c.y + 24, 24, D.FAC[G.f].c, true)
+				else: draw_frame(atl[G.f].tex, unit_frame(G.f, "Probe|" + s.probe), c + Vector2(-24, 24), 24)
 			hits.append({"t": "ship", "id": s.id, "c": c, "r": CS / 2, "f": G.f, "img": s.img})
 	# move targets (the 2.5D view draws its own)
 	if targets.size() and R == null:

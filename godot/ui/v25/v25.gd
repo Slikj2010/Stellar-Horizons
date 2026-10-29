@@ -55,6 +55,10 @@ var _mats := {}  ## kind -> Array of ShaderMaterial
 var _sh := {}
 var _static := {}  ## cached ArrayMeshes
 var _tex := {}
+var _mroot: Node3D
+var _mpool := {}  ## "f|img" -> Array of {h: holder Node3D, m: model, flag: Node3D}
+var _mused: Array = []
+var _mcount := {}
 
 # ---------------- vertex builder (the web version's 11-float vertices) ----------------
 class VB:
@@ -211,7 +215,16 @@ func setup(m: Node) -> void:
 		env.background_mode = Environment.BG_COLOR
 		env.background_color = Color(.008, .014, .03)
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_DISABLED
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(.62, .68, .82)
+	env.ambient_light_energy = 1.1
+	var sun := DirectionalLight3D.new()
+	sun.rotation = Vector3(-.9, .6, 0)
+	sun.light_energy = 1.5
+	sun.shadow_enabled = false
+	add_child(sun)
+	_mroot = Node3D.new()
+	add_child(_mroot)
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
@@ -235,6 +248,8 @@ func enable(v: bool) -> void:
 		cam.clear_current(false)
 		main.cam.make_current()
 		for mi in _pool: mi.visible = false
+		for h in _mused: h.visible = false
+		_mused = []
 	board.reset_rings()
 	board.queue_redraw()
 
@@ -342,6 +357,9 @@ func sprite(tex: Texture2D, f, x: float, y: float, size: float, a := 0.0) -> voi
 	if f == null or tex == null: return
 	var k: float = size / maxf(f[2], f[3])
 	rec.append({"tex": tex, "f": f, "x": x, "y": y, "w": f[2] * k, "h": f[3] * k, "a": a, "mode": mode, "lift": lift, "text": false})
+## a ship counter drawn as its 3D model (f = faction, img = "Kind|Name", col = faction colour for the flag)
+func model(f: String, img: String, x: float, y: float, size: float, col: String, small := false) -> void:
+	rec.append({"tex": null, "f": [0, 0, 1, 1], "x": x, "y": y, "w": size, "h": size, "a": 0.0, "mode": mode, "lift": lift, "text": false, "model": true, "mf": f, "img": img, "col": col, "small": small})
 func text(t: String, x: float, y: float, size: float, color: String, align := "center") -> void:
 	var e := paint.text_sprite(t, color, size)
 	var off: float = e.sw / 2 if align == "left" else (-e.sw / 2 if align == "right" else 0.0)
@@ -1332,6 +1350,9 @@ func frame() -> void:
 	_tm("rec")
 	var px := pxw(C.dist)
 	picks = []
+	for h in _mused: h.visible = false
+	_mused = []
+	_mcount = {}
 	# 1 sky
 	if not _sky_ok:
 		flush("q", _static.sky, null, 4, {"PT": 2.4}, Mesh.PRIMITIVE_POINTS)
@@ -1498,6 +1519,11 @@ func frame() -> void:
 			if c != null and e != null and GEO.worlds.has(it.k) and D.W.has(it.k) and G.w.get(it.k) != null: picks.append({"sx": c[0], "sy": c[1], "pr": Vector2(e[0] - c[0], e[1] - c[1]).length(), "hit": {"t": "world", "k": it.k}, "z": c[2], "planet": true})
 		else:
 			var r: Dictionary = it.r
+			if r.get("model", false):
+				batch(run)
+				run = []
+				_ship(r, S)
+				continue
 			var w: float = r.w * S
 			var h: float = r.h * S
 			var hw := w / 2
@@ -1610,3 +1636,119 @@ func pick(sx: float, sy: float) -> Dictionary:
 	if best != null: return {"hit": best.hit, "p": null}
 	var g = sheetAt(sx, sy)
 	return {"hit": board.hit_at_world(g) if g != null else null, "p": g}
+
+
+# ---------------- ship counters as 3D models, each with a faction flag ----------------
+func _ship_node(f: String, img: String, col: Color, robo: bool) -> Dictionary:
+	var kn := img.split("|")
+	var kind: String = kn[0]
+	var nm: String = kn[1] if kn.size() > 1 else ""
+	var m: Node3D = UnitModels.build(f, nm, kind)
+	var rad: float = float(m.get_meta("radius", 1.0))
+	var holder := Node3D.new()
+	var pivot := Node3D.new()
+	holder.add_child(pivot)
+	pivot.add_child(m)
+	# opaque-looking, but in the transparent pass so the painter's-order sorting above puts it in the right layer
+	for mi in m.find_children("*", "MeshInstance3D", true, false):
+		var inst: MeshInstance3D = mi
+		inst.sorting_use_aabb_center = false
+		inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if inst.material_override != null:
+			var mo = _shipmat(inst.material_override)
+			if mo != null: inst.material_override = mo
+		if inst.mesh == null: continue
+		for si in inst.mesh.get_surface_count():
+			var mt := inst.get_active_material(si)
+			var d = _shipmat(mt)
+			if d != null: inst.set_surface_override_material(si, d)
+	# the flag: a mast and a faction-coloured pennant (crew vehicles) or flag (robotic explorers), facing the camera
+	var flag := Node3D.new()
+	var fm := StandardMaterial3D.new()
+	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fm.albedo_color = col
+	fm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
+	var bm := StandardMaterial3D.new()
+	bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bm.albedo_color = Color(.95, .96, 1.0)
+	bm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
+	var mast := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = .018
+	cm.bottom_radius = .018
+	cm.height = 1.0
+	mast.mesh = cm
+	mast.material_override = bm
+	mast.position = Vector3(0, .5, 0)
+	flag.add_child(mast)
+	var fl := MeshInstance3D.new()
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var pts: Array = [Vector3(0, 1, 0), Vector3(.62, 1, 0), Vector3(.5, .84, 0), Vector3(.62, .68, 0), Vector3(0, .68, 0)] if not robo else [Vector3(0, 1, 0), Vector3(.5, 1, 0), Vector3(.5, .66, 0), Vector3(0, .66, 0)]
+	for i in range(1, pts.size() - 1):
+		for k in [0, i, i + 1]:
+			st.set_normal(Vector3(0, 0, 1))
+			st.add_vertex(pts[k])
+	fl.mesh = st.commit()
+	fl.material_override = fm
+	flag.add_child(fl)
+	# a thin white edge so the flag reads against dark space and against the ship's own colour
+	var edge := MeshInstance3D.new()
+	var st2 := SurfaceTool.new()
+	st2.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var pe: Array = [Vector3(0, 1.04, -.003), Vector3(.66, 1.04, -.003), Vector3(.66, .64, -.003), Vector3(0, .64, -.003)]
+	for i in range(1, pe.size() - 1):
+		for k in [0, i, i + 1]:
+			st2.set_normal(Vector3(0, 0, 1))
+			st2.add_vertex(pe[k])
+	edge.mesh = st2.commit()
+	edge.material_override = bm
+	flag.add_child(edge)
+	for mi2 in [mast, fl, edge]:
+		mi2.sorting_use_aabb_center = false
+		mi2.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	holder.add_child(flag)
+	_mroot.add_child(holder)
+	return {"h": holder, "p": pivot, "m": m, "flag": flag, "rad": rad, "meshes": holder.find_children("*", "MeshInstance3D", true, false)}
+
+## a copy of a model material for the map: in the transparent pass (so the painter's-order sorting layers it) and with the metal turned down
+func _shipmat(mt: Material):
+	if not (mt is BaseMaterial3D): return null
+	var d: BaseMaterial3D = mt.duplicate()
+	d.metallic = minf(d.metallic, .3)  # there is no reflected scene to metal against out here
+	d.roughness = maxf(d.roughness, .45)
+	if d.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED: d.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
+	return d
+
+func _ship(r: Dictionary, S: float) -> void:
+	var key: String = "%s|%s|%s" % [r.mf, r.img, r.col]
+	var lst: Array = _mpool.get(key, [])
+	var n: int = _mcount.get(key, 0)
+	_mcount[key] = n + 1
+	if lst.size() <= n:
+		var kind: String = String(r.img).split("|")[0]
+		lst.append(_ship_node(r.mf, r.img, Color(r.col), RoboModels.has(kind)))
+		_mpool[key] = lst
+	var e: Dictionary = lst[n]
+	var h: Node3D = e.h
+	var rw: float = r.w * S
+	var want: float = rw * .5 * (1.0 if r.small else 1.55)
+	var sc: float = want / maxf(e.rad, .05)
+	var bob := sin(T * 1.3 + r.x * .013 + r.y * .017) * 3 * S
+	var y: float = r.lift * S + rw * .5 + bob
+	h.position = Vector3(r.X, y, r.Z)
+	h.visible = true
+	# nose to the right of the screen, rolled a little towards the camera, drifting gently
+	var yaw := atan2(-rgt.z, rgt.x) + sin(T * .5 + r.x * .02) * .18
+	e.p.basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, .55) * Basis.from_scale(Vector3.ONE * sc)
+	var fh: float = rw * (.45 if r.small else .8)
+	e.flag.basis = Basis(rgt, cup, rgt.cross(cup)) * Basis.from_scale(Vector3.ONE * fh)
+	e.flag.position = cup * (want * .42) + rgt * (-want * .15)
+	var off: float = _calls.size() * 100000.0 - 50000.0
+	for mi in e.meshes: (mi as MeshInstance3D).sorting_offset = off
+	_mused.append(h)
+	var c = proj(r.X, y, r.Z)
+	var e2 = proj(r.X + rgt.x * rw * .5, y, r.Z + rgt.z * rw * .5)
+	if c != null and e2 != null: picks.append({"sx": c[0], "sy": c[1], "pr": maxf(Vector2(e2[0] - c[0], e2[1] - c[1]).length(), 6.0), "x": r.x, "y": r.y, "z": c[2], "rec": r})
