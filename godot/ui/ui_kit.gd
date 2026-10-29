@@ -202,11 +202,16 @@ static func pick(box: Node, items: Array, sel := 0) -> OptionButton:
 	box.add_child(o)
 	return o
 
-## resources as text with colours: 2 ORE + 1 SUP
+## resources as icons with counts: ore chunk, supply water drop, fuel flame (assets/icons, tools/make_res_icons.py)
+const RES_ICON := {"ORE": "res://assets/icons/res_ore.png", "SUP": "res://assets/icons/res_sup.png", "FUEL": "res://assets/icons/res_fuel.png"}
+const RES_NAME := {"ORE": "Ore", "SUP": "Supply", "FUEL": "Fuel"}
+static func res_icon(r: String, size := 20) -> String:
+	return "[img=%d]%s[/img]" % [size, RES_ICON[r]]
+
 static func res_bb(o) -> String:
 	var parts := []
-	var cols := {"ORE": "#e2e5f0", "SUP": "#8d89d6", "FUEL": "#e8702a"}
+	var cols := {"ORE": "#e2e5f0", "SUP": "#7cc4ff", "FUEL": "#ff9a3c"}
 	for r in ["ORE", "SUP", "FUEL"]:
 		var v := int(SHRules.gi(o, r, 0))
-		if v: parts.append("[color=%s]%d %s[/color]" % [cols[r], v, r])
-	return " + ".join(parts) if parts.size() else "nothing"
+		if v: parts.append("%s[color=%s]%d[/color]" % [res_icon(r), cols[r], v])
+	return "  ".join(parts) if parts.size() else "nothing"
