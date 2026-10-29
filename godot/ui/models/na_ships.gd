@@ -5,7 +5,7 @@
 class_name NAShips
 extends RefCounted
 
-## nose: ["ogive"|"needle", R, L] ["capsule", R, L] ["sail", W, L]
+## nose: ["ogive"|"needle", R, L] ["capsule", R, L] ["sail", W, L_front, L_back]
 ## mods: ["barrel", L, R] ["dark", L, R] ["ribbed", L, R] ["truss", L, R] ["bundle", n, tube_r]  (bundle wraps the previous barrel)
 ##       ["goldtanks", n, r] ["hexsolar", span, len] ["diamond", span, len] ["longsolar", span, w]
 ##       ["delta", span, chord] ["fin", span, chord]
@@ -21,7 +21,7 @@ const SPECS := {
 	"Enterprise": {"nose": ["ogive", 0.38, 0.7], "mods": [["barrel", 0.55, 0.38], ["ribbed", 1.1, 0.42]], "eng": 4},
 	"Atlantis": {"nose": ["capsule", 0.25, 0.45], "mods": [["barrel", 0.3, 0.24], ["ribbed", 1.2, 0.2], ["barrel", 0.4, 0.3]], "eng": 0},
 	"Polaris": {"nose": ["capsule", 0.25, 0.5], "mods": [["barrel", 0.35, 0.25], ["ribbed", 1.3, 0.2], ["barrel", 0.4, 0.3]], "eng": 0},
-	"Constitution": {"nose": ["sail", 0.8, 0.9], "mods": [["truss", 1.0, 0.17], ["ribbed", 0.6, 0.2], ["barrel", 0.45, 0.3]], "eng": 0},
+	"Constitution": {"nose": ["sail", 0.5, 0.55, 0.4], "mods": [["ribbed", 1.1, 0.22], ["truss", 0.35, 0.1], ["barrel", 0.45, 0.28], ["bundle", 6, 0.07]], "eng": 0},
 	"Intrepid": {"nose": ["capsule", 0.26, 0.5], "mods": [["barrel", 0.3, 0.26], ["ribbed", 1.2, 0.22], ["barrel", 0.45, 0.3]], "eng": 0},
 }
 
@@ -138,31 +138,43 @@ static func _longsolar(p: Node3D, x: float, R: float, span: float, w: float) -> 
 		AsiaShips._plate(n, pts, 0.03, _panel_mat(w, span))
 		OrionCV2._strut(p, Vector3(x, 0, 0), Vector3(x, 0, s * (R + 0.05)), 0.02, dsteel)
 
-static func _sail(p: Node3D, xf: float, W: float, L: float) -> float:
-	# square pyramid sail, diamond-oriented, lattice faces
-	var brown := UnitModels.panel_mat(Color("#8a5a2a"), Vector2(6, 6)).duplicate() as StandardMaterial3D
-	brown.cull_mode = BaseMaterial3D.CULL_DISABLED
+static func _sail(p: Node3D, W: float, Lf: float, Lb: float, hull: Material) -> float:
+	## Lens-shaped (double-cone) ribbed sail like the token art: white panels between black meridian ribs and hoops.
+	## The tip is at x=0, the widest ring at x=-Lf; returns the x of the rear end.
+	var dark := _m(Color("#1b1c20"), 0.5, 0.5)
 	var steel := _m(Color("#aeb3ba"), 0.85, 0.3)
 	var gold := _m(GOLD, 0.9, 0.3)
-	var apex := Vector3(xf + L, 0, 0)
-	var cs: Array = []
-	for k in 4:
-		var a := k * PI * 0.5
-		cs.append(Vector3(xf, W * sin(a), W * cos(a)))
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for k in 4:
-		var a: Vector3 = cs[k]
-		var b: Vector3 = cs[(k + 1) % 4]
-		var mid := (a + b) * 0.5
-		OrionCV2._tri(st, apex, a, b, Vector3(0.4, mid.y, mid.z), Vector2(0.5, 0), Vector2(0, 1), Vector2(1, 1), -1)
-	OrionCV2._commit(st, p, brown)
-	for k in 4:
-		OrionCV2._strut(p, apex, cs[k], 0.012, steel)
-		OrionCV2._strut(p, cs[k], cs[(k + 1) % 4], 0.012, steel)
-		UnitModels.ball(p, 0.02, gold, cs[k])
-	UnitModels.ball(p, 0.03, gold, apex)
-	return 0.0
+	var prof: Array = []
+	var nf := 10
+	var nb := 8
+	for i in nf + 1:
+		var u := float(i) / nf
+		prof.append(Vector2(-Lf * u, W * pow(u, 0.95) + 0.001))
+	for j in range(1, nb + 1):
+		var v := float(j) / nb
+		prof.append(Vector2(-Lf - Lb * v, W * (1.0 - 0.88 * pow(v, 1.35)) * cos(v * PI * 0.18)))
+	OrionCV2._lathe(p, prof, 16, hull, Vector3.ZERO)
+	var ribs := 12
+	for k in ribs:
+		var a := k * TAU / ribs
+		for i in range(0, prof.size() - 1, 1):
+			var p0: Vector2 = prof[i]
+			var p1: Vector2 = prof[i + 1]
+			if p0.y < 0.02 and i == 0: continue
+			OrionCV2._strut(p, Vector3(p0.x, p0.y * 1.012 * sin(a), p0.y * 1.012 * cos(a)), Vector3(p1.x, p1.y * 1.012 * sin(a), p1.y * 1.012 * cos(a)), 0.012, dark)
+	for hx in [-Lf * 0.5, -Lf, -Lf - Lb * 0.5]:
+		var rr := W
+		for q in prof.size() - 1:
+			var p0: Vector2 = prof[q]
+			var p1: Vector2 = prof[q + 1]
+			if hx <= p0.x and hx >= p1.x:
+				rr = lerpf(p0.y, p1.y, (p0.x - hx) / maxf(p0.x - p1.x, 0.001))
+		UnitModels.ring(p, rr, rr + 0.03, dark, Vector3(hx, 0, 0), Vector3(0, 0, PI / 2))
+	# tip spike and rear collar
+	OrionCV2._strut(p, Vector3(0, 0, 0), Vector3(0.22, 0, 0), 0.01, steel)
+	UnitModels.ball(p, 0.022, gold, Vector3(0.22, 0, 0))
+	UnitModels.cylx(p, 0.07, 0.07, 0.1, _m(Color("#6c7077"), 0.8, 0.4), Vector3(-Lf - Lb - 0.03, 0, 0), 16)
+	return -Lf - Lb - 0.08
 
 static func _plume(p: Node3D, x: float, R: float, hull: Material) -> void:
 	var tr := R * 0.75
@@ -190,11 +202,7 @@ static func build(name: String) -> Node3D:
 	var x := 0.0
 	match nose[0]:
 		"sail":
-			_sail(core, -0.1, nose[1], nose[2])
-			x = -0.1
-			# short neck from the sail into the truss
-			AsiaShips._conn(core, x, 0.1, 0.1)
-			x -= 0.1
+			x = _sail(core, nose[1], nose[2], nose[3], hull)
 			R = 0.2
 		"capsule":
 			x = -nose[2]
