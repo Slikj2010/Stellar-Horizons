@@ -1735,7 +1735,7 @@ func _ship(r: Dictionary, S: float) -> void:
 	var h: Node3D = e.h
 	var rw: float = r.w * S
 	var want: float = rw * .5 * (1.0 if r.small else 1.55)
-	var sc: float = want / maxf(e.rad, .05)
+	var sc: float = want / maxf(e.rad, .05) * (1.45 if RoboModels.has(String(r.img).split("|")[0]) else 1.0)
 	var bob := sin(T * 1.3 + r.x * .013 + r.y * .017) * 3 * S
 	var y: float = r.lift * S + rw * .5 + bob
 	h.position = Vector3(r.X, y, r.Z)
@@ -1743,9 +1743,9 @@ func _ship(r: Dictionary, S: float) -> void:
 	# nose to the right of the screen, rolled a little towards the camera, drifting gently
 	# the ship keeps its heading in the world (it does not turn with the camera); its facing can be flipped on the Selected tab
 	var robo: bool = RoboModels.has(String(r.img).split("|")[0])
-	var yaw := (PI if int(r.get("face", 1)) < 0 else 0.0) + (PI / 2 if robo else 0.0) + sin(T * .5 + r.x * .02) * .18
+	var yaw := (PI if int(r.get("face", 1)) < 0 else 0.0) + (PI / 2 - 0.6 if robo else 0.0) + sin(T * .5 + r.x * .02) * .18
 	# seen from the side, like the printed counter, with just a little of the top: the ship leans back by the camera's pitch
-	e.p.basis = Basis(Vector3.RIGHT, -(C.pitch - .3)) * Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * sc)
+	e.p.basis = Basis(Vector3.RIGHT, -(C.pitch - (.65 if robo else .3))) * Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * sc)
 	var fh: float = rw * (.35 if r.small else .55)
 	e.flag.basis = Basis(rgt, cup, rgt.cross(cup)) * Basis.from_scale(Vector3.ONE * fh)
 	e.flag.position = cup * (want * .42) + rgt * (-want * .15)
