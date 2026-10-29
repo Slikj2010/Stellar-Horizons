@@ -130,6 +130,28 @@ static func _plane(core: Node3D, name: String, hull: Material) -> float:
 		OrionCV2._strut(core, Vector3(x0, 0, sg * zr), Vector3(tipx, 0, sg * (zr + span)), 0.014, gold)
 	return -L
 
+## tail engines from the sheet: a short dark housing, a big cylindrical central nozzle and two flared gold-lipped bells splayed outward
+static func _plane_engines(core: Node3D, x: float) -> void:
+	var bk := _m(Color("#1c1d21"), 0.7, 0.4)
+	var inner := _m(Color("#08090b"), 0.4, 0.4)
+	var gold := _m(GOLD, 0.9, 0.3)
+	var steel := _m(Color("#5b5f66"), 0.8, 0.38)
+	OrionCV2._rbox(core, Vector3(0.3, 0.3, 0.78), _m(Color("#2a2c31"), 0.7, 0.45), Vector3(x - 0.1, 0, 0), 4.0, 10)
+	AsiaShips._gold_ring(core, x - 0.01, 0.2, 0.01)
+	var ex := x - 0.22
+	var out: Array = [Vector2(0.0, 0.14), Vector2(-0.04, 0.18), Vector2(-0.34, 0.19), Vector2(-0.36, 0.175)]
+	var inn: Array = [Vector2(0.0, 0.132), Vector2(-0.04, 0.172), Vector2(-0.34, 0.182), Vector2(-0.36, 0.17)]
+	OrionCV2._lathe(core, out, 32, bk, Vector3(ex, 0, 0))
+	OrionCV2._lathe(core, inn, 32, inner, Vector3(ex, 0, 0), true)
+	UnitModels.ring(core, 0.175, 0.2, gold, Vector3(ex - 0.355, 0, 0), Vector3(0, 0, PI / 2))
+	for sg in [-1.0, 1.0]:
+		var n := Node3D.new()
+		n.position = Vector3(ex + 0.04, 0, sg * 0.3)
+		n.rotation = Vector3(0, -sg * 0.3, 0)
+		core.add_child(n)
+		AsiaShips._bell(n, Vector3.ZERO, 0.15)
+		OrionCV2._strut(core, Vector3(x - 0.02, 0, sg * 0.18), Vector3(ex + 0.02, 0, sg * 0.3), 0.012, steel)
+
 static func build(name: String) -> Node3D:
 	var spec: Dictionary = SPECS[name]
 	var plane: bool = spec.get("kind", "") == "plane"
@@ -143,7 +165,7 @@ static func build(name: String) -> Node3D:
 	AsiaShips.trim_col = LAMP
 	if plane:
 		var px := _plane(core, name, hull)
-		AsiaShips._engines(core, px, 0.27, 1, hull)
+		_plane_engines(core, px)
 		AsiaShips.trim_col = Color("#58b8ff")
 		var pb := UnitModels._bounds(core)
 		core.position = -pb.get_center()
