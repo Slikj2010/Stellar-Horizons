@@ -284,9 +284,10 @@ func free_angle(want: float, taken: Array, sep: float, w: String) -> float:
 			if ok and (pass_ == 1 or w == "" or not ring_blocked(w, a)): return a
 	return want
 ## angle of each counter on a world's orbit ring
+var _ck := 1.0  ## 2.5D: how much smaller the counters at a crowded location are drawn
 func ring_layout(w: String, lst: Array) -> Dictionary:
 	var Rr := ring_of(w)
-	var sep := 2 * asin(minf(1, (CS + 8) / 2 / Rr.r))
+	var sep := 2 * asin(minf(1, (CS * _ck + 8) / 2 / Rr.r))
 	var out := {}
 	var taken := []
 	var order := lst.filter(func(s): return s.get("ang") != null) + lst.filter(func(s): return s.get("ang") == null)
@@ -312,29 +313,31 @@ func draw_frame(tex: Texture2D, fr, p: Vector2, size: float, rot := 0.0, mod := 
 func unit_frame(f: String, key: String):
 	return atl[f].fr.get(key)
 ## 2.5D view: a ship counter as its 3D model, with the owner's colour on its flag, a ring on the ground and a name under it
-func _ship_tag(f: String, s: Dictionary, c: Vector2, strong: bool, ready: bool) -> void:
+func _ship_tag(f: String, s: Dictionary, c: Vector2, strong: bool, ready: bool, k := 1.0, n := 1) -> void:
 	var col: String = Game.data.D.FAC[f].c
-	R.model(f, s.img, c.x, c.y, CS, col, false, int(s.get("face", 1)))
+	var cs := CS * k
+	R.model(f, s.img, c.x, c.y, cs, col, false, int(s.get("face", 1)))
 	var kn: PackedStringArray = String(s.img).split("|")
 	var own: bool = f == Game.G.f
 	var sel: bool = own and strong
-	R.ring(c.x, c.y, CS * .58, col, 4 if sel else 2)
+	R.ring(c.x, c.y, cs * .58, col, 4 if sel else 2)
 	var nm: String = kn[1] if kn.size() > 1 else kn[0]
-	var robo := not kn[0].begins_with("CV-")
-	R.text(nm, c.x, c.y + CS * .78, 12, "#ffffff" if own else col)
-	R.text(("%s · %s" % [kn[0], String(Game.data.D.FAC[f].get("n", f))]) if not own else kn[0], c.x, c.y + CS * .78 + 13, 9, col)
-
+	# labels thin out as a location fills up: name and kind, then the name alone, then only the selected ship's
+	if n <= 4 or sel:
+		var fs := 12 if n <= 2 else 10
+		R.text(nm, c.x, c.y + cs * .78, fs, "#ffffff" if own else col)
+		if n <= 2: R.text(("%s · %s" % [kn[0], String(Game.data.D.FAC[f].get("n", f))]) if not own else kn[0], c.x, c.y + cs * .78 + 13, 9, col)
 	# what the hold carries, next to the ship: one coloured line per resource, and the load
-	if own and SHRules.t(s.get("cap")):
+	if own and SHRules.t(s.get("cap")) and (n <= 2 or sel):
 		var cap: int = int(s.cap * Game.E.cargoMul(Game.G))
 		var used: int = int(Game.E.sum(s.cargo))
-		var y0 := c.y - CS * .3
-		R.text("hold %d/%d" % [used, cap], c.x + CS * .66, y0, 10, "#ff9a3c" if used >= cap else "#9fe3b4", "left")
+		var y0 := c.y - cs * .3
+		R.text("hold %d/%d" % [used, cap], c.x + cs * .66, y0, 10, "#ff9a3c" if used >= cap else "#9fe3b4", "left")
 		var cols := {"ORE": "#e2e5f0", "SUP": "#7cc4ff", "FUEL": "#ff9a3c"}
 		var j := 1
 		for r in ["ORE", "SUP", "FUEL"]:
 			if int(s.cargo[r]) > 0:
-				R.text("%s %d" % [r, int(s.cargo[r])], c.x + CS * .66, y0 + 12 * j, 10, cols[r], "left")
+				R.text("%s %d" % [r, int(s.cargo[r])], c.x + cs * .66, y0 + 12 * j, 10, cols[r], "left")
 				j += 1
 
 func draw_box(p: Vector2, size: float, col: Color, w := 3.0, rot := 0.0) -> void:
@@ -573,12 +576,16 @@ func paint_objects() -> void:
 		var p := pos_of(loc)
 		var cols := mini(lst.size(), 3)
 		var lp := E.P(loc)
+		var nl: int = lst.size()
+		var ck := 1.0
+		if R != null: ck = 1.0 if nl <= 1 else (.8 if nl == 2 else (.68 if nl <= 4 else (.58 if nl <= 6 else .48)))
+		_ck = ck
 		var RL = ring_layout(lp.w, lst.filter(func(x): return not (drag_id != null and not owner.has(x) and SHRules.eq(x.id, drag_id)))) if (lp.t == "orbit" and geo.worlds.has(lp.w)) else null
 		var i := -1
 		for s in lst:
 			i += 1
 			if drag_id != null and not owner.has(s) and SHRules.eq(s.id, drag_id): continue
-			var c := p + Vector2(((i % 3) - (cols - 1) / 2.0) * (CS + 4), floorf(i / 3.0) * (CS + 4))
+			var c := p + Vector2(((i % 3) - (cols - 1) / 2.0) * (CS * ck + 4), floorf(i / 3.0) * (CS * ck + 4))
 			if lp.t == "orbit" and geo.worlds.has(lp.w):
 				var Rr := ring_of(lp.w)
 				var a: float = RL[s]
@@ -589,14 +596,21 @@ func paint_objects() -> void:
 				rot = B.a
 				var off := (i - (lst.size() - 1) / 2.0) * 9
 				c = B.c + Vector2(off * cos(rot) - off * .6 * sin(rot), off * sin(rot) + off * .6 * cos(rot))
+				if R != null and nl > 1:
+					# 2.5D: the counters fill the box in a tidy grid, turned with the box
+					var bc := 2 if nl == 4 else mini(nl, 3)
+					var br := ceili(nl / float(bc))
+					var gx := ((i % bc) - (bc - 1) / 2.0) * CS * ck * .95
+					var gy := (floorf(i / float(bc)) - (br - 1) / 2.0) * CS * ck * .8
+					c = B.c + Vector2(gx * cos(rot) - gy * sin(rot), gx * sin(rot) + gy * cos(rot))
 			elif lp.t == "surf" and geo.worlds.has(lp.w) and not geo.worlds[lp.w].has("spoly"):
 				var Rr := ring_of(lp.w)
-				c = Rr.c + Vector2(((i % 3) - (cols - 1) / 2.0) * (CS + 4), floorf(i / 3.0) * (CS + 4))
+				c = Rr.c + Vector2(((i % 3) - (cols - 1) / 2.0) * (CS * ck + 4), floorf(i / 3.0) * (CS * ck + 4))
 			if owner.has(s):
 				var of: String = owner[s]
 				if R != null: R.ring(c.x, c.y, CS * .62, D.FAC[of].c, 3)
 				draw_box(c, CS + 6, Color(D.FAC[of].c), 3, rot)
-				if R != null: _ship_tag(of, s, c, true, false)
+				if R != null: _ship_tag(of, s, c, true, false, ck, nl)
 				else: draw_frame(atl[of].tex, unit_frame(of, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
 				hits.append({"t": "oship", "f": of, "id": s.id, "c": c, "r": CS / 2, "img": s.img})
 				continue
@@ -604,7 +618,7 @@ func paint_objects() -> void:
 			var is_sel: bool = sel != null and sel.t == "ship" and SHRules.eq(sel.get("id"), s.id)
 			if R != null and (ready or is_sel): R.ring(c.x, c.y, CS * .62, "#e8702a" if is_sel else "#ced1dd", 3)
 			if ready or is_sel: draw_box(c, CS + 8, C_SEL if is_sel else C_READY, 3, rot)
-			if R != null: _ship_tag(G.f, s, c, is_sel, ready)
+			if R != null: _ship_tag(G.f, s, c, is_sel, ready, ck, nl)
 			else: draw_frame(atl[G.f].tex, unit_frame(G.f, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
 			if SHRules.t(s.dmg): text("▼%d" % s.dmg, c + Vector2(22, -24), 13, Color("#e0508f"))
 			if SHRules.t(s.get("hold")): text("+%d" % s.hold, c + Vector2(22, 24), 13, C_SEL)
@@ -612,6 +626,7 @@ func paint_objects() -> void:
 				if R != null: R.model(G.f, "Probe|" + s.probe, c.x - 24, c.y + 24, 24, D.FAC[G.f].c, true, int(s.get("face", 1)))
 				else: draw_frame(atl[G.f].tex, unit_frame(G.f, "Probe|" + s.probe), c + Vector2(-24, 24), 24)
 			hits.append({"t": "ship", "id": s.id, "c": c, "r": CS / 2, "f": G.f, "img": s.img})
+	_ck = 1.0
 	# move targets (the 2.5D view draws its own)
 	if targets.size() and R == null:
 		var seen := {}

@@ -1734,8 +1734,8 @@ func _ship(r: Dictionary, S: float) -> void:
 	var e: Dictionary = lst[n]
 	var h: Node3D = e.h
 	var rw: float = r.w * S
-	var want: float = rw * .5 * (1.0 if r.small else 1.55)
-	var sc: float = want / maxf(e.rad, .05) * (2.5 if RoboModels.has(String(r.img).split("|")[0]) else 1.0)
+	var want: float = rw * .5 * (1.0 if r.small else 1.18)
+	var sc: float = want / maxf(e.rad, .05) * (1.0 if RoboModels.has(String(r.img).split("|")[0]) else 1.0)
 	var bob := sin(T * 1.3 + r.x * .013 + r.y * .017) * 3 * S
 	var y: float = r.lift * S + rw * .5 + bob
 	h.position = Vector3(r.X, y, r.Z)
