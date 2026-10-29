@@ -77,6 +77,59 @@ static func _tankset(p: Node3D, xf: float, L: float, r: float, sp: float, hull: 
 		for sz in [-1.0, 1.0]:
 			AsiaShips._bell(p, Vector3(xf - L - 0.01, sy * sp, sz * sp), r * 0.72)
 
+## lifting-body spaceplane from the Mistral / Pegasus tokens: fat tapered fuselage, short swept-back trapezoid wings with
+## canted winglets at the tips, three dark cockpit windows, one big bell.  Returns the x of the tail.
+static func _plane(core: Node3D, name: String, hull: Material) -> float:
+	var peg := name == "Pegasus"
+	var R := 0.4
+	var L := 2.9 if not peg else 3.0
+	var body := Node3D.new()
+	body.scale = Vector3(1, 0.62, 1)
+	core.add_child(body)
+	var pts: Array = []
+	var n := 24
+	for i in n + 1:
+		var u := float(i) / n
+		var r := R * pow(sin(minf(u / 0.62, 1.0) * PI * 0.5), 0.85)
+		if u > 0.82:
+			r *= 1.0 - 0.3 * (u - 0.82) / 0.18
+		pts.append(Vector2(-L * u, r + 0.001))
+	OrionCV2._lathe(body, pts, 40, hull, Vector3.ZERO)
+	AsiaShips._gold_ring(body, -L * 0.62, R * 0.99, 0.012)
+	AsiaShips._gold_ring(body, -L * 0.9, R * 0.76, 0.012)
+	var glass := _m(Color("#14181f"), 0.7, 0.2, 0.3)
+	var gold := _m(GOLD, 0.8, 0.35)
+	for k in 3:
+		var f := OrionCV2._radial(body, -L * (0.5 + 0.05 * k), PI * 0.5, R * 0.99)
+		UnitModels.ball(f, 0.05, glass, Vector3(0, 0.0, 0), Vector3(1.0, 0.4, 1.0))
+	# wings: root ahead of the tail, leading edge swept back, small tip winglets
+	var x0 := -L * 0.46
+	var rc := 1.15 if not peg else 1.3
+	var span := 0.7 if not peg else 0.85
+	var tipx := x0 - (0.75 if not peg else 0.8)
+	var tc := 0.35
+	var zr := R * 0.55
+	for sg in [-1.0, 1.0]:
+		var wp := PackedVector2Array([Vector2(x0, sg * zr), Vector2(x0 - rc, sg * zr), Vector2(tipx - tc, sg * (zr + span)), Vector2(tipx, sg * (zr + span))])
+		if sg < 0:
+			wp.reverse()
+		AsiaShips._plate(core, wp, 0.05, hull)
+		var tn := Node3D.new()
+		tn.position = Vector3(tipx, 0, sg * (zr + span))
+		core.add_child(tn)
+		for up in [-1.0, 1.0]:
+			var wl := Node3D.new()
+			wl.rotation = Vector3(up * PI * 0.5 * sg, 0, 0)
+			tn.add_child(wl)
+			var h := 0.32 if (up > 0 or peg) else 0.16
+			var fin := PackedVector2Array([Vector2(0.02, 0), Vector2(-tc, 0), Vector2(-tc - 0.12, h), Vector2(-0.1, h)])
+			if sg * up * sg < 0:
+				pass
+			AsiaShips._plate(wl, fin, 0.035, gold)
+		# gold leading-edge strut
+		OrionCV2._strut(core, Vector3(x0, 0, sg * zr), Vector3(tipx, 0, sg * (zr + span)), 0.014, gold)
+	return -L
+
 static func build(name: String) -> Node3D:
 	var spec: Dictionary = SPECS[name]
 	var plane: bool = spec.get("kind", "") == "plane"
@@ -88,6 +141,14 @@ static func build(name: String) -> Node3D:
 	var hull := _hull_mat(name)
 	var steel := _m(Color("#9aa0a8"), 0.85, 0.3)
 	AsiaShips.trim_col = LAMP
+	if plane:
+		var px := _plane(core, name, hull)
+		AsiaShips._engines(core, px, 0.27, 1, hull)
+		AsiaShips.trim_col = Color("#58b8ff")
+		var pb := UnitModels._bounds(core)
+		core.position = -pb.get_center()
+		root.set_meta("radius", maxf(pb.size.length() * 0.5, 0.3))
+		return root
 	var nose: Array = spec["nose"]
 	var x: float = -nose[1]
 	var body := core
