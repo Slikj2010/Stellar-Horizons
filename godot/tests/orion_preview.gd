@@ -15,13 +15,13 @@ func _ready() -> void:
 	env.background_color = Color("#06080d")
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color("#7080b0")
-	env.ambient_light_energy = 0.5
+	env.ambient_light_energy = 0.4
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	var we := WorldEnvironment.new()
 	we.environment = env
 	svp.add_child(we)
 	var key := DirectionalLight3D.new()
-	key.light_energy = 1.7
+	key.light_energy = 1.5
 	key.rotation = Vector3(-0.6, 0.7, 0)
 	svp.add_child(key)
 	var fill := DirectionalLight3D.new()
