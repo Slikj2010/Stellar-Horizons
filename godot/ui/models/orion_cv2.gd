@@ -225,7 +225,7 @@ static func build() -> Node3D:
 	var red := _m(Color("#d9322b"), 0.1, 0.5, 0.9)
 	var yel := _m(Color("#f0c418"), 0.1, 0.5, 0.9)
 	var tan := _m(Color("#b9a67c"), 0.3, 0.6)
-	var orange := Color("#cf6a35")
+	var orange := Color("#212327")   ## painted bands are black
 
 	# --- capsule: grey painted cone with orange bands and panel seams (v runs nose -> base)
 	var cap_mat := _smat("cap", 640, 320, {
@@ -313,20 +313,32 @@ static func build() -> Node3D:
 	var tail := -0.1 - SM_L
 	UnitModels.cylx(core, SM_R * 0.9, SM_R * 0.62, 0.22, _smat("skirt", 256, 128, {"base": Color("#a9adb3"), "seed": 31, "cols": 8, "rows": [], "grime": 0.6}), Vector3(tail - 0.13, 0, 0), 32)
 	UnitModels.cylx(core, SM_R * 0.62, SM_R * 0.62, 0.025, yel, Vector3(tail - 0.02, 0, 0), 32)
-	for s in [-1.0, 1.0]:
-		var by: float = s * 0.26
-		var x0 := tail - 0.24
-		UnitModels.cylx(core, 0.1, 0.1, 0.12, steel, Vector3(x0 - 0.03, by, 0), 20)
-		# ribbed bell: stepped cones
-		var rr := 0.1
-		var xx := x0 - 0.1
-		for i in 7:
-			var r2 := rr + 0.025 + i * 0.006
-			UnitModels.cylx(core, rr, r2, 0.07, _m(Color("#3b3d41"), 0.7, 0.4), Vector3(xx - 0.035, by, 0), 24)
-			UnitModels.cylx(core, r2 + 0.006, r2 + 0.006, 0.012, _m(Color("#56595f"), 0.8, 0.35), Vector3(xx - 0.07, by, 0), 24)
-			rr = r2
-			xx -= 0.075
-		UnitModels.cylx(core, rr - 0.012, rr - 0.012, 0.01, _m(Color("#8fd6ff"), 0.0, 0.3, 1.0), Vector3(xx + 0.04, by, 0), 20)
+	# four ribbed bells in a 2x2 square, spaced so neighbouring bells never touch
+	for sy in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			var by: float = sy * 0.2
+			var bz: float = sz * 0.2
+			var x0 := tail - 0.24
+			UnitModels.cylx(core, 0.06, 0.06, 0.1, steel, Vector3(x0 - 0.02, by, bz), 16)
+			var rr := 0.05
+			var xx := x0 - 0.07
+			for i in 5:
+				var r2 := rr + 0.016 + i * 0.003
+				UnitModels.cylx(core, rr, r2, 0.06, _m(Color("#3b3d41"), 0.7, 0.4), Vector3(xx - 0.03, by, bz), 20)
+				UnitModels.cylx(core, r2 + 0.004, r2 + 0.004, 0.01, _m(Color("#56595f"), 0.8, 0.35), Vector3(xx - 0.06, by, bz), 20)
+				rr = r2
+				xx -= 0.065
+			UnitModels.cylx(core, rr - 0.01, rr - 0.01, 0.008, _m(Color("#8fd6ff"), 0.0, 0.3, 1.0), Vector3(xx + 0.035, by, bz), 16)
+	# swept wings above and below the aft end, just before the engines
+	var wing_mat := _smat("wing", 512, 256, {"base": Color("#a2a6ad"), "seed": 41, "cols": 8, "rows": [0.5], "grime": 1.0}, 0.3, 0.55)
+	for sy in [-1.0, 1.0]:
+		var wroot := UnitModels.box(core, Vector3(0.62, 0.34, 0.035), wing_mat, Vector3(tail - 0.02, sy * 0.72, 0))
+		var tip := UnitModels.box(core, Vector3(0.38, 0.3, 0.035), wing_mat, Vector3(tail - 0.14, sy * 1.0, 0))
+		wroot.name = "Wing"
+		tip.name = "WingTip"
+		UnitModels.box(core, Vector3(0.62, 0.03, 0.07), steel, Vector3(tail - 0.02, sy * 0.55, 0))
+		UnitModels.box(core, Vector3(0.38, 0.03, 0.06), steel, Vector3(tail - 0.14, sy * 1.15, 0))
+		UnitModels.box(core, Vector3(0.05, 0.3, 0.07), steel, Vector3(tail + 0.3, sy * 0.72, 0), Vector3(0, 0, sy * 0.0))
 	# red wiring and a tan hose along the skirt
 	for i in 3:
 		var a := 0.4 + i * 0.12
