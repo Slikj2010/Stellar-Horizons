@@ -11,7 +11,7 @@ extends RefCounted
 const SPECS := {
 	"Empressa": {"nose": ["ogive", 0.3, 0.6, "black"], "mods": [["barrel", 0.6, 0.32], ["barrel", 0.5, 0.34], ["mast"]], "eng": 3},
 	"Estrella": {"nose": ["ogive", 0.3, 0.55, "black"], "mods": [["barrel", 0.6, 0.32], ["panelsv", 0.75, 0.45], ["barrel", 0.45, 0.34]], "eng": 3},
-	"Amazon": {"nose": ["ogive", 0.34, 0.4, "redcap"], "mods": [["barrel", 1.2, 0.35], ["panelsv", 0.45, 1.1], ["barrel", 0.9, 0.34], ["barrel", 0.4, 0.3]], "eng": 3},
+	"Amazon": {"nose": ["ogive", 0.34, 0.4, "redcap"], "mods": [["barrel", 1.2, 0.35], ["barrel", 1.05, 0.35], ["panelsv", 0.45, 1.1], ["barrel", 0.35, 0.31]], "eng": 1},
 	"Barroso": {"nose": ["needle", 0.3, 0.9, "grey"], "mods": [["barrel", 1.0, 0.34], ["panelsv", 0.5, 0.7]], "eng": 3},
 	"Helios": {"nose": ["sphere", 0.22], "mods": [["truss", 0.5, 0.1], ["barrel", 0.5, 0.3], ["panelsv", 0.6, 0.5], ["barrel", 0.45, 0.32]], "eng": 3},
 	"Bantu": {"nose": ["ogive", 0.26, 0.6, "black"], "mods": [["barrel", 0.45, 0.22], ["truss", 0.45, 0.13], ["hub", 0.5, 0.3], ["panels", 0.7, 0.35], ["panelsv", 0.7, 0.35]], "eng": 4},
