@@ -12,14 +12,14 @@ extends RefCounted
 const SPECS := {
 	"Kliper": {"nose": ["sphere", 0.36], "mods": [["neck"], ["barrel", 0.5, 0.3], ["truss", 0.45, 0.3], ["barrel", 0.5, 0.31]]},
 	"Renda": {"nose": ["sphere", 0.34], "mods": [["neck"], ["barrel", 0.4, 0.28], ["barrel", 0.8, 0.31], ["barrel", 0.3, 0.29]]},
-	"Leonov": {"nose": ["sphere", 0.34], "mods": [["sphere2", 0.34], ["barrel", 0.9, 0.32], ["panelsv", 0.4, 0.6]]},
-	"Titov": {"nose": ["sphere", 0.3], "mods": [["neck"], ["barrel", 0.4, 0.28], ["truss", 1.0, 0.32], ["panelsv", 0.5, 1.0], ["barrel", 0.3, 0.3]]},
+	"Leonov": {"nose": ["sphere", 0.34], "mods": [["sphere2", 0.34], ["barrel", 0.9, 0.32], ["panelsv", 0.4, 0.6]], "eng": 2},
+	"Titov": {"nose": ["sphere", 0.3], "mods": [["neck"], ["barrel", 0.4, 0.28], ["truss", 1.0, 0.32], ["panelsv", 0.5, 1.0], ["barrel", 0.3, 0.3]], "eng": 2},
 	"Gagarin": {"nose": ["sphere", 0.32], "mods": [["neck"], ["barrel", 0.5, 0.22], ["spheres", 0.5, 0.26], ["barrel", 0.6, 0.27], ["panels", 0.35, 0.3], ["panelsv", 0.35, 0.3]]},
 	"Tereshkova": {"nose": ["sphere", 0.3], "mods": [["neck"], ["barrel", 0.6, 0.24], ["spheres", 0.5, 0.26], ["barrel", 0.5, 0.27], ["panels", 0.35, 0.3], ["panelsv", 0.35, 0.3]]},
-	"Korolev": {"nose": ["sphere", 0.38], "mods": [["neck"], ["barrel", 0.5, 0.3], ["cells", 0.9, 0.3], ["barrel", 0.5, 0.32], ["panelsv", 0.45, 0.45]]},
-	"Tsiolkovsky": {"nose": ["sphere", 0.36], "mods": [["neck"], ["barrel", 0.5, 0.29], ["cells", 1.0, 0.3], ["barrel", 0.5, 0.32], ["panelsv", 0.45, 0.45]]},
-	"Kuznetsov": {"nose": ["sphere", 0.4], "mods": [["neck"], ["barrel", 0.9, 0.32], ["cells", 0.8, 0.3], ["drum", 0.5, 0.42]]},
-	"Pyotr Velikiy": {"nose": ["sphere", 0.42], "mods": [["neck"], ["barrel", 1.0, 0.33], ["barrel", 0.7, 0.33], ["cells", 0.8, 0.31], ["drum", 0.6, 0.46]]},
+	"Korolev": {"nose": ["sphere", 0.38], "mods": [["neck"], ["barrel", 0.5, 0.3], ["cells", 0.9, 0.3], ["barrel", 0.5, 0.32], ["panelsv", 0.45, 0.45]], "eng": 2},
+	"Tsiolkovsky": {"nose": ["sphere", 0.36], "mods": [["neck"], ["barrel", 0.5, 0.29], ["cells", 1.0, 0.3], ["barrel", 0.5, 0.32], ["panelsv", 0.45, 0.45]], "eng": 2},
+	"Kuznetsov": {"nose": ["sphere", 0.4], "mods": [["neck"], ["barrel", 0.9, 0.32], ["cells", 0.8, 0.3], ["drum", 0.5, 0.42]], "eng": 3},
+	"Pyotr Velikiy": {"nose": ["sphere", 0.42], "mods": [["neck"], ["barrel", 1.0, 0.33], ["barrel", 0.7, 0.33], ["cells", 0.8, 0.31], ["drum", 0.6, 0.46]], "eng": 3},
 	"Komarov": {"kind": "plane", "nose": ["needle", 0.2, 1.1], "mods": [["barrel", 0.9, 0.2], ["delta", 0.85, 1.0], ["tall", 0.55, 0.5]]},
 	"Volkov": {"kind": "plane", "nose": ["needle", 0.2, 1.1], "mods": [["barrel", 0.8, 0.2], ["delta", 0.75, 1.1], ["tall", 0.7, 0.55]]},
 	"Moskva": {"kind": "plane", "nose": ["needle", 0.34, 1.2], "mods": [["barrel", 1.4, 0.36], ["delta", 1.0, 1.2], ["tall", 0.6, 0.6]]},
@@ -87,6 +87,23 @@ static func _spheres(p: Node3D, xf: float, L: float, R: float, hull: Material) -
 
 static func _panel(p: Node3D, x: float, R: float, span: float, w: float, vertical: bool) -> void:
 	SAShips._array(p, x, R, span, w, vertical)
+
+static func _bell(core: Node3D, ex: float, oy: float, oz: float, rm: float) -> void:
+	var bk := _m(Color("#1c1d21"), 0.7, 0.4)
+	var prof: Array = []
+	var inprof: Array = []
+	for i in 13:
+		var tt := float(i) / 12.0
+		var r := 0.04 * rm / 0.15 + (rm - 0.04 * rm / 0.15) * pow(tt, 0.7)
+		prof.append(Vector2(-tt * 0.5 * rm / 0.15, r))
+		inprof.append(Vector2(-tt * 0.5 * rm / 0.15, r - 0.008))
+	var at := Vector3(ex, oy, oz)
+	OrionCV2._lathe(core, prof, 28, bk, at)
+	OrionCV2._lathe(core, inprof, 28, _m(Color("#08090b"), 0.4, 0.4), at, true)
+	for i in 4:
+		var rx := -(0.1 + i * 0.1) * rm / 0.15
+		UnitModels.ring(core, rm * 0.5 + i * rm * 0.14, rm * 0.5 + i * rm * 0.14 + 0.012, _m(ORANGE, 0.85, 0.35), at + Vector3(rx, 0, 0), Vector3(0, 0, PI / 2))
+	UnitModels.ring(core, rm * 0.98, rm * 1.05, _m(ORANGE, 0.85, 0.35), at + Vector3(-0.5 * rm / 0.15, 0, 0), Vector3(0, 0, PI / 2))
 
 # ------------------------------------------------------------------ the model
 static func build(name: String) -> Node3D:
@@ -165,20 +182,24 @@ static func build(name: String) -> Node3D:
 	OrionCV2._lathe(core, pts, 32, hull, Vector3.ZERO)
 	_gold(core, x - 0.05, rear_r * 0.97)
 	var ex := x - 0.28
+	var n: int = SPECS[name].get("eng", 1)
+	var offs: Array = []
 	var rm := tr * 0.95
-	var bk := _m(Color("#1c1d21"), 0.7, 0.4)
-	var prof: Array = []
-	var inprof: Array = []
-	for i in 13:
-		var tt := float(i) / 12.0
-		prof.append(Vector2(-tt * 0.5 * rm / 0.15, (0.04 + (rm - 0.04) * pow(tt, 0.7))))
-		inprof.append(Vector2(-tt * 0.5 * rm / 0.15, (0.04 + (rm - 0.04) * pow(tt, 0.7)) - 0.008))
-	OrionCV2._lathe(core, prof, 28, bk, Vector3(ex, 0, 0))
-	OrionCV2._lathe(core, inprof, 28, _m(Color("#08090b"), 0.4, 0.4), Vector3(ex, 0, 0), true)
-	for i in 4:
-		var rx := -(0.1 + i * 0.1) * rm / 0.15
-		UnitModels.ring(core, rm * 0.5 + i * rm * 0.14, rm * 0.5 + i * rm * 0.14 + 0.012, _m(ORANGE, 0.85, 0.35), Vector3(ex + rx, 0, 0), Vector3(0, 0, PI / 2))
-	UnitModels.ring(core, rm * 0.98, rm * 1.05, _m(ORANGE, 0.85, 0.35), Vector3(ex - 0.5 * rm / 0.15, 0, 0), Vector3(0, 0, PI / 2))
+	match n:
+		1:
+			offs = [Vector2.ZERO]
+		2:
+			offs = [Vector2(0, tr * 0.52), Vector2(0, -tr * 0.52)]
+			rm = tr * 0.5
+		3:
+			for k in 3:
+				offs.append(Vector2(sin(PI * 0.5 + k * TAU / 3), cos(PI * 0.5 + k * TAU / 3)) * tr * 0.55)
+			rm = tr * 0.44
+		_:
+			offs = [Vector2(tr * 0.5, tr * 0.5), Vector2(tr * 0.5, -tr * 0.5), Vector2(-tr * 0.5, tr * 0.5), Vector2(-tr * 0.5, -tr * 0.5)]
+			rm = tr * 0.42
+	for o in offs:
+		_bell(core, ex, o.x, o.y, rm)
 	AsiaShips.trim_col = Color("#58b8ff")
 	var bb := UnitModels._bounds(core)
 	core.position = -bb.get_center()
