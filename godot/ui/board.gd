@@ -313,10 +313,10 @@ func draw_frame(tex: Texture2D, fr, p: Vector2, size: float, rot := 0.0, mod := 
 func unit_frame(f: String, key: String):
 	return atl[f].fr.get(key)
 ## 2.5D view: a ship counter as its 3D model, with the owner's colour on its flag, a ring on the ground and a name under it
-func _ship_tag(f: String, s: Dictionary, c: Vector2, strong: bool, ready: bool, k := 1.0, n := 1, surf := "") -> void:
+func _ship_tag(f: String, s: Dictionary, c: Vector2, strong: bool, ready: bool, k := 1.0, n := 1, surf := "", slot := 0) -> void:
 	var col: String = Game.data.D.FAC[f].c
 	var cs := CS * k
-	R.model(f, s.img, c.x, c.y, cs, col, false, int(s.get("face", 1)), surf)
+	R.model(f, s.img, c.x, c.y, cs, col, false, int(s.get("face", 1)), surf, slot, n)
 	var kn: PackedStringArray = String(s.img).split("|")
 	var own: bool = f == Game.G.f
 	var sel: bool = own and strong
@@ -613,7 +613,7 @@ func paint_objects() -> void:
 				var of: String = owner[s]
 				if R != null: R.ring(c.x, c.y, CS * .62, D.FAC[of].c, 3)
 				draw_box(c, CS + 6, Color(D.FAC[of].c), 3, rot)
-				if R != null: _ship_tag(of, s, c, true, false, ck, nl, lp.w if lp.t == "surf" else "")
+				if R != null: _ship_tag(of, s, c, true, false, ck, nl, lp.w if lp.t == "surf" else "", i)
 				else: draw_frame(atl[of].tex, unit_frame(of, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
 				hits.append({"t": "oship", "f": of, "id": s.id, "c": c, "r": CS / 2, "img": s.img})
 				continue
@@ -621,7 +621,7 @@ func paint_objects() -> void:
 			var is_sel: bool = sel != null and sel.t == "ship" and SHRules.eq(sel.get("id"), s.id)
 			if R != null and (ready or is_sel): R.ring(c.x, c.y, CS * .62, "#e8702a" if is_sel else "#ced1dd", 3)
 			if ready or is_sel: draw_box(c, CS + 8, C_SEL if is_sel else C_READY, 3, rot)
-			if R != null: _ship_tag(G.f, s, c, is_sel, ready, ck, nl, lp.w if lp.t == "surf" else "")
+			if R != null: _ship_tag(G.f, s, c, is_sel, ready, ck, nl, lp.w if lp.t == "surf" else "", i)
 			else: draw_frame(atl[G.f].tex, unit_frame(G.f, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
 			if SHRules.t(s.dmg): text("▼%d" % s.dmg, c + Vector2(22, -24), 13, Color("#e0508f"))
 			if SHRules.t(s.get("hold")): text("+%d" % s.hold, c + Vector2(22, 24), 13, C_SEL)

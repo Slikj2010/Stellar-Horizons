@@ -358,8 +358,8 @@ func sprite(tex: Texture2D, f, x: float, y: float, size: float, a := 0.0) -> voi
 	var k: float = size / maxf(f[2], f[3])
 	rec.append({"tex": tex, "f": f, "x": x, "y": y, "w": f[2] * k, "h": f[3] * k, "a": a, "mode": mode, "lift": lift, "text": false})
 ## a ship counter drawn as its 3D model (f = faction, img = "Kind|Name", col = faction colour for the flag)
-func model(f: String, img: String, x: float, y: float, size: float, col: String, small := false, face := 1, surf := "") -> void:
-	rec.append({"tex": null, "f": [0, 0, 1, 1], "x": x, "y": y, "w": size, "h": size, "a": 0.0, "mode": mode, "lift": lift, "text": false, "model": true, "mf": f, "img": img, "col": col, "small": small, "face": face, "surf": surf})
+func model(f: String, img: String, x: float, y: float, size: float, col: String, small := false, face := 1, surf := "", slot := 0, slots := 1) -> void:
+	rec.append({"tex": null, "f": [0, 0, 1, 1], "x": x, "y": y, "w": size, "h": size, "a": 0.0, "mode": mode, "lift": lift, "text": false, "model": true, "mf": f, "img": img, "col": col, "small": small, "face": face, "surf": surf, "slot": slot, "slots": slots})
 func text(t: String, x: float, y: float, size: float, color: String, align := "center") -> void:
 	var e := paint.text_sprite(t, color, size)
 	var off: float = e.sw / 2 if align == "left" else (-e.sw / 2 if align == "right" else 0.0)
@@ -1760,8 +1760,11 @@ func _ship(r: Dictionary, S: float) -> void:
 			var rr: float = bd.r * .4 * S
 			want = minf(rw * .5 * .45, rr * .26)
 			# it drives on the planet's upper surface, held in the world (not turned with the camera), wheels on the ground and tilted to follow the curve
-			var th: float = (float(hash(String(r.img)) % 9) - 4.0) / 4.0 * .75
-			var phi := .4  # leaned back, so it stands higher on the visible face of the planet
+			# each ship has its own spot along the top of the world, spread apart so none crowd another
+			var ns: int = int(r.get("slots", 1))
+			var sl: int = int(r.get("slot", 0))
+			var th: float = 0.0 if ns <= 1 else lerpf(-1.0, 1.0, sl / float(ns - 1))
+			var phi := .4 if sl % 2 == 0 else .22  # staggered, leaned back so they stand on the visible face
 			var nrm := (Vector3(sin(th), cos(th), 0.0) * cos(phi) + Vector3(0, 0, -sin(phi))).normalized()
 			h.position = Vector3(q.x, rr * .55, q.y) + nrm * (rr * .96 + want * .5)
 			surf_tilt = -phi
@@ -1778,7 +1781,7 @@ func _ship(r: Dictionary, S: float) -> void:
 	var robo: bool = RoboModels.has(String(r.img).split("|")[0])
 	var rover: bool = String(r.img).begins_with("Rover|")
 	# a rover is shown in side profile (long axis across the screen, wheels on the near side) so it reads as driving on the ground
-	var yaw := (PI if int(r.get("face", 1)) < 0 else 0.0) + ((0.0 if rover else PI / 2 - 0.6) if robo else 0.0) + (0.0 if rover else sin(T * .5 + r.x * .02) * .18)
+	var yaw := (PI if int(r.get("face", 1)) < 0 else 0.0) + ((0.0 if rover else PI / 2 - 0.6) if robo else 0.0) + (0.0 if (rover or r.get("surf", "") != "") else sin(T * .5 + r.x * .02) * .18)
 	# seen from the side, like the printed counter, with just a little of the top: the ship leans back by the camera's pitch
 	e.p.basis = Basis(Vector3.BACK, surf_roll) * Basis(Vector3.RIGHT, surf_tilt if surf_tilt < 900.0 else -(C.pitch - (.12 if rover else (.65 if robo else .3)))) * Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * sc)
 	var fh: float = fsz * (.35 if r.small else .55)
