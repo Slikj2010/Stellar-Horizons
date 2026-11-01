@@ -18,6 +18,7 @@ var _t := 0.0
 var _earth: ColorRect
 var _btn_rects: Array = []
 var _hover := -1
+var _hv: Array = []  ## 0..1 glow of each menu button, easing toward the hovered one
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -103,6 +104,10 @@ func _ready() -> void:
 		hv.shadow_size = 14
 		btn.add_theme_stylebox_override("hover", hv)
 		btn.pressed.connect(func(): action.emit(key))
+		var bi: int = i
+		btn.mouse_entered.connect(func(): _hover = bi)
+		btn.mouse_exited.connect(func(): if _hover == bi: _hover = -1)
+		_hv.append(0.0)
 		stage.add_child(btn)
 	resized.connect(_layout)
 	_layout()
@@ -137,6 +142,7 @@ func _layout() -> void:
 func _process(dt: float) -> void:
 	if not visible: return
 	if Game.settings.get("anim", true): _t += dt
+	for i in _hv.size(): _hv[i] = move_toward(_hv[i], 1.0 if i == _hover else 0.0, dt * 7.0)
 	if _earth != null:
 		var m := (_earth.get_child(0) as TextureRect).material as ShaderMaterial
 		m.set_shader_parameter("rot", 2.1 + _t * TAU / 300.0)
@@ -166,6 +172,23 @@ func _blob(c: Vector2, r: float, col: Color) -> void:
 
 func _draw_fx() -> void:
 	var t := _t
+	# the hovered menu button lights up: a glowing outline and a wash of light in the button's own shape
+	for i in M.btn.size():
+		var hv: float = _hv[i] if i < _hv.size() else 0.0
+		if hv <= 0.01: continue
+		var b: Array = M.btn[i]
+		var bx: float = b[0]
+		var by: float = b[1]
+		var bw: float = b[2]
+		var bh: float = b[3]
+		var c := 33.0
+		var poly := PackedVector2Array([Vector2(bx, by + bh / 2), Vector2(bx + c, by), Vector2(bx + bw - c, by), Vector2(bx + bw, by + bh / 2), Vector2(bx + bw - c, by + bh), Vector2(bx + c, by + bh)])
+		fx.draw_colored_polygon(poly, Color(0.25, 0.7, 1.0, 0.16 * hv))
+		var pulse := 0.85 + 0.15 * sin(t * 6.0)
+		for gw in [[10.0, 0.06], [6.0, 0.10], [3.0, 0.22]]:
+			fx.draw_polyline(poly + PackedVector2Array([poly[0]]), Color(0.45, 0.85, 1.0, gw[1] * hv * pulse), gw[0])
+		fx.draw_polyline(poly + PackedVector2Array([poly[0]]), Color(0.85, 0.97, 1.0, 0.9 * hv), 2.0)
+		_blob(Vector2(bx + bw * 0.5, by + bh / 2), bw * 0.42, Color(0.3, 0.75, 1.0, 0.10 * hv))
 	var spk := 0.6
 	# twinkling stars
 	for g in _glints:

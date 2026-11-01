@@ -31,6 +31,9 @@ func _ready() -> void:
 	AI = SHAI.new(E)
 	load_settings()
 	get_tree().set_auto_accept_quit(false)
+	# the game's own mouse pointer: a cyan arrow, orange when over something clickable
+	Input.set_custom_mouse_cursor(load("res://assets/cursor_arrow.png"), Input.CURSOR_ARROW, Vector2(3, 2))
+	Input.set_custom_mouse_cursor(load("res://assets/cursor_point.png"), Input.CURSOR_POINTING_HAND, Vector2(3, 2))
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:

@@ -23,6 +23,14 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 	var a := []
 	a.append(["wait", 20])
 	a.append(["shot", "00_menu"])
+	if plan == "hover":
+		a.append(["call", func():
+			var t = main.title
+			t._hover = 1
+			t._hv[1] = 1.0])
+		a.append(["wait", 3])
+		a.append(["shot", "97_hover"])
+		return a
 	if plan == "mp":
 		a.append(["call", func(): main.show_menu("multi")])
 		a.append(["wait", 5])
