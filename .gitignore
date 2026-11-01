@@ -2,3 +2,4 @@ __pycache__/
 *.vmod
 node_modules/
 desktop/dist/
+dist/
