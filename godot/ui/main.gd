@@ -1344,37 +1344,41 @@ func _sel_base_panel(box, G, b) -> void:
 		UIK.para(box, "%s (up to %d)" % [("Buy 2 %s per $1B" % b.trade.type) if b.trade.side == "buy" else ("Sell %s for $2B each" % b.trade.type), lim], null, 13)
 		UIK.button(box, "Trade", func(): trade_ask(G, {"base": b.id}, b.trade, lim, "Trade at %s?" % b.name), not trade_phase or lim < 1)
 
+const CARD_WHO := {"crew": "crew vehicles", "rover": "rovers", "orbiter": "orbiters", "flyby": "flybys", "spec": "ships with a specialist", "probe": "probes", "all": "every explorer"}
+const CARD_EL := {"rockyOrIcy": "rocky or icy worlds", "notVenus": "any world except Venus", "gas": "gas giants", "rocky": "rocky worlds", "icy": "icy worlds", "volcanic": "volcanic worlds", "severeAtm": "worlds with a severe atmosphere", "minimal": "worlds with minimal atmosphere", "rockyMinimal": "rocky worlds with minimal atmosphere"}
+## a world card as a picture plus plain text of what it does
+func _card_view(box: Node, cd: Dictionary, head: String, width := 300.0, note := "") -> void:
+	var mk = JSON.parse_string(FileAccess.get_file_as_string("res://assets/markers.json"))
+	var fr = mk.get("card_" + String(cd.img))
+	if fr != null:
+		var at := AtlasTexture.new()
+		at.atlas = load("res://assets/markers.webp")
+		at.region = Rect2(fr[0], fr[1], fr[2], fr[3])
+		var tr := TextureRect.new()
+		tr.texture = at
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tr.custom_minimum_size = Vector2(width, width * fr[3] / fr[2])
+		box.add_child(tr)
+	UIK.head(box, head)
+	if note != "": UIK.para(box, note, UIK.DIM, 13)
+	var pr := []
+	for r in ["ORE", "SUP", "FUEL"]:
+		if int(cd.prod.get(r, 0)) > 0: pr.append("%s %d" % [r, int(cd.prod[r])])
+	UIK.para(box, "A base here produces: " + (", ".join(pr) if pr.size() else "nothing") + ".", null, 13)
+	UIK.para(box, "Research: %d %s points when this world is explored." % [int(cd.rv), E.FN.get(cd.rf, cd.rf)], null, 13)
+	for bk in cd.bonus: UIK.para(box, "+%d to exploration rolls for %s." % [int(cd.bonus[bk]), CARD_WHO.get(bk, bk)], null, 13)
+	if int(cd.get("lifeB", 0)) > 0: UIK.para(box, "+%d%% to the chance of finding life." % int(cd.lifeB), UIK.GOOD, 13)
+	UIK.para(box, "Can be placed on: %s." % CARD_EL.get(cd.el, cd.el), UIK.DIM, 13)
+
 func _sel_world_panel(box, G, k: String) -> void:
 	var w: Dictionary = D.W[k]
 	var ws: Dictionary = G.w[k]
 	UIK.title(box, w.n)
 	UIK.para(box, "%s · exploration value %d · %s%% life · %s" % [D.SYS[w.sys].n, ws.v, w.life, E.FN.get(w.f, "")], UIK.DIM)
 	if SHRules.t(ws.card):
-		# the world card drawn here: its picture and what it gives
 		var cd = SHRules._find(D.CARDS, func(x): return x.n == ws.card)
-		if cd != null:
-			var mk = JSON.parse_string(FileAccess.get_file_as_string("res://assets/markers.json"))
-			var fr = mk.get("card_" + String(cd.img))
-			if fr != null:
-				var at := AtlasTexture.new()
-				at.atlas = load("res://assets/markers.webp")
-				at.region = Rect2(fr[0], fr[1], fr[2], fr[3])
-				var tr := TextureRect.new()
-				tr.texture = at
-				tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-				tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-				tr.custom_minimum_size = Vector2(300, 300.0 * fr[3] / fr[2])
-				box.add_child(tr)
-			UIK.head(box, "World card: " + String(cd.n))
-			var pr := []
-			for r in ["ORE", "SUP", "FUEL"]:
-				if int(cd.prod.get(r, 0)) > 0: pr.append("%s %d" % [r, int(cd.prod[r])])
-			UIK.para(box, "Produces: " + (", ".join(pr) if pr.size() else "nothing"))
-			UIK.para(box, "Research: %d %s when explored" % [int(cd.rv), E.FN.get(cd.rf, cd.rf)])
-			var bn := []
-			for bk in cd.bonus: bn.append("+%d %s" % [int(cd.bonus[bk]), bk])
-			if bn.size(): UIK.para(box, "Exploration bonus: " + ", ".join(bn), UIK.DIM, 13)
-			UIK.para(box, "Suits: %s worlds." % String(cd.el), UIK.DIM, 13)
+		if cd != null: _card_view(box, cd, "World card: " + String(cd.n), 300.0)
 		else: UIK.para(box, "World card: " + ws.card)
 	if SHRules.t(ws.life): UIK.para(box, "Existing life found.", UIK.GOOD)
 	elif SHRules.t(ws.sol): UIK.para(box, "Signs of life found.", UIK.GOOD)
@@ -1793,7 +1797,7 @@ func build_dialog() -> void:
 	UIK.title(dialog_box, _ask_title(a))
 	_fit_dialog.call_deferred()
 	var screen: bool = a.k in ["search", "battle", "pbattle", "assign"]
-	dialog.custom_minimum_size.x = 720 if screen or a.k == "basehit" else 0
+	dialog.custom_minimum_size.x = 720 if screen or a.k == "basehit" else (780 if a.k == "card" else 0)
 	if not screen: UIK.para(dialog_box, a.get("text", ""))
 	var f := UIK.flow(dialog_box)
 	match a.k:
@@ -1818,8 +1822,27 @@ func build_dialog() -> void:
 		"basehit": SHScreens.basehit(dialog_box, a)
 		"battle": SHScreens.battle(dialog_box, a)
 		"card":
-			for o in a.opts: UIK.button(f, "Place " + o, func(): Game.answer(o))
-			UIK.button(f, "Return to the deck", func(): Game.answer(null))
+			var row := HBoxContainer.new()
+			row.add_theme_constant_override("separation", 14)
+			dialog_box.add_child(row)
+			dialog_box.move_child(row, f.get_index())
+			var cur = G.w[a.w].card
+			var cc = SHRules._find(D.CARDS, func(x): return x.n == cur) if SHRules.t(cur) else null
+			var cols: Array = []
+			if cc != null: cols.append([cc, "Now on " + D.W[a.w].n, ""])
+			for o in a.opts:
+				var oc = SHRules._find(D.CARDS, func(x): return x.n == o)
+				if oc != null: cols.append([oc, "Drawn: " + String(oc.n), String(o)])
+			for ci in cols:
+				var col := VBoxContainer.new()
+				col.custom_minimum_size.x = 250
+				col.add_theme_constant_override("separation", 4)
+				row.add_child(col)
+				_card_view(col, ci[0], ci[1], 240.0)
+				if ci[2] != "":
+					var oname: String = ci[2]
+					UIK.button(col, "Place " + oname, func(): Game.answer(oname))
+			UIK.button(f, "Return to the deck" + (" (keep " + String(cur) + ")" if cc != null else ""), func(): Game.answer(null))
 		"flyby":
 			for o in a.opts: UIK.button(f, "%s (%d turns)" % [D.SYS[o.sys].n, o.eta], func(): Game.answer(o.sys))
 		"publicity":

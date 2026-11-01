@@ -224,6 +224,20 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 				get_viewport().push_input(e)])
 		a.append(["wait", 10])
 		a.append(["shot", "53_zoom"])
+	if plan == "cardask":
+		a.append(["call", func():
+			var G = Game.G
+			G.w["mar"].card = "Maria"
+			G.ask.append({"k": "card", "w": "mar", "opts": ["Water Ice", "Hematite"], "text": "Depletion at Mars: you drew Water Ice and Hematite. Place a card on the world or return it to the deck."})
+			Game.act(null)])
+		a.append(["wait", 15])
+		a.append(["shot", "90_cardask"])
+		a.append(["call", func():
+			Game.G.ask.clear()
+			Game.act(null)
+			Game.select({"t": "world", "k": "mar"})])
+		a.append(["wait", 10])
+		a.append(["shot", "91_worldsel"])
 	if plan == "ships25":
 		a.append(["call", func():
 			for i in 150:
