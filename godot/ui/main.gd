@@ -1491,6 +1491,10 @@ const MIS_KIND := {"mine": ["Your mission", "#e8702a"], "common": ["Common missi
 ## a search box and All/Physics/Engineering/Biology chips above a list; rows carry meta "fn" (search text) and "ff" (fields).
 ## returns {"list": VBox to add rows to, "apply": Callable to run after the rows are added}
 func _filter_list(box: Node, show_bar: bool) -> Dictionary:
+	# the filter belongs to the ship it was typed for: a different ship (or a list with no filter bar) starts clean
+	var who = Game.sel.get("id") if Game.sel != null else null
+	if not show_bar or not SHRules.eq(who, _lf.get("who")):
+		_lf = {"q": "", "f": "", "who": who}
 	var list := UIK.vbox(box, 6)
 	var none := UIK.para(list, "No matches.", UIK.DIM, 13)
 	none.visible = false
