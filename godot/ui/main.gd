@@ -1349,7 +1349,33 @@ func _sel_world_panel(box, G, k: String) -> void:
 	var ws: Dictionary = G.w[k]
 	UIK.title(box, w.n)
 	UIK.para(box, "%s · exploration value %d · %s%% life · %s" % [D.SYS[w.sys].n, ws.v, w.life, E.FN.get(w.f, "")], UIK.DIM)
-	if SHRules.t(ws.card): UIK.para(box, "World card: " + ws.card)
+	if SHRules.t(ws.card):
+		# the world card drawn here: its picture and what it gives
+		var cd = SHRules._find(D.CARDS, func(x): return x.n == ws.card)
+		if cd != null:
+			var mk = JSON.parse_string(FileAccess.get_file_as_string("res://assets/markers.json"))
+			var fr = mk.get("card_" + String(cd.img))
+			if fr != null:
+				var at := AtlasTexture.new()
+				at.atlas = load("res://assets/markers.webp")
+				at.region = Rect2(fr[0], fr[1], fr[2], fr[3])
+				var tr := TextureRect.new()
+				tr.texture = at
+				tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				tr.custom_minimum_size = Vector2(300, 300.0 * fr[3] / fr[2])
+				box.add_child(tr)
+			UIK.head(box, "World card: " + String(cd.n))
+			var pr := []
+			for r in ["ORE", "SUP", "FUEL"]:
+				if int(cd.prod.get(r, 0)) > 0: pr.append("%s %d" % [r, int(cd.prod[r])])
+			UIK.para(box, "Produces: " + (", ".join(pr) if pr.size() else "nothing"))
+			UIK.para(box, "Research: %d %s when explored" % [int(cd.rv), E.FN.get(cd.rf, cd.rf)])
+			var bn := []
+			for bk in cd.bonus: bn.append("+%d %s" % [int(cd.bonus[bk]), bk])
+			if bn.size(): UIK.para(box, "Exploration bonus: " + ", ".join(bn), UIK.DIM, 13)
+			UIK.para(box, "Suits: %s worlds." % String(cd.el), UIK.DIM, 13)
+		else: UIK.para(box, "World card: " + ws.card)
 	if SHRules.t(ws.life): UIK.para(box, "Existing life found.", UIK.GOOD)
 	elif SHRules.t(ws.sol): UIK.para(box, "Signs of life found.", UIK.GOOD)
 	for x in E.missionsAt(G, k): UIK.para(box, "%s mission: %s" % [x.kind.capitalize(), E.misTxt(x.id)], UIK.AMBER)
