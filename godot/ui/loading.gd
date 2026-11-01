@@ -23,6 +23,7 @@ func _init() -> void:
 	_root = Control.new()
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	_root.mouse_default_cursor_shape = Control.CURSOR_BUSY
 	add_child(_root)
 	var bg := ColorRect.new()
 	bg.color = Color(0.063, 0.063, 0.064)

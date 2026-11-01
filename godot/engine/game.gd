@@ -31,10 +31,56 @@ func _ready() -> void:
 	AI = SHAI.new(E)
 	load_settings()
 	get_tree().set_auto_accept_quit(false)
-	# the game's own mouse pointers: a swept steel-blue ship pointer, orange with an orbit ring over anything clickable
-	for c in [[Input.CURSOR_ARROW, "arrow"], [Input.CURSOR_POINTING_HAND, "point"], [Input.CURSOR_CAN_DROP, "point"], [Input.CURSOR_MOVE, "move"], [Input.CURSOR_DRAG, "move"],
-			[Input.CURSOR_HSIZE, "hsize"], [Input.CURSOR_VSIZE, "vsize"]]:
-		Input.set_custom_mouse_cursor(load("res://assets/cursor_%s.png" % c[1]), c[0], Vector2(3, 3))
+	_load_cursors()
+	get_tree().node_added.connect(func(n: Node): if n is BaseButton or n is OptionButton: n.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND)
+
+# ---------------- the game's own mouse pointers ----------------
+# sprite sheets of 24 frames: a swept ship pointer with a little orbiting moon (normal), the same dark with an amber edge over buttons
+# and ships (hover), and a planet with two moons going round while the game loads (busy)
+const CURSOR_FRAMES := 24
+var _cur := {}  ## name -> Array of Images
+var _cur_t := 0.0
+var _cur_i := -1
+var _busy := 0  ## > 0 while something is loading
+
+func _load_cursors() -> void:
+	for n in ["arrow", "hover", "busy"]:
+		var img: Image = (load("res://assets/cursors/%s.png" % n) as Texture2D).get_image()
+		var fr := []
+		for k in CURSOR_FRAMES: fr.append(ImageTexture.create_from_image(img.get_region(Rect2i(k * 48, 0, 48, 48))))
+		_cur[n] = fr
+	for n in ["move", "hsize", "vsize"]: _cur[n] = [load("res://assets/cursors/%s.png" % n)]
+	_set_cursors(0)
+	for c in [[Input.CURSOR_MOVE, "move"], [Input.CURSOR_DRAG, "move"], [Input.CURSOR_HSIZE, "hsize"], [Input.CURSOR_VSIZE, "vsize"]]:
+		Input.set_custom_mouse_cursor(_cur[c[1]][0], c[0], Vector2(3, 3))
+
+func _set_cursors(k: int) -> void:
+	Input.set_custom_mouse_cursor(_cur.arrow[k], Input.CURSOR_ARROW, Vector2(3, 3))
+	Input.set_custom_mouse_cursor(_cur.hover[k], Input.CURSOR_POINTING_HAND, Vector2(3, 3))
+	Input.set_custom_mouse_cursor(_cur.hover[k], Input.CURSOR_CAN_DROP, Vector2(3, 3))
+	Input.set_custom_mouse_cursor(_cur.busy[k], Input.CURSOR_BUSY, Vector2(24, 24))
+	Input.set_custom_mouse_cursor(_cur.busy[k], Input.CURSOR_WAIT, Vector2(24, 24))
+
+## the loading pointer on (true) or off (false); calls nest
+func set_busy(on: bool) -> void:
+	_busy = maxi(0, _busy + (1 if on else -1))
+	_apply_shape()
+
+## the map pointer is over something clickable (a ship, base, world or destination)
+func hover_cursor(on: bool) -> void:
+	_over = on
+	_apply_shape()
+var _over := false
+func _apply_shape() -> void:
+	Input.set_default_cursor_shape(Input.CURSOR_BUSY if _busy > 0 else (Input.CURSOR_POINTING_HAND if _over else Input.CURSOR_ARROW))
+
+func _process(dt: float) -> void:
+	if _cur.is_empty() or not settings.get("anim", true): return
+	_cur_t += dt
+	var k := int(_cur_t * 12.0) % CURSOR_FRAMES
+	if k != _cur_i:
+		_cur_i = k
+		_set_cursors(k)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
@@ -73,6 +119,7 @@ func multi() -> bool: return G != null and G.world != null
 
 ## start a campaign. opts: {scenario, variant, scrapRE, enhTrade, rerolls}; bots: [{f, variant}] (empty = solo)
 func new_campaign(f: String, opts: Dictionary, bots: Array) -> void:
+	set_busy(true)
 	sel = null
 	pad = null
 	opts = opts.duplicate()
@@ -89,6 +136,7 @@ func new_campaign(f: String, opts: Dictionary, bots: Array) -> void:
 		G = E.newGame(f, opts)
 	campaign_started.emit()
 	changed.emit()
+	set_busy(false)
 
 ## run an engine call that returns null (done) or a string (why not), then refresh
 func act(result) -> void:
@@ -134,16 +182,19 @@ func next() -> void:
 		return
 	sel = null
 	var y0 = G.y
+	set_busy(true)
 	if Net.active:
 		Net.hand_over(AI.advanceNet(G))
 		sound.emit("next")
 		_after()
+		set_busy(false)
 		return
 	if multi(): AI.advanceWorld(G)
 	else: E.advance(G)
 	if G.y == y0: sound.emit("next")
 	_after()
 	if settings.autosave: autosave()
+	set_busy(false)
 
 func autosave() -> void:
 	if G != null and not Net.active: save_slot(0)

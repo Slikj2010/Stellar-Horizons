@@ -493,8 +493,12 @@ func _make_tip() -> void:
 func _hover(sp: Vector2) -> void:
 	var G = Game.G
 	var txt := ""
+	var over := false
 	if G != null and not modal.visible and not fboard.visible and not ttree.visible:
-		txt = _tip_text(G, board.pick_at(_world(sp)))
+		var h: Dictionary = board.pick_at(_world(sp))
+		over = h.size() > 0
+		txt = _tip_text(G, h)
+	Game.hover_cursor(over)
 	_show_tip(txt, sp)
 
 func _show_tip(txt: String, sp: Vector2) -> void:
