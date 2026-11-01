@@ -1354,6 +1354,21 @@ func _sel_world_panel(box, G, k: String) -> void:
 	elif SHRules.t(ws.sol): UIK.para(box, "Signs of life found.", UIK.GOOD)
 	for x in E.missionsAt(G, k): UIK.para(box, "%s mission: %s" % [x.kind.capitalize(), E.misTxt(x.id)], UIK.AMBER)
 	if SHRules.t(w.base): UIK.para(box, "Base cost %d SUP." % E.baseCost(G, k), UIK.DIM)
+	# the ships at this world (on its surface and in its orbit): pick one to select it
+	var here: Array = G.ships.filter(func(x): return x.loc != "earth" and E.worldOf(x.loc) == k)
+	var others := []
+	if G.world != null:
+		for fk in G.world.facs:
+			if fk == G.f: continue
+			for x in G.world.facs[fk].ships:
+				if x.loc != "earth" and E.worldOf(x.loc) == k: others.append([fk, x])
+	if here.size() or others.size():
+		UIK.head(box, "Ships here")
+		here.sort_custom(func(a, b): return String(a.loc) > String(b.loc))
+		for x in here:
+			var sid = x.id
+			UIK.button(box, "%s · %s · %s" % [x.name, x.kind if x.cls != "CV" else "CV-%d" % x.sz, E.locName(x.loc)], func(): Game.select({"t": "ship", "id": sid}))
+		for o in others: UIK.para(box, "%s · %s (%s) · %s" % [o[1].name, o[1].kind, D.FAC[o[0]].n, E.locName(o[1].loc)], UIK.DIM, 13)
 	var info = E.npfTradeInfo(G, k)
 	if info != null:
 		UIK.head(box, "Non-player base")

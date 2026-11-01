@@ -1472,7 +1472,15 @@ func frame() -> void:
 		items.append({"t": "model", "k": "sca", "kind": "rocks", "spec": MODELS.sca, "x": c.x, "z": c.y, "u": u, "y": y, "d": dist2(c.x, y, c.y)})
 	for r in stand:
 		var y: float = r.lift * S + r.h * S / 2
-		items.append({"t": "spr", "r": r, "d": dist2(r.X, y, r.Z)})
+		var dd := dist2(r.X, y, r.Z)
+		var sw: String = r.get("surf", "")
+		if sw != "" and bodies.b.has(sw):
+			# a counter on a planet is drawn just after (in front of) the planet
+			var bq: Dictionary = bodies.b[sw]
+			var bm: Array = GEO.maps[bq.map]
+			var bp := mapP(bm[0] + bq.cx * .4, bm[1] + bq.cy * .4)
+			dd = dist2(bp.x, bq.r * .4 * S * .55, bp.y) - 1.0
+		items.append({"t": "spr", "r": r, "d": dd})
 	items.sort_custom(func(a, b): return a.d > b.d)
 	var shad := VB.new()
 	for it in items:
@@ -1750,10 +1758,10 @@ func _ship(r: Dictionary, S: float) -> void:
 			var q := mapP(mm[0] + bd.cx * .4, mm[1] + bd.cy * .4)
 			var rr: float = bd.r * .4 * S
 			want = minf(rw * .5 * .45, rr * .26)
-			# it drives along the planet's upper rim, wheels on the surface and turned to follow the curve
+			# it drives on the planet's upper surface, held in the world (not turned with the camera), wheels on the ground and tilted to follow the curve
 			var th: float = (float(hash(String(r.img)) % 9) - 4.0) / 4.0 * .75
-			var dirv: Vector3 = rgt * sin(th) + cup * cos(th)
-			h.position = Vector3(q.x, rr * .55, q.y) + dirv * (rr + want * .42) - fwd * (rr * .15)
+			var nrm := Vector3(sin(th), cos(th), 0.0)
+			h.position = Vector3(q.x, rr * .55, q.y) + nrm * (rr * .8 + want * .42)
 			surf_roll = -th
 		else:
 			want = rw * .5 * .4
@@ -1769,7 +1777,7 @@ func _ship(r: Dictionary, S: float) -> void:
 	# a rover is shown in side profile (long axis across the screen, wheels on the near side) so it reads as driving on the ground
 	var yaw := (PI if int(r.get("face", 1)) < 0 else 0.0) + ((0.0 if rover else PI / 2 - 0.6) if robo else 0.0) + (0.0 if rover else sin(T * .5 + r.x * .02) * .18)
 	# seen from the side, like the printed counter, with just a little of the top: the ship leans back by the camera's pitch
-	e.p.basis = Basis(rgt.cross(cup).normalized(), surf_roll) * Basis(Vector3.RIGHT, -(C.pitch - (.12 if rover else (.65 if robo else .3)))) * Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * sc)
+	e.p.basis = Basis(Vector3.BACK, surf_roll) * Basis(Vector3.RIGHT, -(C.pitch - (.12 if rover else (.65 if robo else .3)))) * Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * sc)
 	var fh: float = fsz * (.35 if r.small else .55)
 	e.flag.basis = Basis(rgt, cup, rgt.cross(cup)) * Basis.from_scale(Vector3.ONE * fh)
 	e.flag.position = cup * (want * .42) + rgt * (-want * .15)
