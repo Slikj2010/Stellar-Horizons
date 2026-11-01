@@ -1751,6 +1751,7 @@ func _ship(r: Dictionary, S: float) -> void:
 	var surf: String = r.get("surf", "")
 	var fsz: float = rw
 	var surf_roll := 0.0
+	var surf_tilt := 999.0
 	if surf != "":
 		var bd = bodies.b.get(surf)
 		if bd != null:
@@ -1760,8 +1761,10 @@ func _ship(r: Dictionary, S: float) -> void:
 			want = minf(rw * .5 * .45, rr * .26)
 			# it drives on the planet's upper surface, held in the world (not turned with the camera), wheels on the ground and tilted to follow the curve
 			var th: float = (float(hash(String(r.img)) % 9) - 4.0) / 4.0 * .75
-			var nrm := Vector3(sin(th), cos(th), 0.0)
-			h.position = Vector3(q.x, rr * .55, q.y) + nrm * (rr * .8 + want * .42)
+			var phi := .4  # leaned back, so it stands higher on the visible face of the planet
+			var nrm := (Vector3(sin(th), cos(th), 0.0) * cos(phi) + Vector3(0, 0, -sin(phi))).normalized()
+			h.position = Vector3(q.x, rr * .55, q.y) + nrm * (rr * .96 + want * .5)
+			surf_tilt = -phi
 			surf_roll = -th
 		else:
 			want = rw * .5 * .4
@@ -1777,7 +1780,7 @@ func _ship(r: Dictionary, S: float) -> void:
 	# a rover is shown in side profile (long axis across the screen, wheels on the near side) so it reads as driving on the ground
 	var yaw := (PI if int(r.get("face", 1)) < 0 else 0.0) + ((0.0 if rover else PI / 2 - 0.6) if robo else 0.0) + (0.0 if rover else sin(T * .5 + r.x * .02) * .18)
 	# seen from the side, like the printed counter, with just a little of the top: the ship leans back by the camera's pitch
-	e.p.basis = Basis(Vector3.BACK, surf_roll) * Basis(Vector3.RIGHT, -(C.pitch - (.12 if rover else (.65 if robo else .3)))) * Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * sc)
+	e.p.basis = Basis(Vector3.BACK, surf_roll) * Basis(Vector3.RIGHT, surf_tilt if surf_tilt < 900.0 else -(C.pitch - (.12 if rover else (.65 if robo else .3)))) * Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * sc)
 	var fh: float = fsz * (.35 if r.small else .55)
 	e.flag.basis = Basis(rgt, cup, rgt.cross(cup)) * Basis.from_scale(Vector3.ONE * fh)
 	e.flag.position = cup * (want * .42) + rgt * (-want * .15)
