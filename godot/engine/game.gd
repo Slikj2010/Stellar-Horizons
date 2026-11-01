@@ -31,9 +31,10 @@ func _ready() -> void:
 	AI = SHAI.new(E)
 	load_settings()
 	get_tree().set_auto_accept_quit(false)
-	# the game's own mouse pointer: a cyan arrow, orange when over something clickable
-	Input.set_custom_mouse_cursor(load("res://assets/cursor_arrow.png"), Input.CURSOR_ARROW, Vector2(3, 2))
-	Input.set_custom_mouse_cursor(load("res://assets/cursor_point.png"), Input.CURSOR_POINTING_HAND, Vector2(3, 2))
+	# the game's own mouse pointers: a swept steel-blue ship pointer, orange with an orbit ring over anything clickable
+	for c in [[Input.CURSOR_ARROW, "arrow"], [Input.CURSOR_POINTING_HAND, "point"], [Input.CURSOR_CAN_DROP, "point"], [Input.CURSOR_MOVE, "move"], [Input.CURSOR_DRAG, "move"],
+			[Input.CURSOR_HSIZE, "hsize"], [Input.CURSOR_VSIZE, "vsize"]]:
+		Input.set_custom_mouse_cursor(load("res://assets/cursor_%s.png" % c[1]), c[0], Vector2(3, 3))
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
