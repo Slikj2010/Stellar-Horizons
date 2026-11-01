@@ -3306,17 +3306,21 @@ func attachWorld(facs: Dictionary, meta: Dictionary) -> Dictionary:
 		g.fly = human.fly
 		g.world = world
 	return human
-func newWorld(opts: Dictionary) -> Dictionary:  # {human, variant, bots: [{f, variant}], scenario, rerolls, scrapRE}
+func newWorld(opts: Dictionary) -> Dictionary:  # {human, variant, bots: [{f, variant}], humans: [{f, variant}] (other players, online games), scenario, rerolls, scrapRE}
 	var bots: Array = opts.get("bots", [])
-	var fs := [opts.human] + bots.map(func(b): return b.f)
+	var others: Array = opts.get("humans", [])
+	var fs := [opts.human] + others.map(func(b): return b.f) + bots.map(func(b): return b.f)
 	var order: Array = D.FAC_ORDER.filter(func(f): return fs.has(f))
 	var facs := {}
 	for f in order:
 		var b = _find(bots, func(x): return x.f == f)
+		if b == null: b = _find(others, func(x): return x.f == f)
 		facs[f] = newGame(f, merged(opts, {"variant": opts.get("variant") if f == opts.human else (b.get("variant") if b != null else null)}))
-		if f != opts.human: facs[f].bot = true
-	var human := attachWorld(facs, {"order": order, "human": opts.human, "bots": bots.map(func(b): return b.f), "done": {}})
-	var parts := order.map(func(f): return D.FAC[f].n + (" (you)" if f == opts.human else ((" (bot, " + D.FAC[f].variants[facs[f].variant].n + ")") if facs[f].variant != null else " (bot)")))
+		if f != opts.human and not _some(others, func(x): return x.f == f): facs[f].bot = true
+	var meta := {"order": order, "human": opts.human, "bots": bots.map(func(b): return b.f), "done": {}}
+	if others.size() or t(opts.get("net")): meta.humans = [opts.human] + others.map(func(b): return b.f)
+	var human := attachWorld(facs, meta)
+	var parts := order.map(func(f): return D.FAC[f].n + (" (you)" if f == opts.human else (" (player)" if meta.get("humans", []).has(f) else ((" (bot, " + D.FAC[f].variants[facs[f].variant].n + ")") if facs[f].variant != null else " (bot)"))))
 	var npfs := npfKeys(human)
 	glog(human, "Factions in play (initiative order): " + ", ".join(parts) + ". " + (("Non-player factions: " + ", ".join(npfs.map(func(f): return D.FAC[f].n)) + ".") if npfs.size() else ""), "h")
 	return human

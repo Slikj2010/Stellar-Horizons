@@ -23,6 +23,20 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 	var a := []
 	a.append(["wait", 20])
 	a.append(["shot", "00_menu"])
+	if plan == "mp":
+		a.append(["call", func(): main.show_menu("multi")])
+		a.append(["wait", 5])
+		a.append(["shot", "95_multi"])
+		a.append(["call", func():
+			Net.host_game("Jamal")
+			Net.choose("na")
+			Net.players[2] = {"name": "Friend", "f": "eu", "variant": ""}
+			Net.public_ip = "203.0.113.9"
+			Net.set_bots([{"f": "ru"}, {"f": "jp"}], "std")
+			main.show_menu("mp_host")])
+		a.append(["wait", 8])
+		a.append(["shot", "96_host"])
+		return a
 	a.append(["call", func():
 		var b := []
 		if bots:

@@ -49,7 +49,7 @@ func fac_of(f: String):
 	return null
 
 func open() -> void:
-	if Game.G == null: return
+	if Game.G == null or Net.active: return  # no cheating in online games
 	visible = true
 	if fac_of(fac) == null: fac = Game.G.f
 	build()

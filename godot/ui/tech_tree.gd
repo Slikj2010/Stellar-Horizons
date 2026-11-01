@@ -227,13 +227,13 @@ func rt_status_bb(G) -> String:
 
 func develop(k: String):
 	var e = E.develop(Game.G, k)
-	if e == null and Game.G.world != null: Game.AI.techLoop(Game.G)
+	if e == null and Game.G.world != null and not Net.active: Game.AI.techLoop(Game.G)
 	return e
 
 func pass_research() -> void:
 	var go := func():
 		var e = E.techPass(Game.G)
-		if e == null: Game.AI.techLoop(Game.G, {"humanPasses": true})
+		if e == null and not Net.active: Game.AI.techLoop(Game.G, {"humanPasses": true})
 		return e
 	main.confirm("Pass research?", "You develop no more technologies this decade. The other factions keep taking research turns until they pass too.", go, "Pass")
 

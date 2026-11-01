@@ -713,6 +713,118 @@ func advanceWorld(H) -> bool:
 			if not g.over: E.finish(g, "The campaign ends.")
 	else: runBots(H, "before")
 	return true
+# ---------------- online games: several people share one world and take their turns in order ----------------
+# world.meta.humans lists the factions people play. In every phase the factions act in initiative order (reverse order
+# in movement and research); a "token" says which person is acting. Bots between two people act as the first one
+# finishes; when the last person finishes, the whole world moves on to the next step.
+func humansOf(world) -> Array: return world.meta.get("humans", [])
+func netGame(world) -> bool: return world != null and world.meta.has("humans")
+## bots in initiative positions lo .. hi-1 take their turn for this step (once each)
+func runBotsRange(H, lo: int, hi: int) -> void:
+	var world = H.world
+	var o := orderFor(world)
+	var key := stepKey(H)
+	var done = gi(world.meta, "done", null)
+	if not (done is Dictionary and done.get("key") == key): world.meta.done = {"key": key, "f": {}}
+	var hum := humansOf(world)
+	for i in range(maxi(lo, 0), mini(hi, o.size())):
+		var f = o[i]
+		if hum.has(f) or t(world.meta.done.f.get(f)): continue
+		world.meta.done.f[f] = 1
+		var g = world.facs.get(f)
+		if g == null or g.over: continue
+		var mark = g.log[0] if g.log.size() else null
+		botPhase(g)
+		mirror(H, g, mark)
+## which people have finished this step: {f: 1}
+func _hdone(H) -> Dictionary:
+	var world = H.world
+	var key := stepKey(H)
+	var hd = gi(world.meta, "hdone", null)
+	if not (hd is Dictionary and hd.get("key") == key): world.meta.hdone = {"key": key, "f": {}}
+	return world.meta.hdone.f
+## research turns: bots take theirs until it is a person's turn. Returns that person's faction, or "" when everyone has passed
+func techLoopNet(H) -> String:
+	var world = H.world
+	var hum := humansOf(world)
+	for k in 500:
+		var f = E.techTurn(world)
+		if f == null: return ""
+		if hum.has(f): return f
+		var g = world.facs[f]
+		answerAsks(g)
+		techTurnBot(g)
+	return ""
+## the whole world moves on one step (every faction advances)
+func advanceAll(H) -> void:
+	var world = H.world
+	if H.phase == "econ" and H.estep == "initiative": E.resolveInitiative(world)
+	var hum := humansOf(world)
+	for f in world.meta.order.duplicate():
+		var g = world.facs[f]
+		if g.over: continue
+		var bot: bool = not hum.has(f)
+		if bot: answerAsks(g)
+		var mark = g.log[0] if g.log.size() else null
+		if bot and g.phase == "econ" and g.estep == "diplomacy": diplomacyDecide(g)
+		E.advance(g)
+		if bot:
+			answerAsks(g)
+			for l in _fresh(g, mark):
+				if (l.c == "x" and _rx_lost.search(l.t) != null) or _rx_dip.search(l.t) != null: E.glog(H, D.FAC[g.f].pre + ": " + l.t, "bot")
+	if SHRules._some(world.facs.values(), func(g): return g.over):
+		for g in world.facs.values():
+			if not g.over: E.finish(g, "The campaign ends.")
+## the start of a step: bots ahead of the first person act. Returns the person whose turn it is ("" if nobody)
+func startRound(H) -> String:
+	var world = H.world
+	var hum := humansOf(world)
+	if hum.is_empty(): return ""
+	for k in 30:
+		if H.over: return String(hum[0])
+		if techStep(H):
+			var h := techLoopNet(H)
+			if h != "": return h
+			advanceAll(H)
+			continue
+		var o := orderFor(world)
+		var hd := _hdone(H)
+		var fi := -1
+		for i in o.size():
+			if hum.has(o[i]) and not t(hd.get(o[i])):
+				fi = i
+				break
+		if fi < 0: fi = _first_human(o, hum)
+		runBotsRange(H, 0, fi)
+		return String(o[fi])
+	return String(hum[0])
+func _first_human(o: Array, hum: Array) -> int:
+	for i in o.size():
+		if hum.has(o[i]): return i
+	return 0
+## a person (H) presses Next: returns the faction whose turn it is afterwards
+func advanceNet(H) -> String:
+	var world = H.world
+	if H.over or H.ask.size(): return H.f
+	var hum := humansOf(world)
+	if techStep(H):
+		if E.techTurn(world) == H.f: E.techPass(H)
+		var h := techLoopNet(H)
+		if h != "": return h
+	else:
+		var hd := _hdone(H)
+		hd[H.f] = 1
+		var o := orderFor(world)
+		var mi := o.find(H.f)
+		var nxt := -1
+		for i in range(mi + 1, o.size()):
+			if hum.has(o[i]) and not t(hd.get(o[i])):
+				nxt = i
+				break
+		runBotsRange(H, mi + 1, nxt if nxt >= 0 else o.size())
+		if nxt >= 0: return String(o[nxt])
+	advanceAll(H)
+	return startRound(H)
 ## a whole game with no human (tests): the first faction is driven like a bot too
 func autoPlay(H, maxSteps := 50000) -> int:
 	var k := 0

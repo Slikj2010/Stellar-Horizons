@@ -88,11 +88,17 @@ func new_campaign(f: String, opts: Dictionary, bots: Array) -> void:
 
 ## run an engine call that returns null (done) or a string (why not), then refresh
 func act(result) -> void:
+	if Net.active and not Net.my_turn():
+		_not_my_turn()
+		return
 	if result is String and result != "": toast.emit(result)
 	_after()
 
 func answer(choice, extra = null) -> void:
 	if G == null: return
+	if Net.active and not Net.my_turn():
+		_not_my_turn()
+		return
 	G.lastRoll = null
 	var r = E.answer(G, choice, extra)
 	if r is String and r != "": toast.emit(r)
@@ -104,6 +110,9 @@ func answer(choice, extra = null) -> void:
 ## any = show any roll (exploring); otherwise only produce/harvest/life results (those with a kind)
 func roll_act(fn: Callable, any := false) -> void:
 	if G == null: return
+	if Net.active and not Net.my_turn():
+		_not_my_turn()
+		return
 	G.lastRoll = null
 	var r = fn.call()
 	act(r)
@@ -113,11 +122,19 @@ func roll_act(fn: Callable, any := false) -> void:
 
 func next() -> void:
 	if G == null or G.over: return
+	if Net.active and not Net.my_turn():
+		_not_my_turn()
+		return
 	if G.ask.size():
 		toast.emit("Answer the open question first.")
 		return
 	sel = null
 	var y0 = G.y
+	if Net.active:
+		Net.hand_over(AI.advanceNet(G))
+		sound.emit("next")
+		_after()
+		return
 	if multi(): AI.advanceWorld(G)
 	else: E.advance(G)
 	if G.y == y0: sound.emit("next")
@@ -125,9 +142,22 @@ func next() -> void:
 	if settings.autosave: autosave()
 
 func autosave() -> void:
-	if G != null: save_slot(0)
+	if G != null and not Net.active: save_slot(0)
+
+func _not_my_turn() -> void:
+	toast.emit("It is %s's turn (%s). Wait for your turn." % [Net.player_of(Net.holder) if Net.player_of(Net.holder) != "" else "a bot", Net.name_of(Net.holder)])
+	Net.restore()
 
 func _after() -> void:
+	if Net.active:
+		# research turns: after my choice the bots take theirs; the turn may pass to another player
+		if Net.my_turn() and AI.techStep(G) and not G.ask.size():
+			var h := AI.techLoopNet(G)
+			if h != "" and h != G.f: Net.hand_over(h)
+		Net.note_change()
+		if sel != null and sel.t == "ship" and E._shipById(G, sel.id) == null: sel = null
+		changed.emit()
+		return
 	# in a multi-faction research step, let the bots take their turns until it is the human's turn again
 	if multi() and G.phase == "econ" and G.estep == "tech" and not G.ask.size(): AI.techLoop(G)
 	if sel != null and sel.t == "ship" and E._shipById(G, sel.id) == null: sel = null
@@ -246,3 +276,61 @@ func load_game(path := SAVE_PATH) -> bool:
 	campaign_started.emit()
 	changed.emit()
 	return true
+
+# ---------------- online games ----------------
+## start the world for an online game. The host's faction is `f`; opts.humans lists the other players
+func new_net_campaign(f: String, opts: Dictionary, bots: Array) -> void:
+	sel = null
+	pad = null
+	opts = opts.duplicate()
+	opts.rerolls = settings.rerolls
+	opts.scrapRE = settings.scrapRE
+	opts.enhTrade = settings.enhTrade
+	var o := opts.duplicate()
+	o.human = f
+	o.bots = bots
+	G = E.newWorld(o)
+	campaign_started.emit()
+	changed.emit()
+
+## the whole world as one blob (shared tables stored once)
+func pack_world(holder: String, seq: int) -> PackedByteArray:
+	var facs := {}
+	for f in G.world.facs:
+		var g := _strip(G.world.facs[f])
+		g.erase("w")
+		g.erase("fly")
+		facs[f] = g
+	var blob := {"meta": G.world.meta, "facs": facs, "w": G.w, "fly": G.fly, "holder": holder, "seq": seq}
+	var raw := var_to_bytes(blob)
+	var out := PackedByteArray()
+	out.resize(4)
+	out.encode_u32(0, raw.size())
+	out.append_array(raw.compress(FileAccess.COMPRESSION_ZSTD))
+	return out
+
+func unpack_world(bytes: PackedByteArray) -> Dictionary:
+	var size := bytes.decode_u32(0)
+	return bytes_to_var(bytes.slice(4).decompress(size, FileAccess.COMPRESSION_ZSTD))
+
+## use a received snapshot as my game. first = the game just started (build the screens)
+func net_apply(blob: Dictionary, me: String, first: bool) -> void:
+	var facs: Dictionary = blob.facs
+	for f in facs:
+		facs[f].w = blob.w
+		facs[f].fly = blob.fly
+	var meta: Dictionary = blob.meta
+	meta.human = me
+	var world := {"meta": meta, "facs": facs}
+	for f in facs: facs[f].world = world
+	G = facs[me]
+	apply_settings(G)
+	if first:
+		sel = null
+		pad = null
+		campaign_started.emit()
+	changed.emit()
+
+## the world changed outside the normal flow (a snapshot arrived, the host started): redraw
+func net_changed() -> void:
+	changed.emit()

@@ -66,6 +66,10 @@ func _ready() -> void:
 	Game.toast.connect(show_toast)
 	Game.rolled.connect(show_roll)
 	Game.campaign_started.connect(_on_started)
+	Net.lobby_changed.connect(func(): if menu.visible and _mp_mode != "": show_menu(_mp_mode))
+	Net.failed.connect(func(why): show_toast(why); show_menu("multi"))
+	Net.left.connect(_on_net_left)
+	Net.game_started.connect(func(): _mp_mode = "")
 	next_btn.pressed.connect(func(): next_click())
 	$HUD/Root/TopBar/Row/MenuBtn.pressed.connect(func(): show_menu("pause" if Game.G != null else "title"))
 	tabs.set_tab_title(0, "Turn")
@@ -678,8 +682,8 @@ func refresh() -> void:
 	build_tech_panel()
 	build_pol_panel()
 	build_log()
-	next_btn.disabled = G.over or G.ask.size() > 0
-	next_btn.text = "Campaign over" if G.over else ("Answer the question first" if G.ask.size() else _next_label(G))
+	next_btn.disabled = G.over or G.ask.size() > 0 or (Net.active and not Net.my_turn())
+	next_btn.text = "Campaign over" if G.over else ("Answer the question first" if G.ask.size() else (_waiting_label() if (Net.active and not Net.my_turn()) else _next_label(G)))
 	build_dialog()
 	_sync_fboard()
 
@@ -711,7 +715,31 @@ func _next_name(G) -> String:
 	return E.PHASE_NAME[nx]
 
 # ---------------- Next, with a check for unused options ----------------
-func _next_label(G) -> String: return ("End %d" % int(G.y)) if G.phase == "trade" else "Next: " + _next_name(G)
+## who is playing in an online game, and whose turn it is
+func _players_card(box: Node, G) -> void:
+	var c := UIK.card(box)
+	UIK.head(c, "Players", UIK.CYAN)
+	var o: Array = Game.AI.orderFor(G.world)
+	var hd: Dictionary = Game.AI._hdone(G) if not Game.AI.techStep(G) else {}
+	for f in o:
+		var who: String = Net.player_of(f)
+		var human: bool = G.world.meta.get("humans", []).has(f)
+		var txt := "%s: %s" % [D.FAC[f].n, (who if who != "" else "player") if human else "bot"]
+		if f == Net.me: txt += " (you)"
+		if human and f == Net.holder: txt = "▶ " + txt + " · playing now"
+		elif human and SHRules.t(hd.get(f)): txt = "✓ " + txt
+		var l := UIK.para(c, txt, Color(D.FAC[f].c).lightened(0.25) if human else UIK.DIM, 13)
+	if not Net.my_turn():
+		UIK.para(c, "It is not your turn: you can look around (map, Faction, Tech tabs) but not act until it comes to you.", UIK.DIM, 12)
+	else:
+		UIK.para(c, "Your turn. Press the button below when you are done: the next player goes, and when everyone is done the phase moves on.", UIK.AMBER, 12)
+
+func _next_label(G) -> String:
+	if Net.active: return "Finish my turn (then %s)" % (("end of %d" % int(G.y)) if G.phase == "trade" else _next_name(G))
+	return ("End %d" % int(G.y)) if G.phase == "trade" else "Next: " + _next_name(G)
+func _waiting_label() -> String:
+	var who := Net.player_of(Net.holder)
+	return "Waiting for %s (%s)…" % [who if who != "" else "a bot", Net.name_of(Net.holder)]
 
 func next_click() -> void:
 	var G = Game.G
@@ -798,6 +826,7 @@ func build_turn() -> void:
 		UIK.button(box, "New campaign", func(): show_menu("start"))
 		return
 	UIK.title(box, E.PHASE_NAME[G.phase] + ((": " + E.ESTEP_NAME[G.estep]) if G.estep != null else ""))
+	if Net.active: _players_card(box, G)
 	UIK.para(box, PHASE_HELP[G.phase], UIK.DIM, 13)
 	# what just happened (newest log lines since the last refresh of the turn)
 	var recent: Array = G.log.slice(0, 4)
@@ -1898,6 +1927,7 @@ var _menu_from := "start"
 func _title_action(k: String) -> void:
 	match k:
 		"new": show_menu("start")
+		"multi": show_menu("multi")
 		"load":
 			_menu_from = "title"
 			show_menu("load")
@@ -1925,14 +1955,23 @@ func show_menu(mode: String) -> void:
 	ttree.visible = false
 	UIK.clear(menu_box)
 	if mode == "start" or mode == "pause": _menu_from = mode
+	_mp_mode = mode if mode in ["multi", "mp_host", "mp_join", "mp_lobby"] else ""
 	match mode:
 		"load", "save": return _slots_menu(mode)
 		"settings": return _settings_menu()
+		"multi", "mp_host", "mp_join", "mp_lobby": return _multi_menu(mode)
 	UIK.title(menu_box, "Stellar Horizons", 34)
 	if mode == "start": UIK.button(menu_box, "Fleet hangar (3D models)", func(): hangar.open(_setup.f))
 	if mode == "pause":
 		UIK.para(menu_box, "Campaign paused: %s, %d." % [D.FAC[Game.G.f].n, int(Game.G.y)], UIK.DIM)
 		var col := UIK.vbox(menu_box, 8)
+		if Net.active:
+			UIK.para(menu_box, "Online game. The game keeps going for the others while this menu is open.", UIK.DIM, 13)
+			for it in [["Resume", func(): _close_menu()], ["Settings", func(): show_menu("settings")], ["Fleet hangar (3D models)", func(): hangar.open(Game.G.f)], ["Leave the game", func():
+					Net.leave("You left the game.")]]:
+				var b := UIK.button(col, it[0], it[1])
+				b.custom_minimum_size = Vector2(260, 40)
+			return
 		for it in [["Resume", func(): _close_menu()], ["Save game", func(): show_menu("save")], ["Load game", func(): show_menu("load")],
 				["Settings", func(): show_menu("settings")], ["Fleet hangar (3D models)", func(): hangar.open(Game.G.f)], ["Developer console", func():
 					_close_menu()
@@ -2003,6 +2042,182 @@ func show_menu(mode: String) -> void:
 	if Game.G != null: UIK.button(go, "Back", func(): _close_menu())
 	else: UIK.button(go, "Title screen", func(): show_menu("title"))
 	UIK.button(go, "Quit", func(): Game.quit())
+
+# ---------------- multiplayer menus ----------------
+var _mp_mode := ""
+var _mp_name := ""
+var _mp_code := ""
+var _mp_bots: Array = []
+var _mp_cnbot := "mil"
+var _mp_scen := "std"
+
+func _on_net_left(why: String) -> void:
+	if why != "": show_toast(why)
+	Game.G = null
+	Game.sel = null
+	_mp_mode = ""
+	show_menu("title")
+
+func _mp_player_name() -> String:
+	if _mp_name == "":
+		var u := OS.get_environment("USERNAME")
+		if u == "": u = OS.get_environment("USER")
+		_mp_name = u.substr(0, 16) if u != "" else "Player"
+	return _mp_name
+
+## the faction buttons of the lobby: mine is highlighted, factions another player took are greyed out
+func _mp_faction_picker(box: Node) -> void:
+	var mine: String = Net.players.get(multiplayer.get_unique_id(), {}).get("f", "")
+	var myvar: String = Net.players.get(multiplayer.get_unique_id(), {}).get("variant", "")
+	var taken := {}
+	for id in Net.players:
+		if id != multiplayer.get_unique_id() and Net.players[id].f != "": taken[Net.players[id].f] = Net.players[id].name
+	var f := UIK.flow(box)
+	for k in D.FAC_ORDER:
+		var vs: Array = ["mil", "rob"] if k == "cn" else [""]
+		for vv in vs:
+			var lbl: String = D.FAC[k].n + ((" · " + D.FAC[k].variants[vv].n) if vv != "" else "")
+			if taken.has(k): lbl += " (" + String(taken[k]) + ")"
+			var kk: String = k
+			var v2: String = vv
+			var b := UIK.button(f, lbl, func(): Net.choose(kk, v2), taken.has(k))
+			b.add_theme_color_override("font_color", Color(D.FAC[k].c).lightened(0.25))
+			if mine == k and myvar == vv: b.add_theme_stylebox_override("normal", b.get_theme_stylebox("hover"))
+	if mine != "": UIK.para(box, D.FAC[mine].ab, UIK.DIM, 13)
+
+func _mp_player_list(box: Node) -> void:
+	UIK.head(box, "Players in the room")
+	for id in Net.players:
+		var p: Dictionary = Net.players[id]
+		var txt: String = String(p.name) + (" (host)" if id == 1 else "") + (" (you)" if id == multiplayer.get_unique_id() else "") + " · " + (D.FAC[p.f].n if p.f != "" else "choosing a faction…")
+		UIK.para(box, txt, Color(D.FAC[p.f].c).lightened(0.25) if p.f != "" else UIK.DIM, 14)
+
+func _multi_menu(mode: String) -> void:
+	UIK.title(menu_box, "Multiplayer", 30)
+	var back := func():
+		Net.leave("", true)
+		show_menu("title")
+	if mode == "multi":
+		UIK.para(menu_box, "Play the campaign with friends over the internet. One player hosts and shares a room code; the others join with it. Factions you leave to bots are played by the computer. Players take their turns one after another, in initiative order.", UIK.DIM, 14, 520)
+		UIK.head(menu_box, "Your name")
+		var le := LineEdit.new()
+		le.text = _mp_player_name()
+		le.max_length = 16
+		le.custom_minimum_size.x = 260
+		le.text_changed.connect(func(t): _mp_name = t.strip_edges())
+		menu_box.add_child(le)
+		var row := UIK.flow(menu_box)
+		var h := UIK.button(row, "Host a game", func():
+			if Net.host_game(_mp_player_name()): show_menu("mp_host"))
+		h.custom_minimum_size = Vector2(200, 44)
+		var j := UIK.button(row, "Join a game", func(): show_menu("mp_join"))
+		j.custom_minimum_size = Vector2(200, 44)
+		UIK.button(row, "Back", back)
+		return
+	if mode == "mp_join":
+		UIK.para(menu_box, "Type the room code the host gave you (like ABCDE-FGHJK), or their address (like 192.168.1.20 for the same network).", UIK.DIM, 14, 520)
+		var code := LineEdit.new()
+		code.placeholder_text = "Room code or address"
+		code.text = _mp_code
+		code.custom_minimum_size.x = 320
+		code.text_changed.connect(func(t): _mp_code = t)
+		menu_box.add_child(code)
+		var row := UIK.flow(menu_box)
+		var go := func():
+			_mp_code = code.text
+			Net.join_game(_mp_code, _mp_player_name())
+			show_menu("mp_lobby")
+		code.text_submitted.connect(func(_t): go.call())
+		var c := UIK.button(row, "Connect", go)
+		c.custom_minimum_size = Vector2(200, 44)
+		UIK.button(row, "Back", func(): show_menu("multi"))
+		return
+	if mode == "mp_lobby":
+		if not Net.in_lobby:
+			UIK.para(menu_box, "Connecting…", UIK.DIM)
+			UIK.button(menu_box, "Cancel", back)
+			return
+		if Net.players.is_empty():
+			UIK.para(menu_box, "Connecting to the host…", UIK.DIM)
+			UIK.button(menu_box, "Cancel", back)
+			return
+		UIK.para(menu_box, "You are in the room. Pick a faction; the host starts the game when everyone is ready.", UIK.DIM, 14, 520)
+		_mp_player_list(menu_box)
+		UIK.head(menu_box, "Your faction")
+		_mp_faction_picker(menu_box)
+		var bots: Array = Net.settings.bots
+		UIK.para(menu_box, "Bots: " + (", ".join(bots.map(func(b): return D.FAC[b.f].n)) if bots.size() else "none") + " · " + ("Futuristic start (2060)" if Net.settings.scenario == "fut2060" else "Standard campaign (2030)"), UIK.DIM, 13, 520)
+		UIK.button(menu_box, "Leave", back)
+		return
+	# host lobby
+	if not Net.in_lobby or not Net.is_host:
+		show_menu("multi")
+		return
+	var rc := Net.room_code()
+	UIK.head(menu_box, "Room code (share it with the other players)")
+	var codebox := UIK.hbox(menu_box, 10)
+	var cl := UIK.title(codebox, rc if rc != "" else "finding your address…", 30)
+	cl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	cl.custom_minimum_size.x = 330
+	if rc != "":
+		UIK.button(codebox, "Copy", func():
+			DisplayServer.clipboard_set(rc)
+			show_toast("Room code copied."))
+	if Net.local_ip != "": UIK.para(menu_box, "Same network: players can type %s instead." % Net.local_ip, UIK.DIM, 13, 520)
+	UIK.para(menu_box, Net.upnp_msg, UIK.DIM, 12, 520)
+	_mp_player_list(menu_box)
+	UIK.head(menu_box, "Your faction")
+	_mp_faction_picker(menu_box)
+	var taken: Array = Net.players.values().map(func(p): return p.f)
+	var others: Array = D.FAC_ORDER.filter(func(k): return not taken.has(k))
+	_mp_bots = _mp_bots.filter(func(k): return k in others)
+	var apply := func():
+		var list := []
+		for k in _mp_bots: list.append({"f": k, "variant": _mp_cnbot} if k == "cn" else {"f": k})
+		Net.set_bots(list, _mp_scen)
+	UIK.head(menu_box, "Bots: tick the factions the computer plays (unticked factions are not in the game)")
+	var quick := UIK.flow(menu_box)
+	UIK.button(quick, "All free factions", func():
+		_mp_bots = others.duplicate()
+		apply.call()
+		show_menu("mp_host"))
+	UIK.button(quick, "No bots", func():
+		_mp_bots = []
+		apply.call()
+		show_menu("mp_host"))
+	var scen := UIK.pick(quick, ["Standard campaign (2030)", "Futuristic start (2060)"], 1 if _mp_scen == "fut2060" else 0)
+	scen.item_selected.connect(func(i):
+		_mp_scen = "fut2060" if i == 1 else "std"
+		apply.call())
+	for k in others:
+		var row := UIK.hbox(menu_box, 8)
+		var ck := CheckBox.new()
+		ck.text = D.FAC[k].n
+		ck.button_pressed = k in _mp_bots
+		ck.add_theme_color_override("font_color", Color(D.FAC[k].c).lightened(0.25))
+		ck.custom_minimum_size.x = 150
+		var kk: String = k
+		ck.toggled.connect(func(on):
+			if on and not kk in _mp_bots: _mp_bots.append(kk)
+			if not on: _mp_bots.erase(kk)
+			apply.call()
+			show_menu("mp_host"))
+		row.add_child(ck)
+		if k == "cn":
+			var vp := UIK.pick(row, ["Military", "Robotic"], 1 if _mp_cnbot == "rob" else 0)
+			vp.item_selected.connect(func(i):
+				_mp_cnbot = "rob" if i == 1 else "mil"
+				apply.call())
+		UIK.para(row, _bot_blurb(k), UIK.DIM, 12, 420)
+	var go := UIK.flow(menu_box)
+	var why: String = Net.can_start()
+	var st := UIK.button(go, "Start the game", func():
+		apply.call()
+		var e := Net.start_game()
+		if e != "": show_toast(e), why != "")
+	st.custom_minimum_size = Vector2(220, 44)
+	if why != "": UIK.para(menu_box, why, UIK.DIM, 13, 520)
+	UIK.button(go, "Close the room", back)
 
 func _bot_blurb(f: String) -> String:
 	match f:
