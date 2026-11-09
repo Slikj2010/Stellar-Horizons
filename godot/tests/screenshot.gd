@@ -260,6 +260,45 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 			Game.select({"t": "world", "k": "mar"})])
 		a.append(["wait", 10])
 		a.append(["shot", "91_worldsel"])
+	if plan == "keys":
+		a.append(["call", func(): main.show_menu("settings")])
+		a.append(["wait", 5])
+		a.append(["shot", "40_settings"])
+		a.append(["call", func(): main.show_menu("keys")])
+		a.append(["wait", 5])
+		a.append(["shot", "41_keys"])
+		a.append(["call", func():
+			main._close_menu()
+			var ph0: String = Game.G.phase
+			var y0: int = Game.G.y
+			var ev := InputEventKey.new()
+			ev.keycode = KEY_SPACE
+			ev.pressed = true
+			Input.parse_input_event(ev)
+			print("KEYS before space: ", ph0, " ", y0)])
+		a.append(["wait", 5])
+		a.append(["call", func():
+			print("KEYS after space: ", Game.G.phase, " ", Game.G.y)
+			var p0: Vector2 = main.cam.position
+			main._rebind = ""
+			var ev := InputEventKey.new()
+			ev.keycode = KEY_F3
+			ev.pressed = true
+			Input.parse_input_event(ev)
+			print("KEYS cam ", p0)])
+		a.append(["wait", 5])
+		a.append(["call", func():
+			print("KEYS tab after F3: ", main.tabs.current_tab)
+			main._rebind = "next"
+			var ev := InputEventKey.new()
+			ev.keycode = KEY_N
+			ev.pressed = true
+			Input.parse_input_event(ev)])
+		a.append(["wait", 5])
+		a.append(["call", func():
+			print("KEYS next bound to: ", OS.get_keycode_string(Game.key_of("next")))
+			Game.reset_keys()])
+		return a
 	if plan == "info":
 		a.append(["call", func():
 			main.show_unit_info(Game.G.f, "CV-5|Enterprise")])

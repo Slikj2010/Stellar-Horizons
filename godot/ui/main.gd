@@ -172,10 +172,94 @@ func _warm_v25() -> void:
 	await get_tree().process_frame
 	loading.done()
 
+const TAB_KEYS := {"tab_turn": TAB_TURN, "tab_sel": TAB_SEL, "tab_fac": TAB_FAC, "tab_tech": TAB_TECH, "tab_pol": TAB_POL, "tab_log": TAB_LOG}
 func _process(dt: float) -> void:
 	if _toast_t > 0:
 		_toast_t -= dt
 		if _toast_t <= 0: toast_panel.visible = false
+	_held_keys(dt)
+
+## camera keys held down: move, zoom, turn and tilt smoothly
+func _held_keys(dt: float) -> void:
+	if Game.G == null or menu.visible or modal.visible or dev.visible or _rebind != "": return
+	var fo := get_viewport().gui_get_focus_owner()
+	if fo is LineEdit or fo is TextEdit: return
+	var on := func(a: String) -> bool: return Input.is_key_pressed(Game.key_of(a))
+	var mv := Vector2(float(on.call("cam_right")) - float(on.call("cam_left")), float(on.call("cam_down")) - float(on.call("cam_up")))
+	var zm := float(on.call("zoom_in")) - float(on.call("zoom_out"))
+	if v25.on:
+		var C: Dictionary = v25.C
+		if mv != Vector2.ZERO:
+			var y: float = C.yaw
+			var fwd := Vector2(-sin(y), -cos(y))
+			var rgt := Vector2(cos(y), -sin(y))
+			var d: Vector2 = (rgt * mv.x - fwd * mv.y).normalized() * C.dist * .9 * dt
+			C.tx += d.x
+			C.tz += d.y
+			v25.clampCam()
+		if zm != 0: v25.zoom(pow(2.2, zm * dt))
+		var rt := float(on.call("rot_right")) - float(on.call("rot_left"))
+		var tl := float(on.call("tilt_up")) - float(on.call("tilt_down"))
+		if rt != 0 or tl != 0: v25.rotate_by(rt * 1.6 * dt, tl * .7 * dt)
+	elif board.visible:
+		if mv != Vector2.ZERO: cam.pan_screen(-mv.normalized() * 900.0 * dt)
+		if zm != 0: cam.zoom_at(pow(2.2, zm * dt), stage_rect().get_center())
+
+# ---------------- rebinding keys (Settings > Controls) ----------------
+var _rebind := ""
+func _input(ev: InputEvent) -> void:
+	if _rebind == "" or not (ev is InputEventKey) or not ev.pressed or ev.echo: return
+	get_viewport().set_input_as_handled()
+	var k: int = (ev as InputEventKey).keycode
+	var act := _rebind
+	_rebind = ""
+	if k == KEY_ESCAPE:
+		show_menu("keys")
+		return
+	if k == KEY_KP_ENTER: k = KEY_ENTER
+	if k == KEY_QUOTELEFT:
+		show_toast("The ` key opens the developer console and cannot be rebound.")
+		show_menu("keys")
+		return
+	var other := Game.bind_key(act, k)
+	if other != "": show_toast("%s was on %s: it now uses %s." % [_act_label(other), OS.get_keycode_string(k), OS.get_keycode_string(Game.key_of(other))])
+	show_menu("keys")
+func _act_label(a: String) -> String:
+	for x in Game.KEY_ACTIONS:
+		if x[0] == a: return x[1]
+	return a
+
+func _keys_menu() -> void:
+	UIK.title(menu_box, "Controls", 28)
+	UIK.para(menu_box, "Click a key to change it, then press the new key (Escape cancels). Taking a key another action uses swaps the two. Escape (menus) and ` (developer console) are fixed.", UIK.DIM, 13, 520)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(560, 460)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	menu_box.add_child(scroll)
+	var list := UIK.vbox(scroll, 4)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var grp := ""
+	for a in Game.KEY_ACTIONS:
+		if a[2] != grp:
+			grp = a[2]
+			UIK.head(list, grp)
+		var h := UIK.hbox(list, 10)
+		var l := UIK.para(h, a[1], null, 14, 300)
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var act: String = a[0]
+		var waiting := _rebind == act
+		var b := UIK.button(h, "Press a key…" if waiting else OS.get_keycode_string(Game.key_of(act)), func():
+			_rebind = act
+			show_menu("keys"))
+		b.custom_minimum_size = Vector2(150, 30)
+		if waiting: b.add_theme_color_override("font_color", UIK.AMBER)
+	var row := UIK.flow(menu_box)
+	UIK.button(row, "Reset to defaults", func():
+		Game.reset_keys()
+		show_menu("keys"))
+	UIK.button(row, "Back", func():
+		_rebind = ""
+		show_menu("settings"))
 
 func _on_started() -> void:
 	_warm_v25()
@@ -265,11 +349,16 @@ func _unhandled_input(ev: InputEvent) -> void:
 		_camc().zoom_at((ev as InputEventMagnifyGesture).factor, (ev as InputEventMagnifyGesture).position)
 	elif ev is InputEventPanGesture:
 		_camc().pan_screen(-(ev as InputEventPanGesture).delta * 20)
-	elif ev is InputEventKey and ev.pressed and not ev.echo:
+	if ev is InputEventKey and ev.pressed and not ev.echo:
 		var k: int = (ev as InputEventKey).keycode
-		if JUMP.has(k): _jump_key(k)
-		elif k == KEY_V: toggle_3d()
-		elif k == KEY_ENTER or k == KEY_KP_ENTER: next_click()
+		if k == KEY_KP_ENTER: k = KEY_ENTER
+		var act := Game.action_of(k)
+		if JUMP.has(act): _jump_key(act)
+		elif act == "toggle_3d": toggle_3d()
+		elif act == "next": next_click()
+		elif act == "whole_map": _fit_btn()
+		elif act == "my_ships": _me_btn()
+		elif TAB_KEYS.has(act) and Game.G != null: tabs.current_tab = TAB_KEYS[act]
 
 ## a screen point on the map, in board coordinates
 func _world(sp: Vector2) -> Vector2: return board.get_canvas_transform().affine_inverse() * sp
@@ -448,11 +537,11 @@ const HINTS := {"econ": "Economic phase. Work through each step in the Turn tab.
 	"explore": "Tap a ship with a blue ring to explore. Each ship explores once per turn.", "trade": "Found bases, build facilities and settlements, trade and terraform."}
 
 # ---------------- camera hotkeys: belts cycle through their satellites on repeated presses ----------------
-const JUMP := {KEY_1: ["mer"], KEY_2: ["ven"], KEY_SPACE: ["ear"], KEY_3: ["mar"], KEY_4: ["bel", "cer", "ves", "hyg"], KEY_5: ["jup"], KEY_6: ["sat"],
-	KEY_7: ["ura"], KEY_8: ["nep"], KEY_9: ["kui", "plu", "hau"], KEY_0: ["sca", "eri", "sed"], KEY_A: ["alp"]}
-var _jump_last := -1
+const JUMP := {"go_mer": ["mer"], "go_ven": ["ven"], "go_ear": ["ear"], "go_mar": ["mar"], "go_bel": ["bel", "cer", "ves", "hyg"], "go_jup": ["jup"], "go_sat": ["sat"],
+	"go_ura": ["ura"], "go_nep": ["nep"], "go_kui": ["kui", "plu", "hau"], "go_sca": ["sca", "eri", "sed"], "go_alp": ["alp"]}
+var _jump_last := ""
 var _jump_i := 0
-func _jump_key(key: int) -> void:
+func _jump_key(key: String) -> void:
 	var list: Array = JUMP[key]
 	_jump_i = (_jump_i + 1) % list.size() if _jump_last == key else 0
 	_jump_last = key
@@ -2144,6 +2233,7 @@ func show_menu(mode: String) -> void:
 	match mode:
 		"load", "save": return _slots_menu(mode)
 		"settings": return _settings_menu()
+		"keys": return _keys_menu()
 		"multi", "mp_host", "mp_join", "mp_lobby": return _multi_menu(mode)
 	UIK.title(menu_box, "Stellar Horizons", 34)
 	if mode == "start": UIK.button(menu_box, "Fleet hangar (3D models)", func(): hangar.open(_setup.f))
@@ -2478,6 +2568,26 @@ func _slots_menu(mode: String) -> void:
 
 func _settings_menu() -> void:
 	UIK.title(menu_box, "Settings", 28)
+	var dc := UIK.card(menu_box)
+	var dh := UIK.hbox(dc, 12)
+	var dv := UIK.vbox(dh, 2)
+	dv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UIK.rich(dv, "[b]Display[/b]", 15)
+	UIK.para(dv, "Windowed, Fullscreen, or Borderless windowed (a full-screen window you can switch away from quickly).", UIK.DIM, 12, 380)
+	var modes := ["windowed", "fullscreen", "borderless"]
+	var wp := UIK.pick(dh, ["Windowed", "Fullscreen", "Borderless windowed"], maxi(0, modes.find(String(Game.settings.window))))
+	wp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	wp.item_selected.connect(func(i):
+		Game.set_setting("window", modes[i])
+		Game.apply_window())
+	var kc := UIK.card(menu_box)
+	var kh := UIK.hbox(kc, 12)
+	var kv := UIK.vbox(kh, 2)
+	kv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UIK.rich(kv, "[b]Controls[/b]", 15)
+	UIK.para(kv, "Camera (W A S D to move), Next (Enter), the screens and the planet hotkeys.", UIK.DIM, 12, 380)
+	var kb := UIK.button(kh, "Change keys", func(): show_menu("keys"))
+	kb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var rows := [
 		["confirmNext", "Confirm before Next", "Ask before ending a phase or step, and list what you have not used yet."],
 		["autosave", "Autosave", "Save the campaign to the autosave slot each time you press Next."],

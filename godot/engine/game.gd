@@ -13,7 +13,59 @@ const SLOTS := ["user://campaign.save", "user://slot1.save", "user://slot2.save"
 const SETTINGS_PATH := "user://settings.cfg"
 
 ## player settings, kept in user://settings.cfg. rerolls/scrapRE apply to new games, enhTrade to every game
-var settings := {"rerolls": true, "scrapRE": false, "enhTrade": false, "confirmNext": true, "autosave": true, "anim": true, "sfxVol": 0.8, "musicVol": 0.45}
+var settings := {"rerolls": true, "scrapRE": false, "enhTrade": false, "confirmNext": true, "autosave": true, "anim": true, "sfxVol": 0.8, "musicVol": 0.45,
+	"window": "windowed", "keys": {}}
+
+## rebindable keys: [action, label, group, default key]
+const KEY_ACTIONS := [
+	["cam_up", "Move camera up / forward", "Camera", KEY_W], ["cam_down", "Move camera down / back", "Camera", KEY_S],
+	["cam_left", "Move camera left", "Camera", KEY_A], ["cam_right", "Move camera right", "Camera", KEY_D],
+	["zoom_in", "Zoom in", "Camera", KEY_E], ["zoom_out", "Zoom out", "Camera", KEY_Q],
+	["rot_left", "Turn left (2.5D)", "Camera", KEY_Z], ["rot_right", "Turn right (2.5D)", "Camera", KEY_C],
+	["tilt_up", "Tilt up (2.5D)", "Camera", KEY_R], ["tilt_down", "Tilt down (2.5D)", "Camera", KEY_F],
+	["whole_map", "Whole map", "Camera", KEY_M], ["my_ships", "Go to my ships", "Camera", KEY_G], ["toggle_3d", "Switch flat map / 2.5D", "Camera", KEY_V],
+	["next", "Next (continue the turn)", "Turn", KEY_ENTER],
+	["tab_turn", "Turn screen", "Screens", KEY_F1], ["tab_sel", "Selected screen", "Screens", KEY_F2], ["tab_fac", "Faction screen", "Screens", KEY_F3],
+	["tab_tech", "Technology screen", "Screens", KEY_F4], ["tab_pol", "Policy screen", "Screens", KEY_F5], ["tab_log", "Log screen", "Screens", KEY_F6],
+	["go_mer", "Mercury", "Planets", KEY_1], ["go_ven", "Venus", "Planets", KEY_2], ["go_ear", "Earth", "Planets", KEY_SPACE], ["go_mar", "Mars", "Planets", KEY_3],
+	["go_bel", "Asteroid Belt (press again to cycle)", "Planets", KEY_4], ["go_jup", "Jupiter", "Planets", KEY_5], ["go_sat", "Saturn", "Planets", KEY_6],
+	["go_ura", "Uranus", "Planets", KEY_7], ["go_nep", "Neptune", "Planets", KEY_8], ["go_kui", "Kuiper Belt (press again to cycle)", "Planets", KEY_9],
+	["go_sca", "Scattered Disc (press again to cycle)", "Planets", KEY_0], ["go_alp", "Alpha Centauri", "Planets", KEY_MINUS],
+]
+func key_of(action: String) -> int:
+	var k = settings.keys.get(action)
+	if k != null: return int(k)
+	for a in KEY_ACTIONS:
+		if a[0] == action: return a[3]
+	return 0
+## the action bound to a key, or ""
+func action_of(key: int) -> String:
+	for a in KEY_ACTIONS:
+		if key_of(a[0]) == key: return a[0]
+	return ""
+## bind a key; if another action had it, that action takes this one's old key (a swap). Returns the other action, or ""
+func bind_key(action: String, key: int) -> String:
+	var other := action_of(key)
+	var old := key_of(action)
+	var ks: Dictionary = settings.keys.duplicate()
+	ks[action] = key
+	if other != "" and other != action: ks[other] = old
+	set_setting("keys", ks)
+	return other if other != action else ""
+func reset_keys() -> void: set_setting("keys", {})
+
+## Windowed, Fullscreen or Borderless windowed
+func apply_window() -> void:
+	if DisplayServer.get_name() == "headless": return
+	match String(settings.window):
+		"fullscreen":
+			DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
+		"borderless":
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+		_:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+			DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
 
 var data: Dictionary
 var E: SHRules
@@ -32,7 +84,14 @@ func _ready() -> void:
 	load_settings()
 	get_tree().set_auto_accept_quit(false)
 	_load_cursors()
-	get_tree().node_added.connect(func(n: Node): if n is BaseButton or n is OptionButton: n.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND)
+	# buttons react to the mouse only: the keyboard is for the game's hotkeys (Space, Enter...), not for re-pressing the last button clicked
+	get_tree().node_added.connect(func(n: Node): if n is BaseButton:
+		n.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		n.focus_mode = Control.FOCUS_NONE)
+	for act in ["ui_accept", "ui_select"]:
+		for e in InputMap.action_get_events(act):
+			if e is InputEventKey and (e.keycode == KEY_SPACE or e.physical_keycode == KEY_SPACE): InputMap.action_erase_event(act, e)
+	apply_window.call_deferred()
 
 # ---------------- the game's own mouse pointers ----------------
 # sprite sheets of 24 frames: a swept ship pointer with a little orbiting moon (normal), the same dark with an amber edge over buttons
@@ -96,6 +155,7 @@ func load_settings() -> void:
 	var cf := ConfigFile.new()
 	if cf.load(SETTINGS_PATH) != OK: return
 	for k in settings: settings[k] = cf.get_value("game", k, settings[k])
+	if not (settings.keys is Dictionary): settings.keys = {}
 
 func set_setting(k: String, v) -> void:
 	settings[k] = v
