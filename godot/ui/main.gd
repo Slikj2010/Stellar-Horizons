@@ -1341,25 +1341,53 @@ func show_unit_info(f: String, key: String, s = null) -> void:
 	grid.add_theme_constant_override("h_separation", 18)
 	grid.add_theme_constant_override("v_separation", 4)
 	col.add_child(grid)
-	var stat := func(a: String, b: String, c = null):
+	# a stat: its value (in its colour) and, dimmed, how technology and the faction change it
+	var stat := func(a: String, b: String, c = null, note := ""):
 		UIK.ctext(grid, a, UIK.DIM, 14, 140)
-		UIK.ctext(grid, b, c, 14, 260)
+		if note == "":
+			UIK.ctext(grid, b, c, 14, 260)
+			return
+		var r := UIK.rich(grid, ("[color=#%s]%s[/color]" % [c.to_html(false), b] if c != null else b) + "  [color=#8d93a3]" + note + "[/color]", 14)
+		r.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		r.custom_minimum_size.x = 260
+	# the owner's current numbers (technologies, policies and faction powers included)
+	var FG = G
+	if G != null and G.world != null and G.world.facs.has(f): FG = G.world.facs[f]
 	var mul: int = E.cargoMul(G) if G != null else 1
 	stat.call("Type", ("Crew vehicle, size %d" % sz) if cv else String(u.k))
-	stat.call("Exploration value", str(u.ev), UIK.C_RESEARCH)
+	var evb: int = 0
+	if FG != null and u.k != "Probe": evb = E.crewBonus(FG) if cv else E.roboBonus(FG)
+	if u.k == "Probe": stat.call("Exploration value", "9", UIK.C_RESEARCH, "(a probe always explores at 9)")
+	elif evb > 0: stat.call("Exploration value", str(u.ev + evb), UIK.C_RESEARCH, "(%d printed +%d from technology%s)" % [u.ev, evb, "" if cv else " and policy"])
+	else: stat.call("Exploration value", str(u.ev), UIK.C_RESEARCH, "(no bonus yet: %s add to it)" % ("crew technologies such as Improved Space Suits" if cv else "computing technologies such as Quantum Computing"))
 	if cv:
-		stat.call("Cargo hold", ("%d" % (u.cargo * mul)) + (" (doubled by technology)" if mul > 1 else "") if u.cargo > 0 else "none", UIK.C_CARGO if u.cargo > 0 else UIK.DIM)
-		stat.call("Combat value", str(u.cb) if u.cb > 0 else "unarmed", UIK.C_COMBAT if u.cb > 0 else UIK.DIM)
+		if FG != null: mul = E.cargoMul(FG)
+		stat.call("Cargo hold", ("%d" % (u.cargo * mul)) if u.cargo > 0 else "none", UIK.C_CARGO if u.cargo > 0 else UIK.DIM, ("(%d printed ×2 from technology)" % u.cargo) if (mul > 1 and u.cargo > 0) else "")
+		var wp: int = E.weapons(FG) if FG != null else 0
+		stat.call("Combat value", str(u.cb) if u.cb > 0 else "unarmed", UIK.C_COMBAT if u.cb > 0 else UIK.DIM, ("(+%d to the fleet's total from weapons technology)" % wp) if wp > 0 else "")
+		if FG != null:
+			var rc: int = E.recall(FG)
+			stat.call("Recall chance", "%d%%" % rc, UIK.C_DAMAGE, ("(50%% base %+d from technology%s)" % [rc - 50, " and faction" if FG.f == "ru" else ""]) if rc != 50 else "(after mining or exploring; technologies lower it)")
+			var cr: int = E.crewRange(FG)
+			stat.call("Crew range", "unlimited" if cr >= 99 else str(cr), null, "(systems from Earth or a supporting base)")
 		if u.dr > 0: stat.call("Drones", str(u.dr), UIK.C_DRONE)
 		stat.call("Mobile lab", "yes: roll 2 dice, keep 1 when exploring" if u.lab else "no")
 		stat.call("Space mining", "yes: can mine world cards and harvest asteroids" if u.prod else "no")
 		stat.call("Destroyed at", "%d damage" % sz, UIK.C_DAMAGE)
-		if G != null: stat.call("Engine failure", "%d%% per move" % maxi(0, E.engRate(G, {"cls": "CV", "sz": sz})))
+		if FG != null: stat.call("Engine failure", "%d%% per move" % maxi(0, E.engRate(FG, {"cls": "CV", "sz": sz})), null, "(%d%% base −%d for its size)" % [E.engBase(FG), sz])
 		stat.call("Leaves Earth", "on an LV-%d or larger" % sz if sz <= 4 else "only with the Space Elevator (no LV is big enough)")
 	else:
 		stat.call("Spectrometer", "yes: draws 2 world cards on depletion, keeps 1" if u.spec else "no")
-		if G != null: stat.call("Engine failure", "%d%% per move" % maxi(0, E.engRate(G, null)))
-		stat.call("Malfunction", "30% after each exploration" if u.k != "Probe" else "none (used up)")
+		if FG != null: stat.call("Engine failure", "%d%% per move" % maxi(0, E.engRate(FG, null)), null, ("(5%% base −%d from technology)" % (5 - E.engBase(FG))) if E.engBase(FG) < 5 else "")
+		if u.k == "Probe": stat.call("Malfunction", "none (used up)")
+		elif FG != null:
+			var mr: int = E.malfBase(FG)
+			var why := []
+			if mr != 30: why.append("30%% base %+d from technology%s" % [mr - 30, " and faction" if FG.f == "jp" else ""])
+			if not E.has(FG, "ars"): why.append("+10% near Mercury or Jupiter until Active Radiation Shielding")
+			if u.k == "Rover" and not E.has(FG, "psh"): why.append("+20% on Venus until Pressure Shells")
+			stat.call("Malfunction", "%d%% after each exploration" % mr, UIK.C_DAMAGE, "(" + "; ".join(why) + ")" if why.size() else "")
+	if FG != null and E.mult(FG) < 1.0: stat.call("Transfer time", "×%s" % str(E.mult(FG)), null, "(heliocentric transfers are shorter with better engines)")
 	stat.call("Build cost", "%d ORE, %d SUP, %d FUEL" % [u.ore, u.sup, u.fuel])
 	if cv: stat.call("Reserved build", "%d ORE, %d SUP, %d FUEL" % [u.ore, maxi(0, u.sup - 1), maxi(0, u.fuel - 1)])
 	if KIND_TXT.has(u.k): UIK.ctext(col, KIND_TXT[u.k], UIK.DIM, 13, 380)

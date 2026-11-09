@@ -260,6 +260,26 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 			Game.select({"t": "world", "k": "mar"})])
 		a.append(["wait", 10])
 		a.append(["shot", "91_worldsel"])
+	if plan == "bases":
+		a.append(["call", func():
+			var G = Game.G
+			for t in Game.data.D.TECH: G.tech[t.k] = 1
+			G.bases.append({"id": "bt", "name": Game.data.D.BASE_NAMES[G.f][0], "w": "tit", "stock": {"ORE": 3, "SUP": 1, "FUEL": 4}, "fac": {"lab": 2, "mine": 3, "sup": 4, "def": 1}, "dmg": {"lab": 0, "mine": 1, "sup": 0, "def": 0}, "set": 2, "setDmg": 0, "trade": null, "out": "ORE", "built": 2030, "techField": "Phy", "pos": "surf"})
+			main.tabs.current_tab = 2
+			Game.changed.emit()])
+		a.append(["wait", 10])
+		a.append(["call", func(): main.fboard.scroll.scroll_vertical = 520])
+		a.append(["wait", 6])
+		a.append(["shot", "20_bases"])
+		a.append(["call", func():
+			main.tabs.current_tab = 0
+			main.show_unit_info(Game.G.f, "Rover|Prospector")])
+		a.append(["wait", 6])
+		a.append(["shot", "21_rover_stats"])
+		a.append(["call", func(): main.show_unit_info(Game.G.f, "CV-6|Polaris")])
+		a.append(["wait", 6])
+		a.append(["shot", "22_cv_stats"])
+		return a
 	if plan == "probes":
 		a.append(["call", func():
 			var G = Game.G

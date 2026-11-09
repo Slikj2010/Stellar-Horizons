@@ -698,6 +698,37 @@ func _base_slot(grid: GridContainer, G, nm: String, idx: int) -> void:
 	var l := UIK.rich(h, "[b]%s[/b] · %d settl.\n[color=#b8bcc8]%s\nStock[/color] %s" % [D.W[b.w].n, b.set, ", ".join(facs) if facs.size() else "no facilities", UIK.res_bb(b.stock)], 12)
 	l.custom_minimum_size.x = 170
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# the buildings as their tokens, along the bottom of the base's picture (damaged ones carry a damage marker)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.anchor_top = 1.0
+	row.anchor_bottom = 1.0
+	row.offset_top = -58
+	row.offset_bottom = -6
+	row.offset_left = 8
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(row)
+	var built := 0
+	for c in ["mine", "lab", "sup", "def"]:
+		var lv := int(b.fac[c])
+		if lv <= 0: continue
+		var fd: Dictionary = D.FACIL[c][lv - 1]
+		var tk := _marker(row, String(fd.m), 50, "%s%s" % [fd.n, " (damaged)" if SHRules.t(b.dmg[c]) else ""])
+		if SHRules.t(b.dmg[c]):
+			var dm := _marker(tk, "dam", 22, "")
+			dm.position = Vector2(30, -2)
+		built += 1
+	if int(b.set) > 0:
+		var st := _marker(row, "set", 50, "%d settlement%s%s" % [b.set, "s" if b.set > 1 else "", (" (%d damaged)" % b.setDmg) if SHRules.t(b.get("setDmg")) else ""])
+		var cnt := Label.new()
+		cnt.text = "×%d" % b.set
+		cnt.add_theme_font_size_override("font_size", 14)
+		cnt.add_theme_color_override("font_color", Color("#e8702a"))
+		cnt.add_theme_color_override("font_outline_color", Color.BLACK)
+		cnt.add_theme_constant_override("outline_size", 4)
+		cnt.position = Vector2(30, 30)
+		st.add_child(cnt)
+	if built == 0 and int(b.set) == 0: UIK.rich(row, "[color=#8d93a3]No buildings yet[/color]", 12).mouse_filter = Control.MOUSE_FILTER_IGNORE
 	slot.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	slot.tooltip_text = "Open " + nm
 	slot.gui_input.connect(func(ev):
@@ -705,6 +736,26 @@ func _base_slot(grid: GridContainer, G, nm: String, idx: int) -> void:
 			Game.sel = {"t": "base", "id": b.id}
 			if main != null: main.tabs.current_tab = 1
 			Game.changed.emit())
+
+## a game marker (facility, settlement, damage...) from the markers sheet
+static var _mk_fr = null
+func _marker(box: Node, key: String, size: float, tip: String) -> TextureRect:
+	if _mk_fr == null: _mk_fr = JSON.parse_string(FileAccess.get_file_as_string("res://assets/markers.json"))
+	var t := TextureRect.new()
+	var fr = _mk_fr.get(key)
+	if fr != null:
+		var at := AtlasTexture.new()
+		at.atlas = load("res://assets/markers.webp")
+		at.region = Rect2(fr[0], fr[1], fr[2], fr[3])
+		t.texture = at
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.custom_minimum_size = Vector2(size, size)
+	t.size = Vector2(size, size)
+	t.tooltip_text = tip
+	t.mouse_filter = Control.MOUSE_FILTER_PASS if tip != "" else Control.MOUSE_FILTER_IGNORE
+	box.add_child(t)
+	return t
 
 # ---------------- the printed sheet ----------------
 func _show_sheet(f: String) -> void:
