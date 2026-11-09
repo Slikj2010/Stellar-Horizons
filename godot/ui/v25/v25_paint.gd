@@ -329,7 +329,6 @@ func _paint_panel(n: Node2D, P: Dictionary) -> void:
 	for tg in w.tags:
 		if TAGTXT.has(tg): chips.append([TAGTXT[tg], "#9fc3dd", false])
 	if w.tags.has("alpha"): chips += [["d10 per success:", "#e8d27a", false], ["1-4 Physics 3%", "#5aaaff", true], ["5-7 Engineering 5%", "#d5dbe6", false], ["8-10 Biology 10%", "#6edc8c", false]]
-	if SHRules.t(ws.get("sol")): chips.append(["Solar power", "#f2b13c", false])
 	if D.TERRA.has(k): chips.append(["Terraform %s/%s" % [str(ws.get("terra", 0)), str(D.TERRA[k])], "#6edc8c", false])
 	if SHRules.t(ws.get("npf")): chips.append(["%s base" % _npf_name(k, ws), "#c9a6ff", false])
 	if SHRules.t(ws.get("blk")): chips.append(["BLOCKADED", "#e8508a", false])

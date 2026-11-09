@@ -260,6 +260,19 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 			Game.select({"t": "world", "k": "mar"})])
 		a.append(["wait", 10])
 		a.append(["shot", "91_worldsel"])
+	if plan == "moons":
+		a.append(["call", func(): main.toggle_3d()])
+		a.append(["wait", 10])
+		for k in ["mim", "plu", "nea", "bel", "tro", "umb"]:
+			var kk: String = k
+			a.append(["call", func():
+				main.v25.focus(main.board.world_center(kk), .5)
+				main.v25.C.dist = 420
+				main.v25.clampCam()
+				main.v25.touch()])
+			a.append(["wait", 12])
+			a.append(["shot", "70_" + kk])
+		return a
 	if plan == "crowd":
 		a.append(["call", func():
 			for i in 150:

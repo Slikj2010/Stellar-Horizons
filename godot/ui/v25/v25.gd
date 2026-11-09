@@ -1173,6 +1173,34 @@ func scaParts() -> Array:
 		placed.append(best)
 		out.append(P_({"s": s, "rho": Vector2(best[0], best[1] / .85).length() / U, "ph": atan2(best[1] / .85, best[0]), "w": 0.0, "c1": sp[1], "c2": sp[2], "ice": float(sp[3]), "lp": .04 if i % 3 == 1 else .2, "el": 1.0 if i % 3 == 1 else .85, "sd": 70.0 + i * 3, "spin": .25 + (i % 4) * .15}))
 	return out
+## worlds of several moons, drawn as a still row
+const MOON_ROWS := ["pho", "hyg", "mim", "dio", "hyp", "obe", "umb", "gal", "plu", "hau", "eri"]
+## place rocks between radius r0 and r1 (and angles a0..a1) with clear space between them; they all circle at speed w
+func _spread(ps: Array, r0: float, r1: float, seed: int, w: float, a0 := 0.0, a1 := TAU) -> void:
+	var rng := Mulb.new(seed)
+	var placed := []
+	# biggest first, so the large ones find room
+	var order := range(ps.size())
+	order.sort_custom(func(i, j): return ps[i].s > ps[j].s)
+	for i in order:
+		var q: Dictionary = ps[i]
+		var best = null
+		var bestd := -1e9
+		for t in 400:
+			var rr: float = r0 + rng.next() * (r1 - r0)
+			var aa: float = a0 + rng.next() * (a1 - a0)
+			var pt := Vector2(cos(aa), sin(aa)) * rr
+			var worst := 1e9
+			for o in placed: worst = minf(worst, pt.distance_to(o[0]) - (o[1] + q.s) * 1.25)
+			if placed.is_empty(): worst = 1.0
+			if worst > bestd:
+				bestd = worst
+				best = [pt, rr, aa]
+			if worst > .12: break
+		placed.append([best[0], q.s])
+		q.rho = best[1]
+		q.ph = best[2]
+		q.w = w
 func _build_models() -> void:
 	var ROCK := [[.3, .27, .24], [.55, .5, .44]]
 	var nea := rkc(3, 11, ROCK[0], ROCK[1], {"lp": .38})
@@ -1213,6 +1241,27 @@ func _build_models() -> void:
 		"sed": {"u": 1, "parts": [P_({"s": .95, "lp": .05, "c1": [.22, .05, .03], "c2": [.55, .15, .08], "sd": 61.0})]},
 		"eri": {"u": 1, "parts": [P_({"s": 1.15, "rho": 0.0, "lp": .02, "c1": [.82, .84, .86], "c2": [1, 1, 1], "ice": 1.0, "sd": 63.0, "spin": .3}), P_({"s": .38, "rho": 2.0, "w": .45, "c1": [.18, .18, .2], "c2": [.34, .34, .36], "lp": .12, "sd": 65.0})]},
 	}
+	# worlds made of several moons (Mimas-Enceladus-Tethys, Phobos-Deimos, Pluto-Charon...): the bodies stand still in a row,
+	# spaced so none overlaps; they only turn on their own axes
+	for mk in MOON_ROWS:
+		var ps: Array = MODELS[mk].parts
+		var gap := .32
+		var width := 0.0
+		for q in ps: width += q.s * 2.0
+		width += gap * (ps.size() - 1)
+		var x := -width / 2.0
+		for q in ps:
+			var cx: float = x + q.s
+			q.rho = absf(cx)
+			q.ph = 0.0 if cx >= 0 else PI
+			q.w = 0.0
+			x += q.s * 2.0 + gap
+	# asteroid groups keep drifting round, but as one group (same speed), placed with room between the rocks
+	_spread(MODELS.nea.parts, .6, 2.2, 101, .1)
+	_spread(MODELS.bel.parts, .5, 2.6, 102, .08)
+	_spread(MODELS.kui.parts, .5, 2.6, 103, .07)
+	_spread(MODELS.tro.parts.slice(0, 5), 1.3, 2.4, 104, .1, .5, 2.2)
+	_spread(MODELS.tro.parts.slice(5), 1.3, 2.4, 105, .1, 3.6, 5.3)
 	for lk in LOCKED_MODELS:
 		for part in MODELS[lk].parts: part.spin = 0.0
 	MODELS.hyp.parts[1].spin = 0.0  # Iapetus is locked; Hyperion tumbles
