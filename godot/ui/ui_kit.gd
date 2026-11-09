@@ -10,6 +10,18 @@ const DIM := Color("#a3a7b2")
 const GOOD := Color("#5fcf8a")
 const BAD := Color("#e0508f")
 const FIELD_COL := {"Phy": Color("#4f9be6"), "Eng": Color("#a9b4bf"), "Bio": Color("#5fcf8a")}
+## colours that tie words to what they are about: resources, research, combat, cargo...
+const C_ORE := Color("#b9c1cc")  ## metallic grey
+const C_SUP := Color("#3fa4ff")  ## water blue
+const C_FUEL := Color("#ff7a2b")  ## fire orange
+const RES_COL := {"ORE": C_ORE, "SUP": C_SUP, "FUEL": C_FUEL}
+const C_RESEARCH := Color("#4fd27c")  ## exploration and research values
+const C_COMBAT := Color("#ff4f4f")
+const C_CARGO := Color("#d6741f")  ## dark orange
+const C_CASH := Color("#f2c94c")
+const C_DAMAGE := Color("#ff5f9a")
+const C_DRONE := Color("#c39bff")
+const C_LIFE := Color("#3fd6b8")
 
 static var _tex_cache := {}
 static var _json_cache := {}
@@ -53,11 +65,73 @@ static func rich(box: Node, bb: String, size := 14) -> RichTextLabel:
 	r.bbcode_enabled = true
 	r.fit_content = true
 	r.scroll_active = false
-	r.text = bb
+	r.text = cbb(bb)
 	r.add_theme_font_size_override("normal_font_size", size)
 	r.add_theme_font_size_override("bold_font_size", size)
 	box.add_child(r)
 	return r
+
+## a wrapped line like para(), but with the key words coloured (resources, research, combat, cargo, cash...)
+static func ctext(box: Node, txt: String, col = null, size := 14, minw := 120) -> RichTextLabel:
+	var r := RichTextLabel.new()
+	r.bbcode_enabled = true
+	r.fit_content = true
+	r.scroll_active = false
+	r.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	r.custom_minimum_size.x = minw
+	r.mouse_filter = Control.MOUSE_FILTER_PASS
+	r.text = cbb(txt.replace("[", "[lb]"))
+	r.add_theme_font_size_override("normal_font_size", size)
+	r.add_theme_font_size_override("bold_font_size", size)
+	if col != null: r.add_theme_color_override("default_color", col)
+	box.add_child(r)
+	return r
+
+static var _rx_tag: RegEx
+static var _rx_kw: RegEx
+const _RESW := "ORE|Ore|ore|SUP|Supplies|Supply|supplies|supply|FUEL|Fuel|fuel"
+## colour the key words of a BBCode string (text inside tags and [img] paths is left alone)
+static func cbb(bb: String) -> String:
+	if _rx_tag == null:
+		_rx_tag = RegEx.create_from_string("\\[[^\\]]*\\]")
+		var num := "(?:\\s*\\d+(?!\\s*(?:" + _RESW + ")\\b))?"
+		_rx_kw = RegEx.create_from_string("(?<ore>\\b(?:\\d+\\s*)?(?:ORE|Ore|ore)\\b" + num + ")|(?<sup>\\b(?:\\d+\\s*)?(?:SUP|Supplies|Supply|supplies|supply)\\b" + num + ")|(?<fuel>\\b(?:\\d+\\s*)?(?:FUEL|Fuel|fuel)\\b" + num + ")"
+			+ "|(?<cash>\\$-?\\d+(?:\\.\\d+)?B)"
+			+ "|(?<res>\\b(?:[Ee]xploration value|[Ss]earch|[Rr]esearch value|[Ee]xplore value|value)\\s*\\d+|\\b\\d+(?=\\s+(?:Physics|Engineering|Biology|Phy|Eng|Bio)\\b))"
+			+ "|(?<cb>\\b[Cc]ombat(?: value)?\\s*\\d+|\\b\\d+ combat\\b|\\b[Aa]ttack\\s*\\d+)"
+			+ "|(?<cargo>\\b[Cc]argo(?: hold| room)?\\s*\\d+(?:/\\d+)?|\\bhold \\d+/\\d+|\\b\\d+ cargo\\b)"
+			+ "|(?<dmg>\\b\\d+ damage\\b|\\bdamage \\d+)"
+			+ "|(?<vp>\\b\\d+ VP\\b)|(?<dr>\\b\\d+ drones?\\b|\\b[Dd]rones \\d+)"
+			+ "|(?<life>\\b[Ll]ife chance \\d+%|\\b\\d+% life\\b|[Ss]igns of life|[Ll]ife found)"
+			+ "|(?<phy>\\bPhysics\\b)|(?<eng>\\bEngineering\\b)|(?<bio>\\bBiology\\b)")
+	var out := ""
+	var pos := 0
+	var skip := false
+	for m in _rx_tag.search_all(bb):
+		var seg := bb.substr(pos, m.get_start() - pos)
+		out += seg if skip else _cseg(seg)
+		var tg := m.get_string()
+		if tg.begins_with("[img") or tg.begins_with("[url"): skip = true
+		elif tg == "[/img]" or tg == "[/url]": skip = false
+		out += tg
+		pos = m.get_end()
+	var rest := bb.substr(pos)
+	return out + (rest if skip else _cseg(rest))
+const _KWCOL := {"ore": C_ORE, "sup": C_SUP, "fuel": C_FUEL, "cash": C_CASH, "res": C_RESEARCH, "cb": C_COMBAT, "cargo": C_CARGO, "dmg": C_DAMAGE, "vp": C_CASH, "dr": C_DRONE, "life": C_LIFE,
+	"phy": Color("#4f9be6"), "eng": Color("#a9b4bf"), "bio": Color("#5fcf8a")}
+static func _cseg(t: String) -> String:
+	if t == "": return t
+	var out := ""
+	var pos := 0
+	for m in _rx_kw.search_all(t):
+		var col := Color.WHITE
+		for g in _KWCOL:
+			if m.get_string(g) != "":
+				col = _KWCOL[g]
+				break
+		out += t.substr(pos, m.get_start() - pos) + "[color=#%s]%s[/color]" % [col.to_html(false), m.get_string()]
+		pos = m.get_end()
+	return out + t.substr(pos)
 
 static func button(box: Node, txt: String, cb: Callable, disabled := false, tip := "") -> Button:
 	var b := Button.new()
@@ -210,8 +284,7 @@ static func res_icon(r: String, size := 20) -> String:
 
 static func res_bb(o) -> String:
 	var parts := []
-	var cols := {"ORE": "#e2e5f0", "SUP": "#7cc4ff", "FUEL": "#ff9a3c"}
 	for r in ["ORE", "SUP", "FUEL"]:
 		var v := int(SHRules.gi(o, r, 0))
-		if v: parts.append("%s[color=%s]%d[/color]" % [res_icon(r), cols[r], v])
+		if v: parts.append("%s[color=#%s]%d[/color]" % [res_icon(r), RES_COL[r].to_html(false), v])
 	return "  ".join(parts) if parts.size() else "nothing"

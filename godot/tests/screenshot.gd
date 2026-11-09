@@ -260,6 +260,54 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 			Game.select({"t": "world", "k": "mar"})])
 		a.append(["wait", 10])
 		a.append(["shot", "91_worldsel"])
+	if plan == "probes":
+		a.append(["call", func():
+			var G = Game.G
+			var E = Game.E
+			G.cash = 99
+			G.phase = "build"
+			var po = SHRules._find(E.buildOptions(G, "earth"), func(o): return o.kind == "Probe" and o.why == null)
+			var rv = SHRules._find(E.buildOptions(G, "earth"), func(o): return o.kind == "Rover" and o.why == null)
+			E.buildUnit(G, po.key, "earth")
+			E.buildUnit(G, rv.key, "earth")
+			var rs = G.ships[-1]
+			Game.select({"t": "ship", "id": rs.id})
+			main.tabs.current_tab = 1
+			Game.changed.emit()])
+		a.append(["wait", 8])
+		a.append(["shot", "30_sel_rover"])
+		a.append(["call", func():
+			Game.pad = Game.G.ships[-1].id
+			main.tabs.current_tab = 2
+			Game.changed.emit()])
+		a.append(["wait", 10])
+		a.append(["shot", "31_faction"])
+		a.append(["call", func():
+			var G = Game.G
+			Game.E.attachProbe(G, G.ships[-1], G.probes.earth[0])
+			Game.changed.emit()])
+		a.append(["wait", 10])
+		a.append(["shot", "32_faction_attached"])
+		a.append(["call", func():
+			main.tabs.current_tab = 0
+			var cv = SHRules._find(Game.G.ships, func(x): return x.cls == "CV")
+			if cv != null:
+				cv.cargo = {"ORE": 2, "SUP": 3, "FUEL": 1}
+				cv.cap = 6
+				Game.select({"t": "ship", "id": cv.id})
+			main.tabs.current_tab = 1
+			Game.changed.emit()])
+		a.append(["wait", 8])
+		a.append(["shot", "33_sel_cv"])
+		a.append(["call", func(): main.show_unit_info(Game.G.f, "CV-6|Polaris")])
+		a.append(["wait", 6])
+		a.append(["shot", "34_stats"])
+		a.append(["call", func():
+			main.modal.visible = false
+			main.tabs.current_tab = 0])
+		a.append(["wait", 6])
+		a.append(["shot", "35_turn"])
+		return a
 	if plan == "keys":
 		a.append(["call", func(): main.show_menu("settings")])
 		a.append(["wait", 5])

@@ -49,7 +49,7 @@ static func die_row(box: Node, v, ok: bool, head: String, sub: String, d100 := f
 	var v2 := UIK.vbox(h, 2)
 	v2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if head != "": UIK.rich(v2, "[b]%s[/b]" % head, 15)
-	if sub != "": UIK.para(v2, sub, UIK.DIM, 13, 0)
+	if sub != "": UIK.ctext(v2, sub, UIK.DIM, 13, 0)
 	return v2
 
 ## a short label that never wraps (for rows of chips and dice)
@@ -65,7 +65,7 @@ static func field_name(w: String) -> String:
 
 static func _units(box: Node, us: Array) -> void:
 	if not us.size():
-		UIK.para(box, "No armed units.", UIK.DIM, 13, 0)
+		UIK.ctext(box, "No armed units.", UIK.DIM, 13, 0)
 		return
 	for u in us:
 		var h := UIK.hbox(box, 6)
@@ -111,9 +111,9 @@ static func explore_confirm(main, box: Node, G, s, o) -> void:
 	if auto: odds += "%d marker%s earned automatically. " % [auto, "s" if auto > 1 else ""]
 	if rem: odds += "Roll a d10: %d or less earns %s marker (%d%%%s)." % [rem, "one more" if auto else "a", rem * 10, ", mobile lab rolls two dice and keeps the better" if lab else ""]
 	else: odds += "No roll needed."
-	UIK.para(box, odds, UIK.DIM, 13, 400)
+	UIK.ctext(box, odds, UIK.DIM, 13, 400)
 	var after: String = "The probe is spent afterwards." if probe else (("Then a recall check (%d%%)." % E.recall(G)) if s.cls == "CV" else ("Then a malfunction check (%d%%)." % E.malfRate(G, s)))
-	UIK.para(box, after, UIK.DIM, 13, 400)
+	UIK.ctext(box, after, UIK.DIM, 13, 400)
 	# chance meter: the share of a d10 that hits
 	if rem:
 		var bar := ProgressBar.new()
@@ -138,7 +138,7 @@ static func roll_result(main, box: Node, L: Dictionary) -> void:
 	elif k != null:
 		UIK.title(box, L.title)
 		die_row(box, L.r, SHRules.t(L.good), L.head, L.sub, false, true)
-		for t in L.extra: UIK.para(box, t, UIK.DIM, 13, 400)
+		for t in L.extra: UIK.ctext(box, t, UIK.DIM, 13, 400)
 	else:
 		UIK.title(box, "%s explores %s" % [L.who, L.world])
 		var h := UIK.hbox(box, 14)
@@ -162,8 +162,8 @@ static func roll_result(main, box: Node, L: Dictionary) -> void:
 			var gh := UIK.hbox(v, 6)
 			lbl(gh, "Earned", UIK.DIM, 13)
 			for g in got: _marker(gh, int(g), L.field)
-		else: UIK.para(v, "No tech markers.", UIK.DIM, 13, 0)
-		for t in L.extra: UIK.para(box, t, UIK.DIM, 13, 400)
+		else: UIK.ctext(v, "No tech markers.", UIK.DIM, 13, 0)
+		for t in L.extra: UIK.ctext(box, t, UIK.DIM, 13, 400)
 		life_block(box, L.get("life"), true)
 	var f := UIK.flow(box)
 	UIK.button(f, "Continue", func(): main.modal.visible = false)
@@ -195,10 +195,10 @@ static func _marker(box: Node, v: int, field: String) -> void:
 static func life_block(box: Node, f, anim := false) -> void:
 	if f == null or not (f is Dictionary): return
 	if SHRules.t(f.get("pending")):
-		UIK.para(box, "Search for life: rolled after you decide on the world card, because a card can change the chance.", UIK.DIM, 13, 400)
+		UIK.ctext(box, "Search for life: rolled after you decide on the world card, because a card can change the chance.", UIK.DIM, 13, 400)
 		return
 	if SHRules.t(f.get("skip")):
-		UIK.para(box, "Search for life: no roll (%s)." % f.skip, UIK.DIM, 13, 400)
+		UIK.ctext(box, "Search for life: no roll (%s)." % f.skip, UIK.DIM, 13, 400)
 		return
 	var found := SHRules.t(f.found)
 	var sub := "Rolled %d on d100, needed %d or less%s." % [int(f.r), int(f.need), str(f.get("bonus", "")) if f.get("bonus") != null else ""]
@@ -207,14 +207,14 @@ static func life_block(box: Node, f, anim := false) -> void:
 
 # ---------------- questions in the dialog ----------------
 static func search(box: Node, a: Dictionary) -> void:
-	UIK.para(box, a.where, UIK.DIM, 13, 0)
+	UIK.ctext(box, a.where, UIK.DIM, 13, 0)
 	var h := UIK.hbox(box, 26)
 	for x in a.rolls:
 		var v := UIK.vbox(h, 4)
 		var l := lbl(v, x.n, UIK.DIM, 12)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		die(v, x.r, int(x.r) <= int(a.T), false, true)
-	UIK.para(box, "Contact is automatic here." if SHRules.t(a.auto) else "A search succeeds if either roll is %d or less (the rolls already include the modifiers)." % int(a.T), UIK.DIM, 13, 0)
+	UIK.ctext(box, "Contact is automatic here." if SHRules.t(a.auto) else "A search succeeds if either roll is %d or less (the rolls already include the modifiers)." % int(a.T), UIK.DIM, 13, 0)
 	UIK.rich(box, "[b]%s[/b] %s" % ["Contact!" if SHRules.t(a.ok) else "No contact.", a.text])
 	var f := UIK.flow(box)
 	UIK.button(f, "Continue to the fight" if SHRules.t(a.ok) else "Back to the map", func(): Game.answer("ok"))
@@ -273,12 +273,12 @@ static func _plan(box: Node, r: int, tb: Dictionary, picks_ok: bool, default_dir
 
 ## combat between factions: totals, the strike/direct table and the tactics plan
 static func battle(box: Node, a: Dictionary) -> void:
-	UIK.para(box, a.where, UIK.DIM, 13, 0)
+	UIK.ctext(box, a.where, UIK.DIM, 13, 0)
 	_sides(box, "You", a.mine, a.d, "[color=#a3a7b2]d10 plus combat values and 1 per extra enemy unit, then the table[/color]", a.foe, a.theirs, a.od, "")
 	var sx: Dictionary = a.strike
 	var dr: Dictionary = a.direct
 	_grid(box, [["Strike", sx.tot, sx.otot, sx.dealt, sx.taken], ["Direct fire", dr.tot, dr.otot, dr.dealt, dr.taken]], ["", "Your total", "Their total", "You deal", "You take"])
-	UIK.para(box, "Strike only damages a side with Space Missiles. Direct fire costs 1 tactics point.", UIK.DIM, 13, 0)
+	UIK.ctext(box, "Strike only damages a side with Space Missiles. Direct fire costs 1 tactics point.", UIK.DIM, 13, 0)
 	var r: int = int(a.rem)
 	var lose := SHRules.t(a.lose)
 	var tp_txt := "[b]Tactics points:[/b] you %d, them %d. " % [int(a.tp), int(a.opp)]
@@ -293,13 +293,13 @@ static func battle(box: Node, a: Dictionary) -> void:
 
 ## combat with a pirate in a flyby box
 static func pirate(box: Node, a: Dictionary) -> void:
-	UIK.para(box, a.text, UIK.DIM, 13, 0)
+	UIK.ctext(box, a.text, UIK.DIM, 13, 0)
 	var p: Dictionary = a.pir
 	var wnote := ("Weapons technology +%d · " % int(a.weapons)) if SHRules.t(a.get("weapons")) else ""
 	_sides(box, "You", a.mine, a.st.dm, wnote + "[b]Total %d[/b]" % int(a.myTot),
 		("Strong" if SHRules.t(p.strong) else "Weak") + " pirate", [{"n": "Pirate (size %d, %d damage)" % [int(p.size), int(p.dmg)], "cb": p.cb}], a.st.dp, "[b]Total %d[/b]" % int(a.pTot))
 	_grid(box, [["Strike", a.strike.deal, a.strike.take], ["Direct fire", a.direct.deal, a.direct.take]], ["", "You deal", "You take"])
-	UIK.para(box, "Strike only damages a side with Space Missiles (the pirate has them). Direct fire costs 1 tactics point.", UIK.DIM, 13, 0)
+	UIK.ctext(box, "Strike only damages a side with Space Missiles (the pirate has them). Direct fire costs 1 tactics point.", UIK.DIM, 13, 0)
 	var ex: int = int(a.extra)
 	var txt := "[b]Tactics points:[/b] you %d, the pirate %d. " % [int(a.myTP), int(a.pTP)]
 	txt += ("You can spend %d: 1 for direct fire, 2 to deal +1 damage or take 1 less%s." % [ex, ", 3 to call off the combat" if ex >= 3 else ""]) if ex > 0 else "The pirate has the advantage or it is even: no points to spend, so the fight is a strike."
@@ -313,12 +313,12 @@ static func pirate(box: Node, a: Dictionary) -> void:
 ## assign hits to units by hand (ship combat and pirate hits on a fleet)
 static func assign(box: Node, a: Dictionary) -> void:
 	var side_nm := {"foe": "their units", "mine": "your units", "fleet": "your ships"}
-	UIK.para(box, a.text, UIK.DIM, 13, 0)
+	UIK.ctext(box, a.text, UIK.DIM, 13, 0)
 	var scr_boxes := {}
 	if a.get("screen") != null and a.screen.size():
 		var c := UIK.card(box)
 		UIK.head(c, "Screen units")
-		UIK.para(c, "Screened units are excluded from direct-fire combat and cannot be hit.", UIK.DIM, 12, 0)
+		UIK.ctext(c, "Screened units are excluded from direct-fire combat and cannot be hit.", UIK.DIM, 12, 0)
 		for u in a.screen:
 			var cb := CheckBox.new()
 			cb.text = u.n
@@ -364,7 +364,7 @@ static func assign(box: Node, a: Dictionary) -> void:
 ## hits on an enemy base: choose which facilities (and resources) take them
 static func basehit(box: Node, a: Dictionary) -> void:
 	var nmz := {"def": "Defense Network", "lab": "Research Lab", "mine": "Mining", "sup": "Supply", "set": "Settlements (3 per settlement)", "res": "Resources (2 destroyed per hit)"}
-	UIK.para(box, "%d hit%s to assign. Each facility takes hits equal to its size, then it is downgraded or removed. Settlements are one stacked facility: every 3 damage removes one, and a damaged one stops counting. Resources are a valid target only while a facility or settlement stands." % [int(a.n), "s" if int(a.n) > 1 else ""], UIK.DIM, 13, 0)
+	UIK.ctext(box, "%d hit%s to assign. Each facility takes hits equal to its size, then it is downgraded or removed. Settlements are one stacked facility: every 3 damage removes one, and a damaged one stops counting. Resources are a valid target only while a facility or settlement stands." % [int(a.n), "s" if int(a.n) > 1 else ""], UIK.DIM, 13, 0)
 	var c := UIK.card(box)
 	var spins := {}
 	for k in nmz:

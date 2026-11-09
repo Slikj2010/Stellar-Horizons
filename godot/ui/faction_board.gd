@@ -33,10 +33,12 @@ class ShipTile extends PanelContainer:
 	var tex: Texture2D
 	var on_click: Callable
 	var on_lv: Callable
+	var on_probe: Callable
 	func _can_drop_data(_p: Vector2, data) -> bool:
-		return ship_id != null and on_lv.is_valid() and data is Dictionary and data.has("lv")
+		return ship_id != null and data is Dictionary and ((data.has("lv") and on_lv.is_valid()) or (data.has("probe") and on_probe.is_valid()))
 	func _drop_data(_p: Vector2, data) -> void:
-		on_lv.call(data.lv)
+		if data.has("probe"): on_probe.call(data.probe)
+		else: on_lv.call(data.lv)
 	func _get_drag_data(_p: Vector2):
 		if ship_id == null: return null
 		var pv := TextureRect.new()
@@ -78,19 +80,42 @@ class LvCounter extends TextureRect:
 			on_click.call()
 			accept_event()
 
-## a place a ship can be dropped: the launch pad or the tray (the pad also takes launch vehicles)
+## a probe waiting on Earth: drag it onto a robotic explorer (on the launch pad or in the tray), or click it to choose one
+class ProbeTile extends TextureRect:
+	var pname := ""
+	var on_click: Callable
+	func _get_drag_data(_p: Vector2):
+		var pv := TextureRect.new()
+		pv.texture = texture
+		pv.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pv.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		pv.size = Vector2(56, 56)
+		pv.position = -pv.size / 2
+		pv.modulate = Color(0.949, 0.957, 0.980, 0.9)
+		var holder := Control.new()
+		holder.add_child(pv)
+		set_drag_preview(holder)
+		return {"probe": pname}
+	func _gui_input(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and not ev.pressed and on_click.is_valid():
+			on_click.call()
+			accept_event()
+
+## a place a ship can be dropped: the launch pad or the tray (the pad also takes launch vehicles and probes)
 class DropZone extends PanelContainer:
 	var on_drop: Callable
 	var on_lv: Callable
+	var on_probe: Callable
 	var normal: StyleBox
 	var hover: StyleBox
 	func _can_drop_data(_p: Vector2, data) -> bool:
-		var ok: bool = data is Dictionary and (data.has("ship") or (data.has("lv") and on_lv.is_valid()))
+		var ok: bool = data is Dictionary and (data.has("ship") or (data.has("lv") and on_lv.is_valid()) or (data.has("probe") and on_probe.is_valid()))
 		if ok and hover: add_theme_stylebox_override("panel", hover)
 		return ok
 	func _drop_data(_p: Vector2, data) -> void:
 		if normal: add_theme_stylebox_override("panel", normal)
 		if data.has("lv"): on_lv.call(data.lv)
+		elif data.has("probe"): on_probe.call(data.probe)
 		else: on_drop.call(data.ship)
 	func _notification(what: int) -> void:
 		if what == NOTIFICATION_DRAG_END or what == NOTIFICATION_MOUSE_EXIT:
@@ -422,6 +447,7 @@ func _ship_tile(box: Node, G, s, size: float, click: Callable) -> ShipTile:
 	tile.ship_id = s.id
 	var sid = s.id
 	tile.on_lv = func(z): _pair(sid, z)
+	if E.canCarryProbe(s): tile.on_probe = func(nm): Game.act(E.attachProbe(G, s, nm))
 	tile.tex = UIK.atlas_tex("atlas_" + G.f, s.img + "|back" if SHRules.t(s.res) else s.img)
 	tile.on_click = click
 	tile.mouse_default_cursor_shape = Control.CURSOR_DRAG
@@ -469,7 +495,17 @@ func _tray(box: Node, G, ships: Array, pad) -> void:
 		any = true
 	for nm in G.probes.get("earth", []):
 		var v := UIK.vbox(f, 2)
-		UIK.image(v, UIK.atlas_tex("atlas_" + G.f, "Probe|" + nm), 44, "Probes ride along with a robotic explorer at launch")
+		var pt := ProbeTile.new()
+		pt.pname = nm
+		pt.texture = UIK.atlas_tex("atlas_" + G.f, "Probe|" + nm)
+		pt.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pt.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		pt.custom_minimum_size = Vector2(44, 44)
+		pt.mouse_default_cursor_shape = Control.CURSOR_DRAG
+		pt.tooltip_text = "Probe %s: drag it onto a flyby, orbiter or rover (on the launch pad or here), or click to choose which one carries it." % nm
+		var pn: String = nm
+		pt.on_click = func(): if main != null: main.probe_ask(pn, "earth")
+		v.add_child(pt)
 		_p(v, nm, UIK.DIM, 11)
 		any = true
 	if not any: _p(f, "Nothing waiting on Earth. Build units from the shipyard.", UIK.DIM, 13)
@@ -487,6 +523,9 @@ func _pad(box: Node, G, pad) -> void:
 	if pad != null:
 		var pid = pad.id
 		z.on_lv = func(n): _pair(pid, n)
+		if E.canCarryProbe(pad):
+			var ps = pad
+			z.on_probe = func(nm): Game.act(E.attachProbe(G, ps, nm))
 	var photo := crop(G.f, SHEET_PHOTO)
 	for st in [[z.normal, 0.32 if pad == null else 0.22], [z.hover, 0.5]]:
 		var t := StyleBoxTexture.new()
@@ -535,6 +574,17 @@ func _pad(box: Node, G, pad) -> void:
 			Game.pad_msg = ""
 			Game.changed.emit()
 	_p(info, "Drag a launch vehicle here to choose which one carries it.", UIK.DIM, 11)
+	if E.canCarryProbe(pad):
+		if SHRules.t(pad.probe):
+			var ph := UIK.hbox(info, 6)
+			var pimg := UIK.image(ph, UIK.atlas_tex("atlas_" + G.f, "Probe|" + String(pad.probe)), 34, "Click to take the probe off")
+			pimg.mouse_filter = Control.MOUSE_FILTER_STOP
+			pimg.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+			var ps2 = pad
+			pimg.gui_input.connect(func(ev): if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT: Game.act(E.detachProbe(G, ps2)))
+			UIK.ctext(ph, "Carries probe %s (click it to take it off)." % pad.probe, Color("#c39bff"), 12, 220)
+		elif G.probes.get(pad.loc, []).size():
+			UIK.ctext(info, "Drag a probe here to attach it: it rides along at launch.", Color("#c39bff"), 11, 220)
 	if Game.pad_msg != "": _p(info, Game.pad_msg, Color("#e0508f"), 13)
 	if G.phase != "move":
 		_p(box, "Launches happen in the Movement step.", UIK.DIM, 13)

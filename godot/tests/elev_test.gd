@@ -75,5 +75,20 @@ func _ready() -> void:
 		ok(E.move(G, r2, "surf:mar") == null and r2.launched and r2.fixed and r2.loc == "surf:mar", "deployed in place")
 		G.lv["bm"] = {1: 1, 2: 0, 3: 0, 4: 0}
 		var r3 = E.makeShip(G, ro.u.n) if false else null
+	# probes: attach to a rover on Earth, launch carries it; detach puts it back
+	var G2 = E.newGame("na", {})
+	G2.cash = 999
+	G2.phase = "build"
+	var po = SHRules._find(E.buildOptions(G2, "earth"), func(o): return o.kind == "Probe" and o.why == null)
+	var rv = SHRules._find(E.buildOptions(G2, "earth"), func(o): return o.kind == "Rover" and o.why == null)
+	if po != null and rv != null:
+		E.buildUnit(G2, po.key, "earth")
+		E.buildUnit(G2, rv.key, "earth")
+		var rs = G2.ships[-1]
+		var pn: String = G2.probes.earth[0]
+		ok(E.attachProbe(G2, rs, pn) == null and rs.probe == pn and G2.probes.earth.size() == 0, "probe attached to the rover")
+		ok(E.detachProbe(G2, rs) == null and rs.probe == null and G2.probes.earth.size() == 1, "probe taken off again")
+		E.attachProbe(G2, rs, pn)
+		ok(E.refundBuy(G2, SHRules._find(G2.turn.buys, func(b): return b.k == "probe").uid) == null and rs.probe == null, "refunding an attached probe takes it off the rover")
 	print("FAILS ", fails)
 	get_tree().quit(fails)

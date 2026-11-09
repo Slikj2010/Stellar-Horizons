@@ -1129,8 +1129,12 @@ func refundBuy(G, uid):
 		"probe":
 			var lst: Array = G.probes.get(e.loc, [])
 			var i := lst.find(e.name)
-			if i < 0: return "That probe has already been used."
-			lst.remove_at(i)
+			if i < 0:
+				# attached to an explorer that has not launched yet: take it off first
+				var car = _find(G.ships, func(x): return x.get("probe") == e.name and not t(x.launched))
+				if car == null: return "That probe has already been used."
+				car.probe = null
+			else: lst.remove_at(i)
 			what = "probe " + String(e.name)
 		"lv":
 			var st = G.lv.get(e.where)
@@ -1564,6 +1568,26 @@ func _lvStoreFor(G, s) -> Dictionary:
 	if s.loc == "earth": return G.lv.earth
 	return G.lv[_find(G.bases, func(b): return baseLoc(b) == s.loc).id]
 ## carry: probe name to load at launch. Returns null, or the reason it cannot move.
+## probes waiting where this explorer is, that it could carry (it must be an unlaunched flyby, orbiter or rover)
+func canCarryProbe(s) -> bool: return s.cls == "RE" and ["Flyby", "Orbiter", "Rover"].has(s.kind) and not t(s.launched)
+func probesFor(G, s) -> Array: return G.probes.get(s.loc, []).duplicate() if canCarryProbe(s) else []
+## attach a waiting probe to an unlaunched explorer at the same place (it rides along at launch)
+func attachProbe(G, s, pname: String):
+	if not canCarryProbe(s): return "Only an unlaunched flyby, orbiter or rover can carry a probe."
+	var pool: Array = G.probes.get(s.loc, [])
+	if not pool.has(pname): return "Probe " + pname + " is not waiting where " + s.name + " is."
+	if t(s.probe): detachProbe(G, s)
+	G.probes[s.loc] = pool.filter(func(x): return x != pname)
+	s.probe = pname
+	glog(G, "Probe " + pname + " is attached to " + s.name + "; it rides along at launch.")
+	return null
+func detachProbe(G, s):
+	if not t(s.probe) or t(s.launched): return null
+	if not G.probes.has(s.loc): G.probes[s.loc] = []
+	G.probes[s.loc].append(s.probe)
+	glog(G, "Probe " + String(s.probe) + " is taken off " + s.name + ".")
+	s.probe = null
+	return null
 func move(G, s, dest: String, opt = null):
 	if opt == null: opt = {}
 	var m := moves(G, s).filter(func(x): return x.dest == dest)
@@ -1600,7 +1624,7 @@ func move(G, s, dest: String, opt = null):
 	elif mlv != null:
 		_lvStoreFor(G, s)[mlv.n] -= 1
 	# probe
-	if t(gi(opt, "probe", null)) and not t(s.launched) and s.cls == "RE" and ["Flyby", "Orbiter", "Rover"].has(s.kind):
+	if t(gi(opt, "probe", null)) and not t(s.launched) and not t(s.probe) and s.cls == "RE" and ["Flyby", "Orbiter", "Rover"].has(s.kind):
 		var pool: Array = G.probes.get(s.loc, [])
 		if pool.has(opt.probe):
 			G.probes[s.loc] = pool.filter(func(x): return x != opt.probe)

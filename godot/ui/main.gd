@@ -231,7 +231,7 @@ func _act_label(a: String) -> String:
 
 func _keys_menu() -> void:
 	UIK.title(menu_box, "Controls", 28)
-	UIK.para(menu_box, "Click a key to change it, then press the new key (Escape cancels). Taking a key another action uses swaps the two. Escape (menus) and ` (developer console) are fixed.", UIK.DIM, 13, 520)
+	UIK.ctext(menu_box, "Click a key to change it, then press the new key (Escape cancels). Taking a key another action uses swaps the two. Escape (menus) and ` (developer console) are fixed.", UIK.DIM, 13, 520)
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(560, 460)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -594,7 +594,7 @@ func _show_tip(txt: String, sp: Vector2) -> void:
 	if txt == "":
 		_tip.visible = false
 		return
-	_tip_lbl.text = txt
+	_tip_lbl.text = UIK.cbb(txt)
 	_tip.visible = true
 	_tip.reset_size()
 	var vs := get_viewport().get_visible_rect().size
@@ -745,9 +745,12 @@ func do_move(s, dest: String, extra := {}, drop_pt = null, ask := true) -> void:
 				body += "\nLaunch vehicle: LV-%d%s." % [int(extra.get("lvSize", mv.lv.n)), (" (new: %s)" % mv.lv.txt) if SHRules.t(mv.lv.get("buy")) else " from stock"]
 		var ld = extra.get("load")
 		if ld is Dictionary and E.sum(ld) > 0: body += "\nCargo loaded: " + E.resTxt(ld) + "."
+		if E.canCarryProbe(s):
+			if SHRules.t(s.probe): body += "\nCarries probe %s." % s.probe
+			elif E.probesFor(G, s).size(): body += "\nNo probe attached (%s waiting here: attach one in the Selected panel first if you want it along)." % ", ".join(E.probesFor(G, s))
 		confirm("Move %s?" % s.name, body, func(): do_move(s, dest, extra, drop_pt, false), "Move")
 		return
-	var opt := {"probe": SHRules._first(Game.G.probes.get(s.loc, []))}
+	var opt := {}
 	for k in extra: opt[k] = extra[k]
 	var res = E.move(Game.G, s, dest, opt)
 	# a counter dropped on an orbit keeps the spot where it was dropped (as in the web version)
@@ -832,9 +835,9 @@ func _players_card(box: Node, G) -> void:
 		elif human and SHRules.t(hd.get(f)): txt = "✓ " + txt
 		var l := UIK.para(c, txt, Color(D.FAC[f].c).lightened(0.25) if human else UIK.DIM, 13)
 	if not Net.my_turn():
-		UIK.para(c, "It is not your turn: you can look around (map, Faction, Tech tabs) but not act until it comes to you.", UIK.DIM, 12)
+		UIK.ctext(c, "It is not your turn: you can look around (map, Faction, Tech tabs) but not act until it comes to you.", UIK.DIM, 12)
 	else:
-		UIK.para(c, "Your turn. Press the button below when you are done: the next player goes, and when everyone is done the phase moves on.", UIK.AMBER, 12)
+		UIK.ctext(c, "Your turn. Press the button below when you are done: the next player goes, and when everyone is done the phase moves on.", UIK.AMBER, 12)
 
 func _next_label(G) -> String:
 	if Net.active: return "Finish my turn (then %s)" % (("end of %d" % int(G.y)) if G.phase == "trade" else _next_name(G))
@@ -923,19 +926,19 @@ func build_turn() -> void:
 	if G.over:
 		UIK.title(box, "Campaign over")
 		var sc := E.score(G)
-		UIK.para(box, "Final score %s: %s." % [SHRules.n(sc.total), sc.rating], UIK.AMBER, 16)
-		for p in sc.parts: UIK.para(box, "%s: %s" % [p[0], SHRules.n(p[1])], UIK.DIM)
+		UIK.ctext(box, "Final score %s: %s." % [SHRules.n(sc.total), sc.rating], UIK.AMBER, 16)
+		for p in sc.parts: UIK.ctext(box, "%s: %s" % [p[0], SHRules.n(p[1])], UIK.DIM)
 		UIK.button(box, "New campaign", func(): show_menu("start"))
 		return
 	UIK.title(box, E.PHASE_NAME[G.phase] + ((": " + E.ESTEP_NAME[G.estep]) if G.estep != null else ""))
 	if Net.active: _players_card(box, G)
-	UIK.para(box, PHASE_HELP[G.phase], UIK.DIM, 13)
+	UIK.ctext(box, PHASE_HELP[G.phase], UIK.DIM, 13)
 	# what just happened (newest log lines since the last refresh of the turn)
 	var recent: Array = G.log.slice(0, 4)
 	if recent.size():
 		var c := UIK.card(box)
 		UIK.head(c, "Latest", UIK.CYAN)
-		for l in recent: UIK.para(c, l.t, _log_col(l.c), 13)
+		for l in recent: UIK.ctext(c, l.t, _log_col(l.c), 13)
 	match G.phase:
 		"econ": _turn_econ(box, G)
 		"build": _turn_build(box, G)
@@ -954,22 +957,22 @@ func _turn_econ(box, G) -> void:
 		UIK.button(f, "Redraw mission (2)", func(): Game.act(E.redrawMission(G)), G.polm < 2 or G.mis.mine == null)
 	if st == "initiative" and G.world != null:
 		var slot: int = G.world.meta.order.find(G.f) + 1
-		UIK.para(box, "Spend politics markers on initiative: +10%% each, at most %d (your slot). Now bidding %d." % [slot, int(SHRules.gi(G, "initBid", 0))])
+		UIK.ctext(box, "Spend politics markers on initiative: +10%% each, at most %d (your slot). Now bidding %d." % [slot, int(SHRules.gi(G, "initBid", 0))])
 		var f := UIK.flow(box)
 		for k in range(0, mini(slot, G.polm) + 1): UIK.button(f, str(k), func(): Game.act(E.setInitBid(G, k)))
 	if st == "diplomacy":
-		UIK.para(box, "Each attempt costs 1, 2, 3… politics markers in total and succeeds on 6 or less. Planned cost: %d of %d." % [E.dipCost(G), G.polm])
+		UIK.ctext(box, "Each attempt costs 1, 2, 3… politics markers in total and succeeds on 6 or less. Planned cost: %d of %d." % [E.dipCost(G), G.polm])
 		for k in G.rel:
 			var h := UIK.hbox(box)
 			var l := UIK.para(h, "%s: %s" % [D.FAC[k].n, D.REL[G.rel[k]]], null, 14)
 			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			var planned := int(SHRules.gi(G.dipl, k, 0))
-			UIK.para(h, ("%+d" % planned) if planned else "", UIK.AMBER)
+			UIK.ctext(h, ("%+d" % planned) if planned else "", UIK.AMBER)
 			UIK.button(h, "Improve", func(): Game.act(E.setDiplomacy(G, k, 1)))
 			UIK.button(h, "Worsen", func(): Game.act(E.setDiplomacy(G, k, -1)))
 	if st == "transport":
 		var left: int = SHRules.gi(G, "transferLeft", 0)
-		UIK.para(box, "Transfers left this decade: %d." % left)
+		UIK.ctext(box, "Transfers left this decade: %d." % left)
 		if left > 0:
 			var places := [["earth", "Earth"]]
 			for b in G.bases: places.append([b.id, b.name])
@@ -989,7 +992,7 @@ func _turn_econ(box, G) -> void:
 				if t0 == "earth": extra += " Sold on Earth at 2 for $1B."
 				confirm("Transfer %d %s?" % [nn, tyn], "From %s to %s.%s" % [places[from.selected][1], places[to.selected][1], extra], func(): return E.transferRes(G, f0, t0, tyn, nn), "Transfer"))
 	if st == "production":
-		UIK.para(box, "Production is collected; see the log. Set what each base produces next decade:", UIK.DIM, 13)
+		UIK.ctext(box, "Production is collected; see the log. Set what each base produces next decade:", UIK.DIM, 13)
 		for b in G.bases:
 			var h := UIK.hbox(box)
 			var l := UIK.rich(h, "[b]%s[/b]\n[color=#a3a7b2]%s[/color]" % [b.name, D.W[b.w].n], 13)
@@ -1000,7 +1003,7 @@ func _turn_econ(box, G) -> void:
 			pk.item_selected.connect(func(i):
 				b.out = types[i]
 				Game.act(null))
-		if not G.bases.size(): UIK.para(box, "You have no bases yet.", UIK.DIM, 13)
+		if not G.bases.size(): UIK.ctext(box, "You have no bases yet.", UIK.DIM, 13)
 	if st == "tech":
 		_trade_points(box, G)
 		UIK.button(box, "Open the technology tree", func(): tabs.current_tab = TAB_TECH)
@@ -1008,24 +1011,24 @@ func _turn_econ(box, G) -> void:
 	if st == "policy":
 		UIK.button(box, "Open the policy tree", func(): tabs.current_tab = TAB_POL)
 		var left: int = SHRules.gi(G, "policyLeft", 0)
-		UIK.para(box, ("Choose %d more policies (missed decades)." % left) if left > 0 else ("Policy chosen." if SHRules.t(G.get("policyPicked")) else "Choose one policy to adopt or upgrade."))
+		UIK.ctext(box, ("Choose %d more policies (missed decades)." % left) if left > 0 else ("Policy chosen." if SHRules.t(G.get("policyPicked")) else "Choose one policy to adopt or upgrade."))
 		for p in D.POL:
 			var lv := E.polLv(G, p.k)
 			var c := UIK.card(box)
 			UIK.rich(c, "[b]%s%s[/b]  [color=#a3a7b2]%s[/color]" % [D.POL_LV[maxi(0, lv - 1)] if lv else "", p.n, ("level %d" % lv) if lv else "not held"])
 			if lv < 3:
-				UIK.para(c, "Next: " + p.d[lv], UIK.DIM, 13)
+				UIK.ctext(c, "Next: " + p.d[lv], UIK.DIM, 13)
 				UIK.button(c, "Adopt " + D.POL_LV[lv] + p.n, func(): confirm("Adopt %s%s?" % [D.POL_LV[lv], p.n], String(p.d[lv]) + "\nYou can adopt one policy per decade.", func(): return E.choosePolicy(G, p.k), "Adopt"), SHRules.t(G.get("policyPicked")))
 
 func _tech_list(box, G) -> void:
 	if G.world != null:
 		var cur = E.techTurn(G.world)
-		if cur == null: UIK.para(box, "Every faction has passed.", UIK.DIM)
-		elif cur != G.f: UIK.para(box, "Research turn: " + D.FAC[cur].n, UIK.DIM)
+		if cur == null: UIK.ctext(box, "Every faction has passed.", UIK.DIM)
+		elif cur != G.f: UIK.ctext(box, "Research turn: " + D.FAC[cur].n, UIK.DIM)
 		else:
-			UIK.para(box, "Your research turn: develop one technology or pass.", UIK.AMBER)
+			UIK.ctext(box, "Your research turn: develop one technology or pass.", UIK.AMBER)
 			UIK.button(box, "Pass (no more technologies this decade)", func(): ttree.pass_research())
-	UIK.para(box, "Points: %d Physics, %d Engineering, %d Biology. Unspent points are halved at the end of the step." % [G.bank.Phy, G.bank.Eng, G.bank.Bio])
+	UIK.ctext(box, "Points: %d Physics, %d Engineering, %d Biology. Unspent points are halved at the end of the step." % [G.bank.Phy, G.bank.Eng, G.bank.Bio])
 	var open: Array = D.TECH.filter(func(tt): return E.techState(G, tt) == "open")
 	open = SHRules.ssort(open, func(a, b): return E.techCost(G, a) - E.techCost(G, b))
 	for tt in open:
@@ -1048,9 +1051,10 @@ func _turn_build(box, G) -> void:
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UIK.button(h, "Build", func(): buy_unit(o, "earth", false), o.why != null or G.cash < E.earthCash(G, o.cost))
 		if o.cv and o.why == null: UIK.button(h, "Reserved", func(): buy_unit(o, "earth", true), false, "Reserved: 1 SUP and 1 Fuel cheaper")
+	probe_rows(box, G)
 	UIK.head(box, "Launch vehicles")
 	lv_scrap_row(box)
-	UIK.para(box, "On Earth: " + _lv_txt(G) + ". " + E.lvPoolTxt(G) + ".", UIK.DIM, 13)
+	UIK.ctext(box, "On Earth: " + _lv_txt(G) + ". " + E.lvPoolTxt(G) + ".", UIK.DIM, 13)
 	var f := UIK.flow(box)
 	for z in [1, 2, 3, 4]: UIK.button(f, "Build LV-%d (1 ORE + %d FUEL)" % [z, z], func(): buy_lv(z, "earth"))
 	var cvs: Array = G.ships.filter(func(s): return s.cls == "CV")
@@ -1072,6 +1076,35 @@ func _turn_build(box, G) -> void:
 		for o in E.buildOptions(G, b.id):
 			if o.why == null: UIK.button(fl, "Build " + o.u.n, func(): buy_unit(o, b.id, false))
 
+# ---------------- probes: choose which explorer carries one ----------------
+func probe_ask(pname: String, loc: String) -> void:
+	var G = Game.G
+	var cands: Array = G.ships.filter(func(x): return x.loc == loc and E.canCarryProbe(x))
+	if not cands.size():
+		confirm("Probe %s" % pname, "No unlaunched flyby, orbiter or rover is waiting %s to carry it. Build one, then attach the probe." % ("on Earth" if loc == "earth" else "at " + E.locName(loc)), null, "OK")
+		return
+	var opts := []
+	for x in cands:
+		var sx = x
+		opts.append(["%s (%s)%s" % [x.name, x.kind, (" · swap for " + String(x.probe)) if SHRules.t(x.probe) else ""], func(): return E.attachProbe(G, sx, pname)])
+	opts.append(["Cancel", null])
+	choose("Attach probe %s" % pname, "Choose the robotic explorer that carries it. The probe rides along at launch and can then be dropped on a world to explore it at value 9.", opts)
+## the probes waiting at your bases and on Earth, each with an Attach button
+func probe_rows(box, G) -> void:
+	var any := false
+	for loc in G.probes:
+		for nm in G.probes[loc]:
+			if not any:
+				UIK.head(box, "Probes waiting")
+				any = true
+			var h := UIK.hbox(box)
+			UIK.image(h, UIK.atlas_tex("atlas_" + G.f, "Probe|" + nm), 34)
+			var l := UIK.ctext(h, "%s · %s" % [nm, "Earth" if loc == "earth" else E.locName(loc)], null, 13, 120)
+			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			var ln: String = loc
+			var pn: String = nm
+			UIK.button(h, "Attach to…", func(): probe_ask(pn, ln))
+
 func _lv_txt(G) -> String:
 	var parts := []
 	for z in [1, 2, 3, 4]:
@@ -1089,18 +1122,19 @@ func _ship_row(box, G, s, sub: String) -> HBoxContainer:
 func _turn_move(box, G) -> void:
 	var ready: Array = G.ships.filter(func(s): return E.moves(G, s).size() > 0)
 	UIK.head(box, "Ships that can move (%d)" % ready.size())
-	UIK.para(box, "Select a ship to see where it can go. You can also click it on the map.", UIK.DIM, 12)
+	UIK.ctext(box, "Select a ship to see where it can go. You can also click it on the map.", UIK.DIM, 12)
 	for s in ready: _pick_row(box, G, s, E.locName(s.loc) + " · %d destinations" % E.moves(G, s).map(func(m): return m.dest).size())
+	probe_rows(box, G)
 	var waiting: Array = G.ships.filter(func(s): return s.loc == "earth" and not E.moves(G, s).size())
 	if waiting.size():
-		UIK.para(box, "On Earth without a launch: " + ", ".join(waiting.map(func(s): return s.name)) + ". They need a launch vehicle (build one, or one is bought at launch if a counter is free).", UIK.DIM, 13)
+		UIK.ctext(box, "On Earth without a launch: " + ", ".join(waiting.map(func(s): return s.name)) + ". They need a launch vehicle (build one, or one is bought at launch if a counter is free).", UIK.DIM, 13)
 	if G.bases.size():
 		UIK.head(box, "Cargo flight from Earth to a base")
 		var lvl := E.launchLVs(G, "earth", 1)
 		if not lvl.size():
-			UIK.para(box, "No launch vehicle available on Earth.", UIK.DIM, 13)
+			UIK.ctext(box, "No launch vehicle available on Earth.", UIK.DIM, 13)
 		else:
-			UIK.para(box, "An LV carries resources to one of your bases: faction-board resources first, the rest bought at $1B each. Capacity = LV size%s." % [" + 1 (Equatorial Launch Sites)" if G.f == "sa" else ""], UIK.DIM, 13, 0)
+			UIK.ctext(box, "An LV carries resources to one of your bases: faction-board resources first, the rest bought at $1B each. Capacity = LV size%s." % [" + 1 (Equatorial Launch Sites)" if G.f == "sa" else ""], UIK.DIM, 13, 0)
 			var h := UIK.flow(box)
 			var bp := UIK.pick(h, G.bases.map(func(b): return b.name))
 			var lp := UIK.pick(h, lvl.map(func(o): return "LV-%d %s · carries %d" % [o.n, "from stock" if SHRules.t(o.get("stock")) else "(new: %s)" % o.txt, (o.n + (1 if G.f == "sa" else 0)) * E.cargoMul(G)]))
@@ -1123,13 +1157,13 @@ func _turn_move(box, G) -> void:
 
 func _turn_combat(box, G) -> void:
 	var opts := E.combatOptions(G)
-	if not opts.size(): UIK.para(box, "No attacks are possible this turn.", UIK.DIM)
+	if not opts.size(): UIK.ctext(box, "No attacks are possible this turn.", UIK.DIM)
 	for o in opts: UIK.button(box, o.label, func(): confirm("Fight?", String(o.label) + "\nThe dice decide the result and losses cannot be undone.", func(): return E.combatAct(G, o), "Fight"))
 
 func _turn_explore(box, G) -> void:
 	var ready: Array = G.ships.filter(func(s): return E.exploreOptions(G, s).size() > 0)
 	UIK.head(box, "Ships that can explore (%d)" % ready.size())
-	UIK.para(box, "Select a ship to see its research and exploration options.", UIK.DIM, 12)
+	UIK.ctext(box, "Select a ship to see its research and exploration options.", UIK.DIM, 12)
 	for s in ready: _pick_row(box, G, s, E.locName(s.loc) + " · %d options" % E.exploreOptions(G, s).size())
 
 ## one selectable ship: the chosen one is marked; Select opens the Selected tab
@@ -1244,7 +1278,7 @@ func build_selected() -> void:
 	UIK.clear(box)
 	var s = Game.sel
 	if s == null:
-		UIK.para(box, "Click a ship, base or world on the map.", UIK.DIM)
+		UIK.ctext(box, "Click a ship, base or world on the map.", UIK.DIM)
 		return
 	match s.t:
 		"ship":
@@ -1259,20 +1293,20 @@ func build_selected() -> void:
 			var ship = E._shipById(g, s.id) if g != null else null
 			if ship != null:
 				UIK.title(box, ship.name)
-				UIK.para(box, "%s · %s · %s" % [D.FAC[s.f].n, ("CV-%d" % ship.sz) if ship.cls == "CV" else ship.kind, E.locName(ship.loc)], UIK.DIM)
-				UIK.para(box, "Relations: " + D.REL[G.rel[s.f]])
+				UIK.ctext(box, "%s · %s · %s" % [D.FAC[s.f].n, ("CV-%d" % ship.sz) if ship.cls == "CV" else ship.kind, E.locName(ship.loc)], UIK.DIM)
+				UIK.ctext(box, "Relations: " + D.REL[G.rel[s.f]])
 		"obase":
 			var g = G.world.facs.get(s.f) if G.world != null else null
 			var b = E._baseById(g, s.id) if g != null else null
 			if b != null:
 				UIK.title(box, b.name)
-				UIK.para(box, "%s base · %s" % [D.FAC[s.f].n, D.W[b.w].n], UIK.DIM)
+				UIK.ctext(box, "%s base · %s" % [D.FAC[s.f].n, D.W[b.w].n], UIK.DIM)
 				var fac := []
 				for c in [["lab", "lab"], ["mine", "mine"], ["sup", "supply"], ["def", "defense"]]:
 					if SHRules.t(b.fac[c[0]]): fac.append("%s %d" % [c[1], b.fac[c[0]]])
-				UIK.para(box, ("Facilities: " + ", ".join(fac)) if fac.size() else "No facilities.")
-				if b.set > 0: UIK.para(box, "%d settlement%s" % [b.set, "s" if b.set > 1 else ""])
-				UIK.para(box, "Relations: " + D.REL[G.rel[s.f]])
+				UIK.ctext(box, ("Facilities: " + ", ".join(fac)) if fac.size() else "No facilities.")
+				if b.set > 0: UIK.ctext(box, "%d settlement%s" % [b.set, "s" if b.set > 1 else ""])
+				UIK.ctext(box, "Relations: " + D.REL[G.rel[s.f]])
 
 # ---------------- ship statistics pop-up ----------------
 const KIND_TXT := {
@@ -1294,7 +1328,7 @@ func show_unit_info(f: String, key: String, s = null) -> void:
 	_modal_enter = func(): modal.visible = false
 	var tl := UIK.title(modal_box, "%s · %s" % [nm, ("Crew vehicle CV-%d" % sz) if cv else u.k])
 	tl.autowrap_mode = TextServer.AUTOWRAP_OFF
-	if f != (G.f if G != null else f): UIK.para(modal_box, D.FAC[f].n, Color(D.FAC[f].c).lightened(.25), 13)
+	if f != (G.f if G != null else f): UIK.ctext(modal_box, D.FAC[f].n, Color(D.FAC[f].c).lightened(.25), 13)
 	var row := UIK.hbox(modal_box, 22)
 	var pics := UIK.vbox(row, 6)
 	for k2 in [u.k + "|" + nm, u.k + "|" + nm + "|back"]:
@@ -1308,18 +1342,18 @@ func show_unit_info(f: String, key: String, s = null) -> void:
 	grid.add_theme_constant_override("v_separation", 4)
 	col.add_child(grid)
 	var stat := func(a: String, b: String, c = null):
-		UIK.para(grid, a, UIK.DIM, 14, 140)
-		UIK.para(grid, b, c, 14, 260)
+		UIK.ctext(grid, a, UIK.DIM, 14, 140)
+		UIK.ctext(grid, b, c, 14, 260)
 	var mul: int = E.cargoMul(G) if G != null else 1
 	stat.call("Type", ("Crew vehicle, size %d" % sz) if cv else String(u.k))
-	stat.call("Exploration value", str(u.ev))
+	stat.call("Exploration value", str(u.ev), UIK.C_RESEARCH)
 	if cv:
-		stat.call("Cargo hold", ("%d" % (u.cargo * mul)) + (" (doubled by technology)" if mul > 1 else "") if u.cargo > 0 else "none")
-		stat.call("Combat value", str(u.cb) if u.cb > 0 else "unarmed")
-		if u.dr > 0: stat.call("Drones", str(u.dr))
+		stat.call("Cargo hold", ("%d" % (u.cargo * mul)) + (" (doubled by technology)" if mul > 1 else "") if u.cargo > 0 else "none", UIK.C_CARGO if u.cargo > 0 else UIK.DIM)
+		stat.call("Combat value", str(u.cb) if u.cb > 0 else "unarmed", UIK.C_COMBAT if u.cb > 0 else UIK.DIM)
+		if u.dr > 0: stat.call("Drones", str(u.dr), UIK.C_DRONE)
 		stat.call("Mobile lab", "yes: roll 2 dice, keep 1 when exploring" if u.lab else "no")
 		stat.call("Space mining", "yes: can mine world cards and harvest asteroids" if u.prod else "no")
-		stat.call("Destroyed at", "%d damage" % sz)
+		stat.call("Destroyed at", "%d damage" % sz, UIK.C_DAMAGE)
 		if G != null: stat.call("Engine failure", "%d%% per move" % maxi(0, E.engRate(G, {"cls": "CV", "sz": sz})))
 		stat.call("Leaves Earth", "on an LV-%d or larger" % sz if sz <= 4 else "only with the Space Elevator (no LV is big enough)")
 	else:
@@ -1328,8 +1362,8 @@ func show_unit_info(f: String, key: String, s = null) -> void:
 		stat.call("Malfunction", "30% after each exploration" if u.k != "Probe" else "none (used up)")
 	stat.call("Build cost", "%d ORE, %d SUP, %d FUEL" % [u.ore, u.sup, u.fuel])
 	if cv: stat.call("Reserved build", "%d ORE, %d SUP, %d FUEL" % [u.ore, maxi(0, u.sup - 1), maxi(0, u.fuel - 1)])
-	if KIND_TXT.has(u.k): UIK.para(col, KIND_TXT[u.k], UIK.DIM, 13, 380)
-	elif cv: UIK.para(col, "A crewed ship: explores worlds, carries cargo, founds bases and fights. Without Orbital Rendezvous it stays at Earth.", UIK.DIM, 13, 380)
+	if KIND_TXT.has(u.k): UIK.ctext(col, KIND_TXT[u.k], UIK.DIM, 13, 380)
+	elif cv: UIK.ctext(col, "A crewed ship: explores worlds, carries cargo, founds bases and fights. Without Orbital Rendezvous it stays at Earth.", UIK.DIM, 13, 380)
 	if s != null:
 		UIK.head(col, "This ship now")
 		var facts := [E.locName(s.loc)]
@@ -1337,7 +1371,7 @@ func show_unit_info(f: String, key: String, s = null) -> void:
 		if SHRules.t(s.dmg): facts.append("%d damage" % s.dmg)
 		if E.sum(s.cargo): facts.append("cargo " + E.resTxt(s.cargo))
 		if SHRules.t(s.get("probe")): facts.append("carries probe " + String(s.probe))
-		UIK.para(col, " · ".join(facts), null, 13, 380)
+		UIK.ctext(col, " · ".join(facts), null, 13, 380)
 	var br := UIK.flow(modal_box)
 	UIK.button(br, "View 3D model", func():
 		modal.visible = false
@@ -1418,8 +1452,8 @@ func _sel_ship_panel(box, G, s) -> void:
 	pic.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	pic.gui_input.connect(func(ev): _panel_drag(ev, s, pic))
 	var v := UIK.vbox(h)
-	UIK.title(v, s.name)
-	UIK.para(v, "%s · %s" % [("Crew vehicle CV-%d" % s.sz) if s.cls == "CV" else s.kind, E.locName(s.loc)], UIK.DIM)
+	UIK.title(v, s.name).autowrap_mode = TextServer.AUTOWRAP_OFF
+	UIK.ctext(v, "%s · %s" % [("Crew vehicle CV-%d" % s.sz) if s.cls == "CV" else s.kind, E.locName(s.loc)], UIK.DIM)
 	var facts := []
 	if s.cls == "CV":
 		facts.append("search %d" % s.ev)
@@ -1432,7 +1466,7 @@ func _sel_ship_panel(box, G, s) -> void:
 	if SHRules.t(s.dmg): facts.append("%d damage" % s.dmg)
 	if SHRules.t(s.hold): facts.append("+%d turns beyond box 6" % s.hold)
 	if SHRules.t(s.probe): facts.append("probe " + s.probe)
-	UIK.para(v, " · ".join(facts), null, 13)
+	UIK.ctext(v, " · ".join(facts), null, 13)
 	var bt := UIK.flow(v)
 	UIK.button(bt, "Go to", func(): go_to_ship(s), false, "Bring the camera to this ship")
 	UIK.button(bt, "Statistics", func(): show_unit_info(G.f, s.img, s))
@@ -1444,13 +1478,26 @@ func _sel_ship_panel(box, G, s) -> void:
 	if s.loc != "earth":
 		var mates: Array = G.ships.filter(func(x): return x.loc == s.loc and not SHRules.eq(x.id, s.id))
 		if mates.size():
-			UIK.para(box, "Also here (%d):" % mates.size(), UIK.DIM, 13)
+			UIK.ctext(box, "Also here (%d):" % mates.size(), UIK.DIM, 13)
 			var fl := UIK.flow(box)
 			for x in mates:
 				var xid = x.id
 				var b := UIK.button(fl, "%s · %s" % [x.name, ("CV-%d" % x.sz) if x.cls == "CV" else x.kind], func(): Game.select({"t": "ship", "id": xid}))
 				var rd: bool = (G.phase == "move" and E.moves(G, x).size() > 0) or (G.phase == "explore" and E.exploreOptions(G, x).size() > 0)
 				if rd: b.add_theme_color_override("font_color", UIK.AMBER)
+	if E.canCarryProbe(s):
+		var pool: Array = E.probesFor(G, s)
+		if SHRules.t(s.probe) or pool.size():
+			UIK.head(box, "Probe")
+			if SHRules.t(s.probe):
+				var ph := UIK.hbox(box, 8)
+				UIK.image(ph, UIK.atlas_tex("atlas_" + G.f, "Probe|" + String(s.probe)), 34)
+				UIK.ctext(ph, "Carries probe %s: once launched it can drop it on a world to explore at value 9." % s.probe, Color("#c39bff"), 13, 220)
+				UIK.button(box, "Take the probe off", func(): Game.act(E.detachProbe(G, s)))
+			var pf := UIK.flow(box)
+			for nm in pool:
+				var pn: String = nm
+				UIK.button(pf, ("Swap for probe " if SHRules.t(s.probe) else "Attach probe ") + nm, func(): Game.act(E.attachProbe(G, s, pn)))
 	_cargo_panel(box, G, s)
 	# movement
 	if G.phase == "move":
@@ -1463,7 +1510,7 @@ func _sel_ship_panel(box, G, s) -> void:
 			var lvpick: OptionButton = null
 			if lvs.size() > 1:
 				var hh := UIK.hbox(box)
-				UIK.para(hh, "Launch vehicle", UIK.DIM)
+				UIK.ctext(hh, "Launch vehicle", UIK.DIM)
 				lvpick = UIK.pick(hh, lvs.map(func(x): return ("LV-%d (in stock)" % x.n) if SHRules.t(x.get("stock")) else ("LV-%d (buy: %s)" % [x.n, x.txt])))
 			var cargo_ui = null
 			if s.cls == "CV" and E.onEarth(G, s.loc) and SHRules.t(s.cap) and s.cap * E.cargoMul(G) > E.sum(s.cargo):
@@ -1497,7 +1544,7 @@ func _sel_ship_panel(box, G, s) -> void:
 				UIK.rich(row, "[color=#a3a7b2]" + det + "[/color]", 12)
 				if di.missions != "": UIK.rich(row, di.missions, 12)
 			fl.apply.call()
-		elif s.loc == "earth": UIK.para(box, "No launch is possible now (it needs a launch vehicle, or it has moved this turn).", UIK.DIM)
+		elif s.loc == "earth": UIK.ctext(box, "No launch is possible now (it needs a launch vehicle, or it has moved this turn).", UIK.DIM)
 	if G.phase == "explore":
 		if s.kind == "Flyby" and E.P(s.loc).t == "fly": UIK.button(box, "Skip, transfer outward", func(): confirm("Skip exploring?", s.name + " does not explore and transfers outward.", func(): return E.flybySkip(G, s), "Skip"))
 		var ex := E.exploreOptions(G, s)
@@ -1538,8 +1585,8 @@ func _sel_ship_panel(box, G, s) -> void:
 						err = E.buyCargo(G, s, r, int(L[r]))
 						if err != null: break
 				Game.act(err), true)
-			UIK.para(box, "Or load while launching: the move buttons above use the same sliders.", UIK.DIM, 12, 0)
-		else: UIK.para(box, "The hold is full.", UIK.DIM, 13)
+			UIK.ctext(box, "Or load while launching: the move buttons above use the same sliders.", UIK.DIM, 12, 0)
+		else: UIK.ctext(box, "The hold is full.", UIK.DIM, 13)
 		if E.sum(s.cargo): UIK.button(box, "Unload onto the faction board", func(): Game.act(E.sellCargo(G, s)))
 	var sv = E.scrapValue(G, s)
 	UIK.button(box, ("Scrap (recover %s)" % E.resTxt(sv.back)) if sv != null else "Scrap (destroyed, nothing recovered)", func(): scrap_ask(s))
@@ -1569,7 +1616,7 @@ func _cargo_panel(box, G, s) -> void:
 		var v := int(s.cargo[r])
 		parts.append("%s [color=%s][b]%s %d[/b][/color]" % [UIK.res_icon(r), cols[r] if v > 0 else "#6b6f7b", names[r], v])
 	UIK.rich(box, "   ".join(parts), 15)
-	if used == 0: UIK.para(box, "The hold is empty.", UIK.DIM, 12, 0)
+	if used == 0: UIK.ctext(box, "The hold is empty.", UIK.DIM, 12, 0)
 	var b = E.atOwnBase(G, s)
 	if b != null and (G.phase == "move" or G.phase == "trade"):
 		UIK.head(box, "At " + b.name + " – load or unload")
@@ -1583,16 +1630,16 @@ func _cargo_panel(box, G, s) -> void:
 func _sel_base_panel(box, G, b) -> void:
 	var sr = E.setRow(b.set)
 	UIK.title(box, b.name)
-	UIK.para(box, "%s · %s base · founded %d · %d settlement%s%s" % [D.W[b.w].n, "orbital" if E.basePos(b) == "orbit" else "surface", int(b.built), b.set, "" if b.set == 1 else "s", (" (trade %d, +%d resources, +%d tech)" % [sr[1], sr[2], sr[3]]) if sr != null else ""], UIK.DIM, 13)
+	UIK.ctext(box, "%s · %s base · founded %d · %d settlement%s%s" % [D.W[b.w].n, "orbital" if E.basePos(b) == "orbit" else "surface", int(b.built), b.set, "" if b.set == 1 else "s", (" (trade %d, +%d resources, +%d tech)" % [sr[1], sr[2], sr[3]]) if sr != null else ""], UIK.DIM, 13)
 	UIK.rich(box, "Stock " + UIK.res_bb(b.stock), 14)
 	if SHRules.t(b.get("setHits")):
 		var c := UIK.card(box)
-		UIK.para(c, "%d settlement damage. One settlement is damaged and does not count for trade or production until repaired (3 damage loses it)." % int(b.setHits), UIK.BAD, 13)
+		UIK.ctext(c, "%d settlement damage. One settlement is damaged and does not count for trade or production until repaired (3 damage loses it)." % int(b.setHits), UIK.BAD, 13)
 		UIK.button(c, "Repair settlement", func(): _repair_ask(G, b, "set"), b.stock.ORE < 1, "1 ORE per damage marker")
 	var note := ""
 	if E.basePos(b) == "orbit" and not E.has(G, "elev"): note += " Mines need the Space Elevator technology."
 	if D.W[b.w].tags.has("severeAtm") and not E.has(G, "psh"): note += " Mines need the Pressure Shell technology (severe atmosphere)."
-	UIK.para(box, "One of each facility type, small first and then large, one tier per turn." + note, UIK.DIM, 12)
+	UIK.ctext(box, "One of each facility type, small first and then large, one tier per turn." + note, UIK.DIM, 12)
 	UIK.head(box, "Facilities")
 	var trade_phase: bool = G.phase == "trade"
 	for o in E.upgradeOptions(G, b):
@@ -1603,10 +1650,10 @@ func _sel_base_panel(box, G, b) -> void:
 		var v := UIK.vbox(h, 2)
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UIK.rich(v, "[b]%s[/b]" % (cur.n if cur != null else FACNAME[o.c] + " · none"), 13)
-		UIK.para(v, FACDESC[o.c][o.lv - 1] if o.lv > 0 else FACDESC[o.c][0], UIK.DIM, 12)
-		if SHRules.t(b.dmg[o.c]): UIK.para(v, "%d damage" % int(b.dmg[o.c]), UIK.BAD, 12)
+		UIK.ctext(v, FACDESC[o.c][o.lv - 1] if o.lv > 0 else FACDESC[o.c][0], UIK.DIM, 12)
+		if SHRules.t(b.dmg[o.c]): UIK.ctext(v, "%d damage" % int(b.dmg[o.c]), UIK.BAD, 12)
 		if o.next != null: UIK.rich(v, "[color=#a3a7b2]Next: %s[/color] %s%s" % [o.next.n, UIK.res_bb(o.next.c), (" · [color=#e0508f]%s[/color]" % o.why) if o.why != null else ""], 12)
-		else: UIK.para(v, "Fully built", UIK.DIM, 12)
+		else: UIK.ctext(v, "Fully built", UIK.DIM, 12)
 		var bf := UIK.flow(c)
 		if SHRules.t(b.dmg[o.c]): UIK.button(bf, "Repair", func(): _repair_ask(G, b, o.c), b.stock.ORE < 1, "1 ORE per damage marker")
 		if o.next != null: UIK.button(bf, "Build " + o.next.n, func(): _fac_ask(G, b, o.c), o.why != null or not trade_phase or not E.enough(b.stock, o.next.c), String(o.why) if o.why != null else ("Built in the trade & base phase" if not trade_phase else ""))
@@ -1616,7 +1663,7 @@ func _sel_base_panel(box, G, b) -> void:
 	if D.TERRA.has(b.w): UIK.button(f, "Terraform (%d/%d)" % [int(G.w[b.w].terra), int(D.TERRA[b.w])], func(): _terra_ask(G, b), not trade_phase or not E.has(G, "terra"), "Needs the Terraforming technology")
 	var o = E.baseOutput(G, b)
 	UIK.head(box, "Produces each decade")
-	UIK.para(box, ("%d %s" % [o.n, (E.FN[o.field] + " points") if o.type == "tech" else o.type]) if o != null else "Nothing yet (needs a Mining Station or Research Lab).", UIK.DIM, 13)
+	UIK.ctext(box, ("%d %s" % [o.n, (E.FN[o.field] + " points") if o.type == "tech" else o.type]) if o != null else "Nothing yet (needs a Mining Station or Research Lab).", UIK.DIM, 13)
 	var pf := UIK.flow(box)
 	for ty in ["tech", "ORE", "SUP", "FUEL"]:
 		var bo = E.baseOutput(G, b, ty)
@@ -1626,7 +1673,7 @@ func _sel_base_panel(box, G, b) -> void:
 	if SHRules.t(b.get("trade")):
 		UIK.head(box, "Trade marker")
 		var lim: int = E.tradeLimitOwn(b)
-		UIK.para(box, "%s (up to %d)" % [("Buy 2 %s per $1B" % b.trade.type) if b.trade.side == "buy" else ("Sell %s for $2B each" % b.trade.type), lim], null, 13)
+		UIK.ctext(box, "%s (up to %d)" % [("Buy 2 %s per $1B" % b.trade.type) if b.trade.side == "buy" else ("Sell %s for $2B each" % b.trade.type), lim], null, 13)
 		UIK.button(box, "Trade", func(): trade_ask(G, {"base": b.id}, b.trade, lim, "Trade at %s?" % b.name), not trade_phase or lim < 1)
 
 const CARD_WHO := {"crew": "crew vehicles", "rover": "rovers", "orbiter": "orbiters", "flyby": "flybys", "spec": "ships with a specialist", "probe": "probes", "all": "every explorer"}
@@ -1646,29 +1693,29 @@ func _card_view(box: Node, cd: Dictionary, head: String, width := 300.0, note :=
 		tr.custom_minimum_size = Vector2(width, width * fr[3] / fr[2])
 		box.add_child(tr)
 	UIK.head(box, head)
-	if note != "": UIK.para(box, note, UIK.DIM, 13)
+	if note != "": UIK.ctext(box, note, UIK.DIM, 13)
 	var pr := []
 	for r in ["ORE", "SUP", "FUEL"]:
 		if int(cd.prod.get(r, 0)) > 0: pr.append("%s %d" % [r, int(cd.prod[r])])
-	UIK.para(box, "A base here produces: " + (", ".join(pr) if pr.size() else "nothing") + ".", null, 13)
-	UIK.para(box, "Research: %d %s points when this world is explored." % [int(cd.rv), E.FN.get(cd.rf, cd.rf)], null, 13)
-	for bk in cd.bonus: UIK.para(box, "+%d to exploration rolls for %s." % [int(cd.bonus[bk]), CARD_WHO.get(bk, bk)], null, 13)
-	if int(cd.get("lifeB", 0)) > 0: UIK.para(box, "+%d%% to the chance of finding life." % int(cd.lifeB), UIK.GOOD, 13)
-	UIK.para(box, "Can be placed on: %s." % CARD_EL.get(cd.el, cd.el), UIK.DIM, 13)
+	UIK.ctext(box, "A base here produces: " + (", ".join(pr) if pr.size() else "nothing") + ".", null, 13)
+	UIK.ctext(box, "Research: %d %s points when this world is explored." % [int(cd.rv), E.FN.get(cd.rf, cd.rf)], null, 13)
+	for bk in cd.bonus: UIK.ctext(box, "+%d to exploration rolls for %s." % [int(cd.bonus[bk]), CARD_WHO.get(bk, bk)], null, 13)
+	if int(cd.get("lifeB", 0)) > 0: UIK.ctext(box, "+%d%% to the chance of finding life." % int(cd.lifeB), UIK.GOOD, 13)
+	UIK.ctext(box, "Can be placed on: %s." % CARD_EL.get(cd.el, cd.el), UIK.DIM, 13)
 
 func _sel_world_panel(box, G, k: String) -> void:
 	var w: Dictionary = D.W[k]
 	var ws: Dictionary = G.w[k]
 	UIK.title(box, w.n)
-	UIK.para(box, "%s · exploration value %d · %s%% life · %s" % [D.SYS[w.sys].n, ws.v, w.life, E.FN.get(w.f, "")], UIK.DIM)
+	UIK.ctext(box, "%s · exploration value %d · %s%% life · %s" % [D.SYS[w.sys].n, ws.v, w.life, E.FN.get(w.f, "")], UIK.DIM)
 	if SHRules.t(ws.card):
 		var cd = SHRules._find(D.CARDS, func(x): return x.n == ws.card)
 		if cd != null: _card_view(box, cd, "World card: " + String(cd.n), 300.0)
-		else: UIK.para(box, "World card: " + ws.card)
-	if SHRules.t(ws.life): UIK.para(box, "Existing life found.", UIK.GOOD)
-	elif SHRules.t(ws.sol): UIK.para(box, "Signs of life found.", UIK.GOOD)
-	for x in E.missionsAt(G, k): UIK.para(box, "%s mission: %s" % [x.kind.capitalize(), E.misTxt(x.id)], UIK.AMBER)
-	if SHRules.t(w.base): UIK.para(box, "Base cost %d SUP." % E.baseCost(G, k), UIK.DIM)
+		else: UIK.ctext(box, "World card: " + ws.card)
+	if SHRules.t(ws.life): UIK.ctext(box, "Existing life found.", UIK.GOOD)
+	elif SHRules.t(ws.sol): UIK.ctext(box, "Signs of life found.", UIK.GOOD)
+	for x in E.missionsAt(G, k): UIK.ctext(box, "%s mission: %s" % [x.kind.capitalize(), E.misTxt(x.id)], UIK.AMBER)
+	if SHRules.t(w.base): UIK.ctext(box, "Base cost %d SUP." % E.baseCost(G, k), UIK.DIM)
 	# the ships at this world (on its surface and in its orbit): pick one to select it
 	var here: Array = G.ships.filter(func(x): return x.loc != "earth" and E.worldOf(x.loc) == k)
 	var others := []
@@ -1683,13 +1730,13 @@ func _sel_world_panel(box, G, k: String) -> void:
 		for x in here:
 			var sid = x.id
 			UIK.button(box, "%s · %s · %s" % [x.name, x.kind if x.cls != "CV" else "CV-%d" % x.sz, E.locName(x.loc)], func(): Game.select({"t": "ship", "id": sid}))
-		for o in others: UIK.para(box, "%s · %s (%s) · %s" % [o[1].name, o[1].kind, D.FAC[o[0]].n, E.locName(o[1].loc)], UIK.DIM, 13)
+		for o in others: UIK.ctext(box, "%s · %s (%s) · %s" % [o[1].name, o[1].kind, D.FAC[o[0]].n, E.locName(o[1].loc)], UIK.DIM, 13)
 	var info = E.npfTradeInfo(G, k)
 	if info != null:
 		UIK.head(box, "Non-player base")
-		UIK.para(box, "%s (%s), relations %s." % [info.name, D.FAC[info.f].n, D.REL[info.rel]])
-		if info.tm != null: UIK.para(box, "Trade marker: %s %s, up to %d." % [info.tm.side, info.tm.type, info.limit])
-		if info.why != null: UIK.para(box, info.why, UIK.DIM)
+		UIK.ctext(box, "%s (%s), relations %s." % [info.name, D.FAC[info.f].n, D.REL[info.rel]])
+		if info.tm != null: UIK.ctext(box, "Trade marker: %s %s, up to %d." % [info.tm.side, info.tm.type, info.limit])
+		if info.why != null: UIK.ctext(box, info.why, UIK.DIM)
 		else: UIK.button(box, "Trade", func(): trade_ask(G, {"w": k}, info.tm, int(info.limit), "Trade at %s?" % info.name))
 
 # ---------------- Faction tab ----------------
@@ -1699,27 +1746,27 @@ func build_faction() -> void:
 	UIK.clear(box)
 	var F: Dictionary = D.FAC[G.f]
 	UIK.title(box, F.n + ((" · " + F.variants[G.variant].n) if G.variant != null else ""))
-	UIK.para(box, F.ab, UIK.DIM, 13)
+	UIK.ctext(box, F.ab, UIK.DIM, 13)
 	var L := E.lims(G)
-	UIK.para(box, "Robotic explorers %d/%d · Crew vehicles %d/%d · Bases %d/%d" % [E.nonProbeRE(G), L[0], E.nCV(G), L[1], E.nBase(G), L[2]])
+	UIK.ctext(box, "Robotic explorers %d/%d · Crew vehicles %d/%d · Bases %d/%d" % [E.nonProbeRE(G), L[0], E.nCV(G), L[1], E.nBase(G), L[2]])
 	UIK.rich(box, "Faction board: " + UIK.res_bb(E.estock(G)) + " · LVs: " + _lv_txt(G), 13)
 	UIK.head(box, "Missions")
-	UIK.para(box, "Yours: " + E.misTxt(G.mis.mine) + " · Common: " + E.misTxt(G.mis.common))
-	UIK.para(box, "Kept %d of %d: %s" % [G.mis.kept.size(), E.misCap(G), ", ".join(G.mis.kept.map(func(x): return E.misTxt(x))) if G.mis.kept.size() else "none yet"], UIK.DIM)
+	UIK.ctext(box, "Yours: " + E.misTxt(G.mis.mine) + " · Common: " + E.misTxt(G.mis.common))
+	UIK.ctext(box, "Kept %d of %d: %s" % [G.mis.kept.size(), E.misCap(G), ", ".join(G.mis.kept.map(func(x): return E.misTxt(x))) if G.mis.kept.size() else "none yet"], UIK.DIM)
 	UIK.head(box, "Foreign relations")
-	for k in G.rel: UIK.para(box, "%s: %s" % [D.FAC[k].n, D.REL[G.rel[k]]], null, 13)
+	for k in G.rel: UIK.ctext(box, "%s: %s" % [D.FAC[k].n, D.REL[G.rel[k]]], null, 13)
 	UIK.head(box, "Policies")
 	var pols := []
 	for p in D.POL:
 		var lv := E.polLv(G, p.k)
 		if lv: pols.append(D.POL_LV[lv - 1] + p.n)
-	UIK.para(box, ", ".join(pols) if pols.size() else "none")
+	UIK.ctext(box, ", ".join(pols) if pols.size() else "none")
 	UIK.head(box, "Technologies (%d)" % G.tech.size())
-	UIK.para(box, ", ".join(G.tech.keys().map(func(k): return D.TECHK[k].n)), UIK.DIM, 13)
-	UIK.para(box, "Crew range %d · recall %d%% · malfunction %d%% · transfers ×%s" % [E.crewRange(G), E.recall(G), E.malfBase(G), SHRules.n(E.mult(G))], UIK.DIM, 13)
+	UIK.ctext(box, ", ".join(G.tech.keys().map(func(k): return D.TECHK[k].n)), UIK.DIM, 13)
+	UIK.ctext(box, "Crew range %d · recall %d%% · malfunction %d%% · transfers ×%s" % [E.crewRange(G), E.recall(G), E.malfBase(G), SHRules.n(E.mult(G))], UIK.DIM, 13)
 	var sc := E.score(G)
 	UIK.head(box, "Score now: %s (%s)" % [SHRules.n(sc.total), sc.rating])
-	for p in sc.parts: UIK.para(box, "%s: %s" % [p[0], SHRules.n(p[1])], UIK.DIM, 13)
+	for p in sc.parts: UIK.ctext(box, "%s: %s" % [p[0], SHRules.n(p[1])], UIK.DIM, 13)
 
 # ---------------- Tech and Policy tabs (the trees cover the map) ----------------
 func build_tech_panel() -> void:
@@ -1729,13 +1776,13 @@ func build_tech_panel() -> void:
 	UIK.title(box, "Technologies")
 	var R = ttree.rt_info(G)
 	var can: bool = G.estep == "tech"
-	UIK.para(box, "Research turns: in reverse initiative order each faction develops one technology or passes; repeat until all have passed." if R != null else ("Develop technologies now: click a highlighted card in the tree." if can else "Technologies are developed in the economic phase (every decade from 2040). The tree shows what each one needs."), UIK.DIM, 13)
+	UIK.ctext(box, "Research turns: in reverse initiative order each faction develops one technology or passes; repeat until all have passed." if R != null else ("Develop technologies now: click a highlighted card in the tree." if can else "Technologies are developed in the economic phase (every decade from 2040). The tree shows what each one needs."), UIK.DIM, 13)
 	if R != null:
 		UIK.rich(box, ttree.rt_status_bb(G), 13)
 		if R.mine and not R.passed: UIK.button(box, "Pass", func(): ttree.pass_research())
 	for f in E.FIELDS: UIK.rich(box, "[color=#%s]%s[/color]: [b]%d[/b] points" % [UIK.FIELD_COL[f].to_html(false), E.FN[f], G.bank[f]], 14)
 	var cnt: int = D.TECH.filter(func(t): return SHRules.t(G.tech.get(t.k))).size()
-	UIK.para(box, "%d of %d developed. Each undeveloped technology costs 3 VP at the end. Costs drop by 3 for each other faction that has a technology (the faction tags on its card)." % [cnt, D.TECH.size()], UIK.DIM, 13)
+	UIK.ctext(box, "%d of %d developed. Each undeveloped technology costs 3 VP at the end. Costs drop by 3 for each other faction that has a technology (the faction tags on its card)." % [cnt, D.TECH.size()], UIK.DIM, 13)
 	if G.world != null: UIK.rich(box, ttree.facbanks_bb(G), 13)
 	UIK.button(box, "Convert politics markers (%d)…" % G.polm, func(): ttree.convert_dialog(), G.polm < 1)
 	UIK.button(box, "Back to the map", func(): tabs.current_tab = TAB_TURN)
@@ -1746,7 +1793,7 @@ const RES_COL := {"ORE": Color("#e2e5f0"), "SUP": Color("#8d89d6"), "FUEL": Colo
 func cargo_sliders(box: Node, room: int, title: String, extra = null, on_change = null) -> Dictionary:
 	var G = Game.G
 	var c := UIK.card(box)
-	UIK.para(c, "%s: %d free. Resources on your faction board are used first, the rest is bought at $1B each." % [title, room], UIK.DIM, 13, 0)
+	UIK.ctext(c, "%s: %d free. Resources on your faction board are used first, the rest is bought at $1B each." % [title, room], UIK.DIM, 13, 0)
 	var sls := {}
 	for r in ["ORE", "SUP", "FUEL"]: sls[r] = UIK.slider(c, r, room, 0, RES_COL[r])
 	var cost := UIK.rich(c, "", 13)
@@ -1863,13 +1910,13 @@ func build_pol_panel() -> void:
 	var box := pol_box
 	UIK.clear(box)
 	UIK.title(box, "Policies")
-	UIK.para(box, "Adopt a policy now: click a highlighted card in the tree." if (G.estep == "policy" and not SHRules.t(G.get("policyPicked"))) else "One policy is adopted each decade in the economic phase; each chain goes Basic → Vigorous → Unified.", UIK.DIM, 13)
+	UIK.ctext(box, "Adopt a policy now: click a highlighted card in the tree." if (G.estep == "policy" and not SHRules.t(G.get("policyPicked"))) else "One policy is adopted each decade in the economic phase; each chain goes Basic → Vigorous → Unified.", UIK.DIM, 13)
 	var held := []
 	for p in D.POL:
 		var lv := E.polLv(G, p.k)
 		if lv: held.append(D.POL_LV[lv - 1] + p.n)
-	UIK.para(box, "You hold: " + (", ".join(held) if held.size() else "none") + ".")
-	UIK.para(box, "At most one Unified policy and ten policy levels in total.", UIK.DIM, 13)
+	UIK.ctext(box, "You hold: " + (", ".join(held) if held.size() else "none") + ".")
+	UIK.ctext(box, "At most one Unified policy and ten policy levels in total.", UIK.DIM, 13)
 	UIK.button(box, "Back to the map", func(): tabs.current_tab = TAB_TURN)
 
 # ---------------- purchases, refunds and scrapping ----------------
@@ -1903,7 +1950,7 @@ func refund_list(box) -> void:
 	var buys: Array = E.refundable(G)
 	if not buys.size(): return
 	UIK.head(box, "Bought this phase · refundable")
-	UIK.para(box, "Just planning? Refund a purchase to get back exactly what you paid, then try another combination.", UIK.DIM, 12)
+	UIK.ctext(box, "Just planning? Refund a purchase to get back exactly what you paid, then try another combination.", UIK.DIM, 12)
 	for b in buys:
 		var h := UIK.hbox(box)
 		var paid: String = E.earthRefundTxt(b.paid) if b.where == "earth" else E.resTxt(b.paid.cost)
@@ -1977,7 +2024,7 @@ func confirm(title: String, body: String, fn, ok_text := "OK") -> void:
 func choose(title: String, body: String, opts: Array) -> void:
 	UIK.clear(modal_box)
 	UIK.title(modal_box, title)
-	UIK.para(modal_box, body, null, 14, 400)
+	UIK.ctext(modal_box, body, null, 14, 400)
 	var f := UIK.flow(modal_box)
 	_modal_enter = Callable()
 	for o in opts:
@@ -2065,7 +2112,7 @@ func build_log() -> void:
 	for l in G.log:
 		if not _log_keep(l): continue
 		var col = _log_col(l.c)
-		var t: String = String(l.t).replace("[", "[lb]")
+		var t: String = UIK.cbb(String(l.t).replace("[", "[lb]"))
 		lines.append(("[color=#%s]%s[/color]" % [col.to_html(false), t]) if col != null else t)
 		if lines.size() >= 300: break
 	log_text.text = "\n".join(lines) if lines.size() else "[color=#a3a7b2]No log lines match.[/color]"
@@ -2083,7 +2130,7 @@ func build_dialog() -> void:
 	_fit_dialog.call_deferred()
 	var screen: bool = a.k in ["search", "battle", "pbattle", "assign"]
 	dialog.custom_minimum_size.x = 720 if screen or a.k == "basehit" else (780 if a.k == "card" else 0)
-	if not screen: UIK.para(dialog_box, a.get("text", ""))
+	if not screen: UIK.ctext(dialog_box, a.get("text", ""))
 	var f := UIK.flow(dialog_box)
 	match a.k:
 		"pirate":
@@ -2216,7 +2263,7 @@ func show_menu(mode: String) -> void:
 		modal.visible = false
 		UIK.clear(menu_box)
 		UIK.title(menu_box, "Return to the main menu?", 26)
-		UIK.para(menu_box, "Your campaign (%s, %d) can be saved to the autosave slot first, so you can load it again from the title screen." % [D.FAC[Game.G.f].n, int(Game.G.y)], UIK.DIM, 14, 460)
+		UIK.ctext(menu_box, "Your campaign (%s, %d) can be saved to the autosave slot first, so you can load it again from the title screen." % [D.FAC[Game.G.f].n, int(Game.G.y)], UIK.DIM, 14, 460)
 		var col := UIK.vbox(menu_box, 8)
 		var go := func(save: bool):
 			if save: Game.autosave()
@@ -2238,10 +2285,10 @@ func show_menu(mode: String) -> void:
 	UIK.title(menu_box, "Stellar Horizons", 34)
 	if mode == "start": UIK.button(menu_box, "Fleet hangar (3D models)", func(): hangar.open(_setup.f))
 	if mode == "pause":
-		UIK.para(menu_box, "Campaign paused: %s, %d." % [D.FAC[Game.G.f].n, int(Game.G.y)], UIK.DIM)
+		UIK.ctext(menu_box, "Campaign paused: %s, %d." % [D.FAC[Game.G.f].n, int(Game.G.y)], UIK.DIM)
 		var col := UIK.vbox(menu_box, 8)
 		if Net.active:
-			UIK.para(menu_box, "Online game. The game keeps going for the others while this menu is open.", UIK.DIM, 13)
+			UIK.ctext(menu_box, "Online game. The game keeps going for the others while this menu is open.", UIK.DIM, 13)
 			for it in [["Resume", func(): _close_menu()], ["Settings", func(): show_menu("settings")], ["Fleet hangar (3D models)", func(): hangar.open(Game.G.f)], ["Leave the game", func():
 					Net.leave("You left the game.")]]:
 				var b := UIK.button(col, it[0], it[1])
@@ -2254,7 +2301,7 @@ func show_menu(mode: String) -> void:
 			var b := UIK.button(col, it[0], it[1], it[0] == "Load game" and not Game.any_slot())
 			b.custom_minimum_size = Vector2(260, 40)
 		return
-	UIK.para(menu_box, "Lead a space program from 2030: explore the solar system, found bases and grow settlements.", UIK.DIM)
+	UIK.ctext(menu_box, "Lead a space program from 2030: explore the solar system, found bases and grow settlements.", UIK.DIM)
 	UIK.head(menu_box, "Your faction")
 	var f := UIK.flow(menu_box)
 	for k in D.FAC_ORDER:
@@ -2269,8 +2316,8 @@ func show_menu(mode: String) -> void:
 				show_menu("start"))
 			b.add_theme_color_override("font_color", Color(D.FAC[k].c).lightened(0.25))
 			if _setup.f == k and (vv == "" or _setup.variant == vv): b.add_theme_stylebox_override("normal", b.get_theme_stylebox("hover"))
-	if _setup.f == "cn": UIK.para(menu_box, D.FAC.cn.variants[_setup.variant].d, UIK.DIM, 13)
-	UIK.para(menu_box, D.FAC[_setup.f].ab, UIK.DIM, 13)
+	if _setup.f == "cn": UIK.ctext(menu_box, D.FAC.cn.variants[_setup.variant].d, UIK.DIM, 13)
+	UIK.ctext(menu_box, D.FAC[_setup.f].ab, UIK.DIM, 13)
 	var opts := UIK.flow(menu_box)
 	var others: Array = D.FAC_ORDER.filter(func(x): return x != _setup.f)
 	var cnt := UIK.pick(opts, range(others.size() + 1).map(func(i): return "No bots (solo)" if i == 0 else "%d bot%s" % [i, "" if i == 1 else "s"]), (_setup.botset as Array).size())
@@ -2303,11 +2350,11 @@ func show_menu(mode: String) -> void:
 		if k == "cn":
 			var vp := UIK.pick(row, ["Military", "Robotic"], 1 if _setup.cnbot == "rob" else 0)
 			vp.item_selected.connect(func(i): _setup.cnbot = "rob" if i == 1 else "mil")
-		UIK.para(row, _bot_blurb(k), UIK.DIM, 12, 520)
+		UIK.ctext(row, _bot_blurb(k), UIK.DIM, 12, 520)
 	var on: Array = []
 	for k in [["rerolls", "engine rerolls"], ["enhTrade", "enhanced trading"]]:
 		if Game.settings[k[0]]: on.append(k[1])
-	UIK.para(menu_box, "Optional rules: " + (", ".join(on) if on.size() else "none") + " (change them in Settings).", UIK.DIM, 13)
+	UIK.ctext(menu_box, "Optional rules: " + (", ".join(on) if on.size() else "none") + " (change them in Settings).", UIK.DIM, 13)
 	var go := UIK.flow(menu_box)
 	var start := UIK.button(go, "Start campaign", func(): _start())
 	start.custom_minimum_size = Vector2(220, 44)
@@ -2358,14 +2405,14 @@ func _mp_faction_picker(box: Node) -> void:
 			var b := UIK.button(f, lbl, func(): Net.choose(kk, v2), taken.has(k))
 			b.add_theme_color_override("font_color", Color(D.FAC[k].c).lightened(0.25))
 			if mine == k and myvar == vv: b.add_theme_stylebox_override("normal", b.get_theme_stylebox("hover"))
-	if mine != "": UIK.para(box, D.FAC[mine].ab, UIK.DIM, 13)
+	if mine != "": UIK.ctext(box, D.FAC[mine].ab, UIK.DIM, 13)
 
 func _mp_player_list(box: Node) -> void:
 	UIK.head(box, "Players in the room")
 	for id in Net.players:
 		var p: Dictionary = Net.players[id]
 		var txt: String = String(p.name) + (" (host)" if id == 1 else "") + (" (you)" if id == multiplayer.get_unique_id() else "") + " · " + (D.FAC[p.f].n if p.f != "" else "choosing a faction…")
-		UIK.para(box, txt, Color(D.FAC[p.f].c).lightened(0.25) if p.f != "" else UIK.DIM, 14)
+		UIK.ctext(box, txt, Color(D.FAC[p.f].c).lightened(0.25) if p.f != "" else UIK.DIM, 14)
 
 func _multi_menu(mode: String) -> void:
 	UIK.title(menu_box, "Multiplayer", 30)
@@ -2373,7 +2420,7 @@ func _multi_menu(mode: String) -> void:
 		Net.leave("", true)
 		show_menu("title")
 	if mode == "multi":
-		UIK.para(menu_box, "Play the campaign with friends over the internet. One player hosts and shares a room code; the others join with it. Factions you leave to bots are played by the computer. Players take their turns one after another, in initiative order.", UIK.DIM, 14, 520)
+		UIK.ctext(menu_box, "Play the campaign with friends over the internet. One player hosts and shares a room code; the others join with it. Factions you leave to bots are played by the computer. Players take their turns one after another, in initiative order.", UIK.DIM, 14, 520)
 		UIK.head(menu_box, "Your name")
 		var le := LineEdit.new()
 		le.text = _mp_player_name()
@@ -2390,7 +2437,7 @@ func _multi_menu(mode: String) -> void:
 		UIK.button(row, "Back", back)
 		return
 	if mode == "mp_join":
-		UIK.para(menu_box, "Type the room code the host gave you (like ABCDE-FGHJK), or their address (like 192.168.1.20 for the same network).", UIK.DIM, 14, 520)
+		UIK.ctext(menu_box, "Type the room code the host gave you (like ABCDE-FGHJK), or their address (like 192.168.1.20 for the same network).", UIK.DIM, 14, 520)
 		var code := LineEdit.new()
 		code.placeholder_text = "Room code or address"
 		code.text = _mp_code
@@ -2409,19 +2456,19 @@ func _multi_menu(mode: String) -> void:
 		return
 	if mode == "mp_lobby":
 		if not Net.in_lobby:
-			UIK.para(menu_box, "Connecting…", UIK.DIM)
+			UIK.ctext(menu_box, "Connecting…", UIK.DIM)
 			UIK.button(menu_box, "Cancel", back)
 			return
 		if Net.players.is_empty():
-			UIK.para(menu_box, "Connecting to the host…", UIK.DIM)
+			UIK.ctext(menu_box, "Connecting to the host…", UIK.DIM)
 			UIK.button(menu_box, "Cancel", back)
 			return
-		UIK.para(menu_box, "You are in the room. Pick a faction; the host starts the game when everyone is ready.", UIK.DIM, 14, 520)
+		UIK.ctext(menu_box, "You are in the room. Pick a faction; the host starts the game when everyone is ready.", UIK.DIM, 14, 520)
 		_mp_player_list(menu_box)
 		UIK.head(menu_box, "Your faction")
 		_mp_faction_picker(menu_box)
 		var bots: Array = Net.settings.bots
-		UIK.para(menu_box, "Bots: " + (", ".join(bots.map(func(b): return D.FAC[b.f].n)) if bots.size() else "none") + " · " + ("Futuristic start (2060)" if Net.settings.scenario == "fut2060" else "Standard campaign (2030)"), UIK.DIM, 13, 520)
+		UIK.ctext(menu_box, "Bots: " + (", ".join(bots.map(func(b): return D.FAC[b.f].n)) if bots.size() else "none") + " · " + ("Futuristic start (2060)" if Net.settings.scenario == "fut2060" else "Standard campaign (2030)"), UIK.DIM, 13, 520)
 		UIK.button(menu_box, "Leave", back)
 		return
 	# host lobby
@@ -2438,8 +2485,8 @@ func _multi_menu(mode: String) -> void:
 		UIK.button(codebox, "Copy", func():
 			DisplayServer.clipboard_set(rc)
 			show_toast("Room code copied."))
-	if Net.local_ip != "": UIK.para(menu_box, "Same network: players can type %s instead." % Net.local_ip, UIK.DIM, 13, 520)
-	UIK.para(menu_box, Net.upnp_msg, UIK.DIM, 12, 520)
+	if Net.local_ip != "": UIK.ctext(menu_box, "Same network: players can type %s instead." % Net.local_ip, UIK.DIM, 13, 520)
+	UIK.ctext(menu_box, Net.upnp_msg, UIK.DIM, 12, 520)
 	_mp_player_list(menu_box)
 	UIK.head(menu_box, "Your faction")
 	_mp_faction_picker(menu_box)
@@ -2483,7 +2530,7 @@ func _multi_menu(mode: String) -> void:
 			vp.item_selected.connect(func(i):
 				_mp_cnbot = "rob" if i == 1 else "mil"
 				apply.call())
-		UIK.para(row, _bot_blurb(k), UIK.DIM, 12, 420)
+		UIK.ctext(row, _bot_blurb(k), UIK.DIM, 12, 420)
 	var go := UIK.flow(menu_box)
 	var why: String = Net.can_start()
 	var st := UIK.button(go, "Start the game", func():
@@ -2491,7 +2538,7 @@ func _multi_menu(mode: String) -> void:
 		var e := Net.start_game()
 		if e != "": show_toast(e), why != "")
 	st.custom_minimum_size = Vector2(220, 44)
-	if why != "": UIK.para(menu_box, why, UIK.DIM, 13, 520)
+	if why != "": UIK.ctext(menu_box, why, UIK.DIM, 13, 520)
 	UIK.button(go, "Close the room", back)
 
 func _bot_blurb(f: String) -> String:
@@ -2534,7 +2581,7 @@ func _file_dialog(export: bool) -> void:
 ## the save slots: autosave plus three manual slots
 func _slots_menu(mode: String) -> void:
 	UIK.title(menu_box, "Save game" if mode == "save" else "Load game", 28)
-	UIK.para(menu_box, ("Choose a slot. The autosave is written each time you press Next and when you quit." if mode == "save" else "Pick a saved campaign. The autosave is written each time you press Next."), UIK.DIM, 13, 460)
+	UIK.ctext(menu_box, ("Choose a slot. The autosave is written each time you press Next and when you quit." if mode == "save" else "Pick a saved campaign. The autosave is written each time you press Next."), UIK.DIM, 13, 460)
 	for i in Game.SLOTS.size():
 		if mode == "save" and i == 0: continue
 		var c := UIK.card(menu_box)
@@ -2542,7 +2589,7 @@ func _slots_menu(mode: String) -> void:
 		var v := UIK.vbox(h, 2)
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UIK.rich(v, "[b]%s[/b]" % Game.slot_name(i), 15)
-		UIK.para(v, Game.slot_info(i), UIK.DIM, 12, 0)
+		UIK.ctext(v, Game.slot_info(i), UIK.DIM, 12, 0)
 		var has := Game.has_slot(i)
 		if mode == "save":
 			UIK.button(h, "Overwrite" if has else "Save", func():
@@ -2559,7 +2606,7 @@ func _slots_menu(mode: String) -> void:
 					return
 				Game.delete_slot(i)
 				show_menu(mode))
-	UIK.para(menu_box, "Saves are kept in " + ProjectSettings.globalize_path("user://"), UIK.DIM, 12, 460)
+	UIK.ctext(menu_box, "Saves are kept in " + ProjectSettings.globalize_path("user://"), UIK.DIM, 12, 460)
 	var bar := UIK.flow(menu_box)
 	if mode == "load":
 		UIK.button(bar, "Export saves…", func(): _file_dialog(true), not Game.any_slot())
@@ -2573,7 +2620,7 @@ func _settings_menu() -> void:
 	var dv := UIK.vbox(dh, 2)
 	dv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UIK.rich(dv, "[b]Display[/b]", 15)
-	UIK.para(dv, "Windowed, Fullscreen, or Borderless windowed (a full-screen window you can switch away from quickly).", UIK.DIM, 12, 380)
+	UIK.ctext(dv, "Windowed, Fullscreen, or Borderless windowed (a full-screen window you can switch away from quickly).", UIK.DIM, 12, 380)
 	var modes := ["windowed", "fullscreen", "borderless"]
 	var wp := UIK.pick(dh, ["Windowed", "Fullscreen", "Borderless windowed"], maxi(0, modes.find(String(Game.settings.window))))
 	wp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -2585,7 +2632,7 @@ func _settings_menu() -> void:
 	var kv := UIK.vbox(kh, 2)
 	kv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UIK.rich(kv, "[b]Controls[/b]", 15)
-	UIK.para(kv, "Camera (W A S D to move), Next (Enter), the screens and the planet hotkeys.", UIK.DIM, 12, 380)
+	UIK.ctext(kv, "Camera (W A S D to move), Next (Enter), the screens and the planet hotkeys.", UIK.DIM, 12, 380)
 	var kb := UIK.button(kh, "Change keys", func(): show_menu("keys"))
 	kb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var rows := [
@@ -2600,7 +2647,7 @@ func _settings_menu() -> void:
 		var v := UIK.vbox(h, 2)
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UIK.rich(v, "[b]%s[/b]" % r[1], 15)
-		UIK.para(v, r[2], UIK.DIM, 12, 380)
+		UIK.ctext(v, r[2], UIK.DIM, 12, 380)
 		var cb := CheckButton.new()
 		cb.button_pressed = Game.settings[r[0]]
 		cb.focus_mode = Control.FOCUS_NONE
