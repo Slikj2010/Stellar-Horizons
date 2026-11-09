@@ -260,6 +260,45 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 			Game.select({"t": "world", "k": "mar"})])
 		a.append(["wait", 10])
 		a.append(["shot", "91_worldsel"])
+	if plan == "crowd":
+		a.append(["call", func():
+			for i in 150:
+				var G = Game.G
+				while G.ask.size(): Game.AI.answerAsks(G)
+				if G.phase == "move": break
+				if not G.over: Game.AI.botPhase(G)
+				Game.next()
+			var G = Game.G
+			var E = Game.E
+			for fk in G.world.facs:
+				var g = G.world.facs[fk]
+				var k := 0
+				for key in E.UNITS.keys():
+					if not String(key).begins_with(fk + "|") or k >= 4: continue
+					var sh = E.makeShip(g, E.UNITS[key].n)
+					if sh != null:
+						sh.loc = "orbit:ear"
+						k += 1
+			main.toggle_3d()])
+		a.append(["wait", 10])
+		a.append(["call", func():
+			var sh = SHRules._find(Game.G.ships, func(x): return x.loc == "orbit:ear")
+			Game.select({"t": "ship", "id": sh.id})
+			main.tabs.current_tab = 1
+			main.v25.focus(main.board.pos_of("orbit:ear"), .5)])
+		a.append(["wait", 15])
+		a.append(["call", func():
+			main.v25.C.dist = 300
+			main.v25.clampCam()
+			main.v25.touch()])
+		a.append(["wait", 10])
+		a.append(["shot", "85_crowd25"])
+		a.append(["call", func(): main.toggle_3d()])
+		a.append(["wait", 10])
+		a.append(["call", func(): main.fly(main.board.pos_of("orbit:ear"), .5)])
+		a.append(["wait", 10])
+		a.append(["shot", "86_crowdflat"])
+		return a
 	if plan == "ships25":
 		a.append(["call", func():
 			for i in 150:

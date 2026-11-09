@@ -343,6 +343,14 @@ func _ship_tag(f: String, s: Dictionary, c: Vector2, strong: bool, ready: bool, 
 				R.text("%s %d" % [r, int(s.cargo[r])], c.x + cs * .66, y0 + 12 * j, 10, cols[r], "left")
 				j += 1
 
+## more ships than this at one spot are drawn as one stack per faction
+const STACK_AT := 6
+func _stack_badge(s, stack_n: Dictionary, c: Vector2, ck: float, col: Color) -> void:
+	var k: int = stack_n.get(s, 1)
+	if k <= 1: return
+	var at := c + Vector2(CS * ck * .5, -CS * ck * .5)
+	if R == null: draw_circle(at, 13, Color(0, 0, 0, .75))
+	text("×%d" % k, at, 15 if R == null else 13, col)
 func draw_box(p: Vector2, size: float, col: Color, w := 3.0, rot := 0.0) -> void:
 	if R != null: return
 	draw_set_transform(p, rot)
@@ -576,6 +584,32 @@ func paint_objects() -> void:
 	var drag_id = ghost.get("id") if ghost != null else null
 	for loc in by_loc:
 		var lst: Array = by_loc[loc]
+		# a crowded spot (often Earth orbit after a build phase with the Space Elevator): each faction's ships become one
+		# stack with a count; your stack shows the selected ship (or one ready to act), and clicking it again cycles
+		var stack_n := {}
+		var stack_ids := {}
+		if lst.size() > STACK_AT:
+			var groups := {}
+			var order := []
+			for s in lst:
+				var f: String = owner.get(s, G.f)
+				if not groups.has(f):
+					groups[f] = []
+					order.append(f)
+				groups[f].append(s)
+			var reps := []
+			for f in order:
+				var g: Array = groups[f]
+				var rp = g[0]
+				if f == G.f:
+					var sid = sel.get("id") if (sel != null and sel.t == "ship") else null
+					var hit_sel = SHRules._find(g, func(x): return SHRules.eq(x.id, sid))
+					var hit_ready = SHRules._find(g, func(x): return (G.phase == "move" and E.moves(G, x).size() > 0) or (G.phase == "explore" and E.exploreOptions(G, x).size() > 0))
+					rp = hit_sel if hit_sel != null else (hit_ready if hit_ready != null else g[0])
+				reps.append(rp)
+				stack_n[rp] = g.size()
+				stack_ids[rp] = g.map(func(x): return x.id)
+			lst = reps
 		var p := pos_of(loc)
 		var cols := mini(lst.size(), 3)
 		var lp := E.P(loc)
@@ -611,11 +645,12 @@ func paint_objects() -> void:
 				c = Rr.c + Vector2(((i % 3) - (cols - 1) / 2.0) * (CS * ck + 4), floorf(i / 3.0) * (CS * ck + 4))
 			if owner.has(s):
 				var of: String = owner[s]
-				if R != null: R.ring(c.x, c.y, CS * .62, D.FAC[of].c, 3)
+				if R != null and nl <= 2: R.ring(c.x, c.y, CS * .62 * ck, D.FAC[of].c, 3)
 				draw_box(c, CS + 6, Color(D.FAC[of].c), 3, rot)
 				if R != null: _ship_tag(of, s, c, true, false, ck, nl, lp.w if lp.t == "surf" else "", i)
 				else: draw_frame(atl[of].tex, unit_frame(of, s.img + "|back" if SHRules.t(s.res) else s.img), c, CS, rot)
-				hits.append({"t": "oship", "f": of, "id": s.id, "c": c, "r": CS / 2, "img": s.img})
+				_stack_badge(s, stack_n, c, ck, Color(D.FAC[of].c).lightened(.3))
+				hits.append({"t": "oship", "f": of, "id": s.id, "c": c, "r": CS / 2, "img": s.img, "stack": stack_ids.get(s, [])})
 				continue
 			var ready: bool = (G.phase == "move" and E.moves(G, s).size() > 0) or (G.phase == "explore" and E.exploreOptions(G, s).size() > 0)
 			var is_sel: bool = sel != null and sel.t == "ship" and SHRules.eq(sel.get("id"), s.id)
@@ -628,7 +663,8 @@ func paint_objects() -> void:
 			if SHRules.t(s.get("probe")):
 				if R != null: R.model(G.f, "Probe|" + s.probe, c.x - 24, c.y + 24, 24, D.FAC[G.f].c, true, int(s.get("face", 1)))
 				else: draw_frame(atl[G.f].tex, unit_frame(G.f, "Probe|" + s.probe), c + Vector2(-24, 24), 24)
-			hits.append({"t": "ship", "id": s.id, "c": c, "r": CS / 2, "f": G.f, "img": s.img})
+			_stack_badge(s, stack_n, c, ck, Color("#ffffff"))
+			hits.append({"t": "ship", "id": s.id, "c": c, "r": CS / 2, "f": G.f, "img": s.img, "stack": stack_ids.get(s, [])})
 	_ck = 1.0
 	# move targets (the 2.5D view draws its own)
 	if targets.size() and R == null:

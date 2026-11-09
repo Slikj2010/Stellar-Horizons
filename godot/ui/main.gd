@@ -610,7 +610,12 @@ func _tap(h) -> void:
 		"pod":
 			if v25.on: v25.focusPod(h.k)
 		"ship":
-			Game.select({"t": "ship", "id": h.id})
+			# a stack of your ships: clicking the one already selected moves on to the next in the stack
+			var st: Array = h.get("stack", [])
+			var id = h.id
+			if st.size() > 1 and Game.sel != null and Game.sel.t == "ship" and SHRules.eq(Game.sel.get("id"), h.id):
+				id = st[(st.find(h.id) + 1) % st.size()]
+			Game.select({"t": "ship", "id": id})
 			tabs.current_tab = 1
 		"dest":
 			var s = _sel_ship()
@@ -781,8 +786,8 @@ func unused_actions(G) -> Array:
 	if ph == "combat":
 		add.call(E.combatOptions(G), func(a): return "Combat available: %s." % "; ".join(a.map(func(o): return o.label)))
 	if ph == "build":
-		add.call(G.ships.filter(func(s): return s.cls == "CV" and SHRules.t(s.get("res")) and s.loc == "earth"), func(a): return "Reserved crew vehicles on Earth you could unreserve: %s." % names.call(a))
-		add.call(G.ships.filter(func(s): return s.cls == "CV" and SHRules.t(s.get("dmg")) and s.loc == "earth"), func(a): return "Damaged crew vehicles you could repair: %s." % names.call(a))
+		add.call(G.ships.filter(func(s): return s.cls == "CV" and SHRules.t(s.get("res")) and E.onEarth(G, s.loc)), func(a): return "Reserved crew vehicles on Earth you could unreserve: %s." % names.call(a))
+		add.call(G.ships.filter(func(s): return s.cls == "CV" and SHRules.t(s.get("dmg")) and E.onEarth(G, s.loc)), func(a): return "Damaged crew vehicles you could repair: %s." % names.call(a))
 		var pe: Array = G.probes.get("earth", [])
 		if pe.size() and not G.ships.any(func(s): return s.cls == "RE" and not SHRules.t(s.get("launched")) and s.kind != "Telescope"):
 			out.append("Probe%s %s %s no unlaunched flyby, orbiter or rover to ride on." % ["s" if pe.size() > 1 else "", ", ".join(pe), "have" if pe.size() > 1 else "has"])
@@ -1199,6 +1204,17 @@ func _sel_ship_panel(box, G, s) -> void:
 	UIK.button(v, "Flip facing ⇄", func():
 		s.face = -int(s.get("face", 1))
 		Game.act(null))
+	# the other ships of yours at the same spot (they are stacked on the map when it is crowded)
+	if s.loc != "earth":
+		var mates: Array = G.ships.filter(func(x): return x.loc == s.loc and not SHRules.eq(x.id, s.id))
+		if mates.size():
+			UIK.para(box, "Also here (%d):" % mates.size(), UIK.DIM, 13)
+			var fl := UIK.flow(box)
+			for x in mates:
+				var xid = x.id
+				var b := UIK.button(fl, "%s · %s" % [x.name, ("CV-%d" % x.sz) if x.cls == "CV" else x.kind], func(): Game.select({"t": "ship", "id": xid}))
+				var rd: bool = (G.phase == "move" and E.moves(G, x).size() > 0) or (G.phase == "explore" and E.exploreOptions(G, x).size() > 0)
+				if rd: b.add_theme_color_override("font_color", UIK.AMBER)
 	_cargo_panel(box, G, s)
 	# movement
 	if G.phase == "move":
@@ -1214,7 +1230,7 @@ func _sel_ship_panel(box, G, s) -> void:
 				UIK.para(hh, "Launch vehicle", UIK.DIM)
 				lvpick = UIK.pick(hh, lvs.map(func(x): return ("LV-%d (in stock)" % x.n) if SHRules.t(x.get("stock")) else ("LV-%d (buy: %s)" % [x.n, x.txt])))
 			var cargo_ui = null
-			if s.cls == "CV" and s.loc == "earth" and SHRules.t(s.cap) and s.cap * E.cargoMul(G) > E.sum(s.cargo):
+			if s.cls == "CV" and E.onEarth(G, s.loc) and SHRules.t(s.cap) and s.cap * E.cargoMul(G) > E.sum(s.cargo):
 				var newlv := func():
 					if lvs.size() == 0: return null
 					var o: Dictionary = lvs[lvpick.selected] if lvpick != null else lvs[0]
@@ -1271,8 +1287,8 @@ func _sel_ship_panel(box, G, s) -> void:
 	if G.phase == "trade":
 		var c = E.canFoundBase(G, s)
 		if c != null: UIK.button(box, "Found %s base here (%d SUP)" % ["an orbital" if c.pos == "orbit" else "a surface", c.cost], func(): found_ask(G, s), s.cargo.SUP < c.cost)
-	if s.loc == "earth" and SHRules.t(s.cap):
-		UIK.head(box, "Cargo on Earth")
+	if E.onEarth(G, s.loc) and SHRules.t(s.cap):
+		UIK.head(box, "Cargo on Earth" if s.loc == "earth" else "Cargo from Earth (Space Elevator)")
 		var room: int = int(s.cap * E.cargoMul(G) - E.sum(s.cargo))
 		if room > 0:
 			var lbh := [null]

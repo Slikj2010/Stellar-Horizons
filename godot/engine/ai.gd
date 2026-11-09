@@ -445,7 +445,7 @@ func build(G) -> void:
 	var L := E.lims(G)
 	var lre: int = L[0]
 	var lcv: int = L[1]
-	var idle := SHRules._some(G.ships, func(s): return s.loc == "earth" and not t(s.res) and s.cls == "CV")
+	var idle := SHRules._some(G.ships, func(s): return E.onEarth(G, s.loc) and not t(s.res) and s.cls == "CV")
 	var gs := goals(G)
 	var um := unmet(G)
 	if gs.size():
@@ -550,7 +550,7 @@ func _moveCV(G, s, m: Array) -> void:
 			if E.sysOf(x.dest) == "ear": return 40
 			if E.P(x.dest).t == "box" and E.P(x.dest).s == "ear": return 30
 			return 0)
-		if home != null and s.loc != "earth": E.move(G, s, home.dest, {})
+		if home != null and not E.onEarth(G, s.loc): E.move(G, s, home.dest, {})
 		return
 	var here = E.worldOf(s.loc)
 	var room: int = s.cap * E.cargoMul(G) - E.sum(s.cargo)
@@ -560,27 +560,27 @@ func _moveCV(G, s, m: Array) -> void:
 		var o = null
 		if E.sum(s.cargo) and G.bases.size(): o = best(m, func(x): return (10.0 / (1 + int(gi(x, "eta", 0)))) if SHRules._some(G.bases, func(b): return E.baseLoc(b) == x.dest) else 0.0)
 		elif not E.sum(s.cargo): o = SHRules._find(m, func(x): return x.dest == "earth")
-		if o == null and s.loc == "earth" and G.bases.size(): o = best(m, func(x): return (5.0 / (1 + int(gi(x, "eta", 0)))) if SHRules._some(G.bases, func(b): return E.sysOf(E.baseLoc(b)) == E.sysOf(x.dest)) else 0.0)
+		if o == null and E.onEarth(G, s.loc) and G.bases.size(): o = best(m, func(x): return (5.0 / (1 + int(gi(x, "eta", 0)))) if SHRules._some(G.bases, func(b): return E.sysOf(E.baseLoc(b)) == E.sysOf(x.dest)) else 0.0)
 		if o != null:
-			var opt := {"load": {"SUP": mini(room, G.cash - 8)}} if (s.loc == "earth" and room > 0 and G.cash > 8) else {}
+			var opt := {"load": {"SUP": mini(room, G.cash - 8)}} if (E.onEarth(G, s.loc) and room > 0 and G.cash > 8) else {}
 			if E.move(G, s, o.dest, opt) is String: E.move(G, s, o.dest, {})
 		return
 	# an explorer that should found a base but has no supplies goes down to Earth to load them
 	var needSup: bool = t(s.cap) and s.ev > 0 and wantBase(G) and s.cargo.SUP < 3 and baseSpots(G, s, s.cap * E.cargoMul(G)).size() > 0
-	if needSup and s.loc != "earth" and E.sysOf(s.loc) == "ear" and SHRules._some(m, func(x): return x.dest == "earth"):
+	if needSup and not E.onEarth(G, s.loc) and E.sysOf(s.loc) == "ear" and SHRules._some(m, func(x): return x.dest == "earth"):
 		E.move(G, s, "earth", {})
 		return
 	# stay while there is still exploring worth doing here, or while a base could be founded here
 	var canExploreHere: bool = here != null and wv(G, here) >= (1 if here == "ear" else 2) and s.ev > s.dmg and not isGas(here) and E.P(s.loc).t != "fly"
 	if t(s.launched) and here != null and s.loc != "earth" and (canExploreHere or canBaseAt(G, s, s.loc, s.cargo.SUP)): return
 	# go somewhere else worth it (not just hop between this world's orbit and surface), unless a base goes here
-	var maxLoad: int = maxi(0, mini(room, G.cash - 8)) if (s.loc == "earth" and t(s.cap)) else 0
+	var maxLoad: int = maxi(0, mini(room, G.cash - 8)) if (E.onEarth(G, s.loc) and t(s.cap)) else 0
 	# only pay for supplies when there is a base spot this crew can reach and afford with them
 	var spots := baseSpots(G, s, s.cargo.SUP + maxLoad)
 	var ld: int = mini(maxLoad, maxi(0, SHRules.mn(spots.map(func(x): return x.cost)) - s.cargo.SUP) + (1 if maxLoad > 3 else 0)) if spots.size() else 0
 	var sup: int = s.cargo.SUP + ld
 	var foundHere := func(x): return canBaseAt(G, s, x.dest, sup)
-	var o = best(m.filter(func(x): return x.dest != "earth" and (E.worldOf(x.dest) != here or foundHere.call(x) or s.loc == "earth")), func(x): return destScore(G, s, x.dest, x.get("eta"), sup) + (.6 if (s.loc == "earth" and x.dest == "orbit:ear") else 0.0))
+	var o = best(m.filter(func(x): return x.dest != "earth" and (E.worldOf(x.dest) != here or foundHere.call(x) or E.onEarth(G, s.loc))), func(x): return destScore(G, s, x.dest, x.get("eta"), sup) + (.6 if (s.loc == "earth" and x.dest == "orbit:ear") else 0.0))
 	if o == null or (destScore(G, s, o.dest, o.get("eta"), sup) < 1.5 and not foundHere.call(o)): return
 	var opt := {"load": {"SUP": ld}} if ld > 0 else {}
 	if E.move(G, s, o.dest, opt) is String and opt.has("load"): E.move(G, s, o.dest, {})

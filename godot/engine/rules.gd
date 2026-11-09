@@ -1057,6 +1057,7 @@ func buildOptions(G, where) -> Array:
 		if inUse.has(u.n): why = "in service"
 		elif cv and not cvTechOk(G, sz): why = "needs " + ("Crew Vehicles" if sz <= 2 else ("Large Crew Vehicles" if sz == 3 else ("Frigates" if sz == 4 else ("Destroyers" if sz == 5 else ("Cruisers" if sz == 6 else "Battleships")))))
 		elif base == null and cv and sz > 4 and not has(G, "elev"): why = "too large to build on Earth"
+		elif base != null and u.k == "Telescope" and baseLoc(base) != "orbit:ear": why = "telescopes are built only on Earth or at an Earth-orbit base"
 		elif base != null and ((supLv < 4) if (cv and sz > 2) else (supLv < 3)): why = "needs a large Spaceport" if (cv and sz > 2) else "needs a Spaceport"
 		var cost := {"ORE": u.ore, "SUP": u.sup, "FUEL": u.fuel}
 		out.append({"key": k, "u": u, "cost": cost, "why": why, "kind": u.k, "cv": cv, "sz": sz})
@@ -1170,10 +1171,18 @@ func buildUnit(G, key: String, where, reserved := false):
 	else:
 		var s = makeShip(G, opt.u.n)
 		s.loc = loc
+		# Space Elevator: new crew vehicles ride the elevator and start in Earth orbit, free to fly on without a launch vehicle
+		if where == "earth" and opt.cv and has(G, "elev"):
+			s.loc = "orbit:ear"
+			s.launched = true
+		# a telescope only ever works in Earth orbit: built at an Earth-orbit base (or on Earth with the elevator) it is already there
+		if opt.kind == "Telescope" and (s.loc == "orbit:ear" or (where == "earth" and has(G, "elev"))):
+			s.loc = "orbit:ear"
+			s.launched = true
 		s.res = reserved and opt.cv
 		s.built = G.y
 		_noteBuy(G, {"k": "ship", "where": where, "paid": paid, "sid": s.id})
-	glog(G, "Built " + opt.kind + " " + opt.u.n + (" (reserved)" if reserved and opt.cv else "") + " at " + ("Earth" if where == "earth" else _baseById(G, where).name) + " for " + paidTxt + ".", "g")
+	glog(G, "Built " + opt.kind + " " + opt.u.n + (" (reserved)" if reserved and opt.cv else "") + " at " + ("Earth" if where == "earth" else _baseById(G, where).name) + " for " + paidTxt + "." + (" It rides the Space Elevator to Earth orbit." if where == "earth" and has(G, "elev") and (opt.cv or opt.kind == "Telescope") else ""), "g")
 	return null
 # two-sided LV counters. A faction has c13 LV-1/LV-3 counters, c24 LV-2/LV-4 counters, and (North America) c14 LV-1/LV-4.
 # LV-1s always use the LV-1/LV-4 counter first (North America's first LV-1 is the one with LV-4 on its back).
@@ -1365,7 +1374,7 @@ func scrapLV(G, where, z: int):
 	glog(G, "LV-" + n(z) + " scrapped at " + ("Earth" if where == "earth" else _baseById(G, where).name) + "; " + refundHalf(G, where, {"ORE": 1, "FUEL": z}) + ". Its counter is free again.")
 	return null
 func cargoDump(G, s) -> Dictionary:
-	if s.loc == "earth": return estock(G)
+	if onEarth(G, s.loc): return estock(G)
 	var b = atOwnBase(G, s)
 	return b.stock if b != null else {}
 func removeShip(G, s) -> void: G.ships = without(G.ships, s)
@@ -1395,6 +1404,8 @@ func startMovement(G) -> void:
 func endMovement(G) -> void:
 	for s in G.ships:
 		if P(s.loc).t == "fly" and s.kind == "Flyby": s.flyArrive = G.y
+## with the Space Elevator, Earth's surface and Earth orbit count as one place
+func onEarth(G, loc: String) -> bool: return loc == "earth" or (loc == "orbit:ear" and has(G, "elev"))
 func atOwnBase(G, s):
 	var w = worldOf(s.loc)
 	var pt: String = P(s.loc).t
@@ -1449,9 +1460,17 @@ func moves(G, s) -> Array:
 		if t(s.fixed): return []
 		var lvs := lvStockAt(G, s.loc)
 		if not t(s.launched):
-			if not lvs.size() and not (s.loc == "earth"): return []
+			# deploying where it already is (a rover built at a surface base going onto that surface, an orbiter at an
+			# orbital base going into that orbit, a telescope on Earth with the Space Elevator) needs no launch vehicle
+			var here_dest := ""
+			if s.kind == "Telescope" and onEarth(G, s.loc): here_dest = "orbit:ear"
+			elif s.kind == "Orbiter" and p.t == "orbit" and p.w != "ear": here_dest = s.loc
+			elif s.kind == "Rover" and p.t == "surf" and p.w != "ear": here_dest = s.loc
+			if here_dest != "": add.call(here_dest, {"same": true})
+			if s.kind == "Telescope" and here_dest != "": return out
+			if not lvs.size() and not (s.loc == "earth"): return out
 			var lvOpts := launchLVs(G, s.loc, 1)
-			if not lvOpts.size(): return []
+			if not lvOpts.size(): return out
 			if s.kind == "Telescope":
 				add.call("orbit:ear", {"lv": lvOpts[0]})
 				return out
@@ -1459,8 +1478,8 @@ func moves(G, s) -> Array:
 				if sy == here:
 					for w in worldsIn(sy):
 						if W[w].tags.has("tele") or W[w].tags.has("earth") or w == "ear": continue
-						if s.kind == "Orbiter": add.call("orbit:" + w, {"lv": lvOpts[0]})
-						if s.kind == "Rover" and not isGas(w) and not isSun(w): add.call("surf:" + w, {"lv": lvOpts[0]})
+						if s.kind == "Orbiter" and "orbit:" + w != here_dest: add.call("orbit:" + w, {"lv": lvOpts[0]})
+						if s.kind == "Rover" and not isGas(w) and not isSun(w) and "surf:" + w != here_dest: add.call("surf:" + w, {"lv": lvOpts[0]})
 					if s.kind == "Flyby": add.call("fly:" + sy, {"lv": lvOpts[0]})
 					continue
 				for lv in lvOpts:
@@ -1474,6 +1493,11 @@ func moves(G, s) -> Array:
 				if s.kind == "Rover" and not isGas(w) and not isSun(w): add.call("surf:" + w, {"final": true})
 		return out
 	# ---------- crew vehicles ----------
+	if s.loc == "earth" and has(G, "elev"):
+		# the Space Elevator lifts it: surface and orbit are one place, no launch vehicle needed
+		for tg in cvTargets(G, s, "ear"):
+			if tg.dest != "earth": add.call(tg.dest, {"eta": tg.get("eta"), "hold": tg.get("hold"), "why": tg.why})
+		return out.filter(func(o): return o.why == null)
 	if s.loc == "earth":
 		var lvOpts := launchLVs(G, "earth", s.sz)
 		if not lvOpts.size(): return []
@@ -1481,7 +1505,7 @@ func moves(G, s) -> Array:
 		for tg in cvTargets(G, s, "ear"): add.call(tg.dest, {"lv": lvOpts[0], "eta": tg.get("eta"), "hold": tg.get("hold"), "why": tg.why})
 		return out.filter(func(o): return o.why == null)
 	for tg in cvTargets(G, s, here):
-		if tg.dest != s.loc: add.call(tg.dest, {"eta": tg.get("eta"), "hold": tg.get("hold"), "why": tg.why})
+		if tg.dest != s.loc and not (tg.dest == "earth" and onEarth(G, s.loc)): add.call(tg.dest, {"eta": tg.get("eta"), "hold": tg.get("hold"), "why": tg.why})
 	return out.filter(func(o): return o.why == null)
 func boxFor(sy: String, tt: int) -> String: return "box:" + sy + ":" + n(mini(6, tt))
 func cvTargets(G, s, here) -> Array:
@@ -1557,7 +1581,7 @@ func move(G, s, dest: String, opt = null):
 	var loadPaid = null
 	# a crew vehicle leaving Earth can be loaded with cargo paid on Earth (faction board first, then $1B each)
 	var ld = null
-	if s.cls == "CV" and s.loc == "earth" and t(gi(opt, "load", null)):
+	if s.cls == "CV" and onEarth(G, s.loc) and t(gi(opt, "load", null)):
 		ld = {}
 		for r in RES: ld[r] = maxi(0, fl(num(gi(opt.load, r, 0))))
 	if ld != null and sum(ld):
@@ -1596,6 +1620,13 @@ func move(G, s, dest: String, opt = null):
 	if leavingFly and G.fly[pirSys].pir.size() and not (s.cb - s.dmg > 0) and not t(gi(opt, "pirateDone", false)):
 		G.ask.append({"k": "pirate", "ship": s.id, "dest": dest, "opt": merged(opt, {"pirateDone": true}), "sys": pirSys, "roll": d10(), "text": "A pirate in the " + SYS[pirSys].n + " flyby box intercepts " + s.name + "."})
 		refund.call()
+		return null
+	if t(mv.get("same")):
+		s.loc = dest
+		s.launched = true
+		if s.kind == "Orbiter" or s.kind == "Rover": s.fixed = true
+		G.turn.moved[s.id] = int(gi(G.turn.moved, s.id, 0)) + 1
+		glog(G, s.name + " deploys at " + locName(dest) + " (already there: no launch vehicle needed).")
 		return null
 	# hostile fleets intercept ships leaving their location (3.3.6)
 	if not t(gi(opt, "iceptDone", false)) and from != "earth":
@@ -3045,7 +3076,7 @@ func foundBase(G, s):
 	glog(G, s.name + " founds " + ("an orbital" if c.pos == "orbit" else "a surface") + " base " + name + " at " + W[c.w].n + " for " + n(c.cost) + " SUP.", "g")
 	return null
 func buyCargo(G, s, r: String, k: int):  # at Earth: buy resources straight into a ship's hold
-	if s.loc != "earth": return s.name + " must be on Earth to take on cargo bought there."
+	if not onEarth(G, s.loc): return s.name + " must be on Earth (or in Earth orbit, with the Space Elevator) to take on cargo bought there."
 	var room: int = s.cap * cargoMul(G) - sum(s.cargo)
 	k = mini(k, room)
 	if k <= 0: return s.name + " has no cargo room."
@@ -3055,7 +3086,7 @@ func buyCargo(G, s, r: String, k: int):  # at Earth: buy resources straight into
 	glog(G, s.name + " loads " + n(k) + " " + r + " on Earth (" + ((n(paid.used[r]) + " from the faction board") if t(paid.used[r]) else "") + (", " if (t(paid.used[r]) and t(paid.cash)) else "") + (("$" + n(paid.cash) + "B bought") if t(paid.cash) else "") + ").")
 	return null
 func sellCargo(G, s):  # at Earth: nothing is sold; cargo goes onto the faction board for later building
-	if s.loc != "earth": return "Ships unload onto the faction board on Earth."
+	if not onEarth(G, s.loc): return "Ships unload onto the faction board on Earth (or from Earth orbit, with the Space Elevator)."
 	var tx := resTxt(s.cargo)
 	addRes(estock(G), s.cargo)
 	s.cargo = {"ORE": 0, "SUP": 0, "FUEL": 0}
