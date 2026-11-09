@@ -566,6 +566,10 @@ func _tip_text(G, h: Dictionary) -> String:
 ## right-click on a counter: show it large, front and back
 func _zoom_counter(h: Dictionary) -> void:
 	if not h.has("img") or not h.has("f"): return
+	if h.t == "ship" or h.t == "oship":
+		var sh = E._shipById(Game.G, h.id) if h.t == "ship" else null
+		show_unit_info(h.f, String(h.img).trim_suffix("|back"), sh)
+		return
 	var f: String = h.f
 	var key: String = h.img
 	UIK.clear(modal_box)
@@ -950,7 +954,7 @@ func _turn_build(box, G) -> void:
 	for o in E.buildOptions(G, "earth"):
 		if o.why == "in service": continue
 		var h := UIK.hbox(box)
-		UIK.image(h, UIK.atlas_tex("atlas_" + G.f, o.kind + "|" + o.u.n), 40)
+		info_on_click(UIK.image(h, UIK.atlas_tex("atlas_" + G.f, o.kind + "|" + o.u.n), 40), G.f, o.kind + "|" + o.u.n)
 		var l := UIK.rich(h, "[b]%s[/b] [color=#a3a7b2]%s[/color]\n%s = %s%s" % [o.u.n, o.kind, UIK.res_bb(o.cost), E.earthCostTxt(G, o.cost), (" · [color=#e0508f]%s[/color]" % o.why) if o.why != null else ""], 13)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UIK.button(h, "Build", func(): buy_unit(o, "earth", false), o.why != null or G.cash < E.earthCash(G, o.cost))
@@ -1181,9 +1185,149 @@ func build_selected() -> void:
 				if b.set > 0: UIK.para(box, "%d settlement%s" % [b.set, "s" if b.set > 1 else ""])
 				UIK.para(box, "Relations: " + D.REL[G.rel[s.f]])
 
+# ---------------- ship statistics pop-up ----------------
+const KIND_TXT := {
+	"Flyby": "Robotic flyby. Launched on a launch vehicle into transfer and flyby boxes; explores the worlds of a system as it passes (minus the box number), then must transfer on to a system further out.",
+	"Orbiter": "Robotic orbiter. Launched on a launch vehicle; makes one final move into a world's orbit and stays there. From the system's central world it can explore the other worlds at -1.",
+	"Rover": "Robotic rover. Launched on a launch vehicle; lands on a world (never a gas giant) and stays there.",
+	"Telescope": "Space telescope. Works only from Earth orbit: explores any world except Alpha Centauri for half its value, and never completes missions.",
+	"Probe": "Probe, carried by a flyby, orbiter or rover. Explores at value 9 when released, then is used up.",
+}
+## a pop-up with a unit's counter, its numbers and what it does. key = "Kind|Name" (its counter); s = a ship in play, if any
+func show_unit_info(f: String, key: String, s = null) -> void:
+	var G = Game.G
+	var nm: String = key.split("|")[1] if key.contains("|") else key
+	var u = E.unitData(f + "|" + nm)
+	if u == null: return
+	var cv: bool = String(u.k).begins_with("CV")
+	var sz: int = int(String(u.k).substr(3)) if cv else 0
+	UIK.clear(modal_box)
+	_modal_enter = func(): modal.visible = false
+	var tl := UIK.title(modal_box, "%s · %s" % [nm, ("Crew vehicle CV-%d" % sz) if cv else u.k])
+	tl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	if f != (G.f if G != null else f): UIK.para(modal_box, D.FAC[f].n, Color(D.FAC[f].c).lightened(.25), 13)
+	var row := UIK.hbox(modal_box, 22)
+	var pics := UIK.vbox(row, 6)
+	for k2 in [u.k + "|" + nm, u.k + "|" + nm + "|back"]:
+		var tex = UIK.atlas_tex("atlas_" + f, k2)
+		if tex != null: UIK.image(pics, tex, 150, "Back (reserved side)" if k2.ends_with("|back") else "Front")
+	var col := UIK.vbox(row, 6)
+	col.custom_minimum_size.x = 420
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 18)
+	grid.add_theme_constant_override("v_separation", 4)
+	col.add_child(grid)
+	var stat := func(a: String, b: String, c = null):
+		UIK.para(grid, a, UIK.DIM, 14, 140)
+		UIK.para(grid, b, c, 14, 260)
+	var mul: int = E.cargoMul(G) if G != null else 1
+	stat.call("Type", ("Crew vehicle, size %d" % sz) if cv else String(u.k))
+	stat.call("Exploration value", str(u.ev))
+	if cv:
+		stat.call("Cargo hold", ("%d" % (u.cargo * mul)) + (" (doubled by technology)" if mul > 1 else "") if u.cargo > 0 else "none")
+		stat.call("Combat value", str(u.cb) if u.cb > 0 else "unarmed")
+		if u.dr > 0: stat.call("Drones", str(u.dr))
+		stat.call("Mobile lab", "yes: roll 2 dice, keep 1 when exploring" if u.lab else "no")
+		stat.call("Space mining", "yes: can mine world cards and harvest asteroids" if u.prod else "no")
+		stat.call("Destroyed at", "%d damage" % sz)
+		if G != null: stat.call("Engine failure", "%d%% per move" % maxi(0, E.engRate(G, {"cls": "CV", "sz": sz})))
+		stat.call("Leaves Earth", "on an LV-%d or larger" % sz if sz <= 4 else "only with the Space Elevator (no LV is big enough)")
+	else:
+		stat.call("Spectrometer", "yes: draws 2 world cards on depletion, keeps 1" if u.spec else "no")
+		if G != null: stat.call("Engine failure", "%d%% per move" % maxi(0, E.engRate(G, null)))
+		stat.call("Malfunction", "30% after each exploration" if u.k != "Probe" else "none (used up)")
+	stat.call("Build cost", "%d ORE, %d SUP, %d FUEL" % [u.ore, u.sup, u.fuel])
+	if cv: stat.call("Reserved build", "%d ORE, %d SUP, %d FUEL" % [u.ore, maxi(0, u.sup - 1), maxi(0, u.fuel - 1)])
+	if KIND_TXT.has(u.k): UIK.para(col, KIND_TXT[u.k], UIK.DIM, 13, 380)
+	elif cv: UIK.para(col, "A crewed ship: explores worlds, carries cargo, founds bases and fights. Without Orbital Rendezvous it stays at Earth.", UIK.DIM, 13, 380)
+	if s != null:
+		UIK.head(col, "This ship now")
+		var facts := [E.locName(s.loc)]
+		if SHRules.t(s.res): facts.append("reserved")
+		if SHRules.t(s.dmg): facts.append("%d damage" % s.dmg)
+		if E.sum(s.cargo): facts.append("cargo " + E.resTxt(s.cargo))
+		if SHRules.t(s.get("probe")): facts.append("carries probe " + String(s.probe))
+		UIK.para(col, " · ".join(facts), null, 13, 380)
+	var br := UIK.flow(modal_box)
+	UIK.button(br, "View 3D model", func():
+		modal.visible = false
+		hangar.open(f, f + "|" + nm))
+	UIK.button(br, "Close", func(): modal.visible = false)
+	modal.visible = true
+
+## a counter picture that opens the statistics pop-up when clicked
+func info_on_click(ctrl: Control, f: String, key: String, s = null) -> void:
+	ctrl.mouse_filter = Control.MOUSE_FILTER_STOP
+	ctrl.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	if ctrl.tooltip_text == "": ctrl.tooltip_text = "Click for this ship's statistics"
+	ctrl.gui_input.connect(func(ev):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT: show_unit_info(f, key, s))
+
+# ---------------- dragging a ship from the Selected panel onto the map ----------------
+var _pd = null
+func _panel_drag(ev: InputEvent, s, ctrl: Control) -> void:
+	var G = Game.G
+	if G == null: return
+	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
+		if ev.pressed:
+			_pd = {"p": ev.global_position, "on": false}
+			return
+		var pd = _pd
+		_pd = null
+		if pd == null: return
+		if not pd.on:
+			show_unit_info(G.f, s.img, s)
+			return
+		var q: Vector2 = ev.global_position
+		var gp = board.ghost.get("p") if board.ghost != null else null
+		board.ghost = null
+		_drag_ship = null
+		if v25.on: v25.touch()
+		board.queue_redraw()
+		Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+		if not stage_rect().has_point(q):
+			show_toast("Drop the ship on a highlighted destination on the map.")
+			return
+		var dests := []
+		for m in E.moves(G, s):
+			if not dests.has(m.dest): dests.append(m.dest)
+		var d = null
+		if v25.on: d = v25.destAt(q.x, q.y, dests)
+		if d == null and gp != null:
+			var dd: String = board.dest_at(gp)
+			if dd != "": d = dd
+		if d != null: do_move(s, d, {}, gp)
+		else: show_toast("Drop the ship on a highlighted destination on the map.")
+		return
+	if ev is InputEventMouseMotion and _pd != null:
+		var q: Vector2 = ev.global_position
+		if not _pd.on:
+			if q.distance_to(_pd.p) < 8: return
+			if G.phase != "move" or G.ask.size() or E.moves(G, s).size() == 0: return
+			_pd.on = true
+			_drag_ship = s
+			board.ghost = {"f": G.f, "img": s.img, "id": s.id}
+			Input.set_default_cursor_shape(Input.CURSOR_DRAG)
+		var wp = v25.sheetAt(q.x, q.y) if v25.on else _world(q)
+		if wp != null and board.ghost != null:
+			board.ghost.p = wp
+			board.ghost.dest = board.dest_at(wp)
+			if v25.on: v25.touch()
+			else: board.queue_redraw()
+
+## bring the camera to a ship (ships waiting on Earth: to Earth)
+func go_to_ship(s) -> void:
+	if s == null: return
+	fly(board.world_center("ear") if s.loc == "earth" else board.pos_of(s.loc), .9)
+
 func _sel_ship_panel(box, G, s) -> void:
 	var h := UIK.hbox(box, 12)
-	UIK.image(h, UIK.atlas_tex("atlas_" + G.f, s.img + "|back" if SHRules.t(s.res) else s.img), 84)
+	var pic := UIK.image(h, UIK.atlas_tex("atlas_" + G.f, s.img + "|back" if SHRules.t(s.res) else s.img), 84,
+		"Click for statistics" + ("; drag onto the map to move it" if G.phase == "move" and E.moves(G, s).size() else ""))
+	pic.mouse_filter = Control.MOUSE_FILTER_STOP
+	pic.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	pic.gui_input.connect(func(ev): _panel_drag(ev, s, pic))
 	var v := UIK.vbox(h)
 	UIK.title(v, s.name)
 	UIK.para(v, "%s · %s" % [("Crew vehicle CV-%d" % s.sz) if s.cls == "CV" else s.kind, E.locName(s.loc)], UIK.DIM)
@@ -1200,6 +1344,9 @@ func _sel_ship_panel(box, G, s) -> void:
 	if SHRules.t(s.hold): facts.append("+%d turns beyond box 6" % s.hold)
 	if SHRules.t(s.probe): facts.append("probe " + s.probe)
 	UIK.para(v, " · ".join(facts), null, 13)
+	var bt := UIK.flow(v)
+	UIK.button(bt, "Go to", func(): go_to_ship(s), false, "Bring the camera to this ship")
+	UIK.button(bt, "Statistics", func(): show_unit_info(G.f, s.img, s))
 	UIK.button(v, "View 3D model", func(): hangar.open(G.f, G.f + "|" + s.name))
 	UIK.button(v, "Flip facing ⇄", func():
 		s.face = -int(s.get("face", 1))

@@ -260,6 +260,53 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 			Game.select({"t": "world", "k": "mar"})])
 		a.append(["wait", 10])
 		a.append(["shot", "91_worldsel"])
+	if plan == "info":
+		a.append(["call", func():
+			main.show_unit_info(Game.G.f, "CV-5|Enterprise")])
+		a.append(["wait", 6])
+		a.append(["shot", "50_info_cv"])
+		a.append(["call", func():
+			main.modal.visible = false
+			for i in 150:
+				var G = Game.G
+				while G.ask.size(): Game.AI.answerAsks(G)
+				if G.phase == "move" and G.ships.any(func(x): return Game.E.moves(G, x).size() > 0 and x.loc != "earth"): break
+				if not G.over: Game.AI.botPhase(G)
+				Game.next()
+			var sh = SHRules._find(Game.G.ships, func(x): return Game.E.moves(Game.G, x).size() > 0 and x.loc != "earth")
+			Game.select({"t": "ship", "id": sh.id})
+			main.tabs.current_tab = 1
+			main.go_to_ship(sh)])
+		a.append(["wait", 20])
+		a.append(["shot", "51_goto"])
+		a.append(["call", func():
+			var sh = SHRules._find(Game.G.ships, func(x): return Game.E.moves(Game.G, x).size() > 0 and x.loc != "earth")
+			var mv = Game.E.moves(Game.G, sh)[0]
+			var target: Vector2 = main.board.get_canvas_transform() * main.board.pos_of(mv.dest)
+			var e1 := InputEventMouseButton.new()
+			e1.button_index = MOUSE_BUTTON_LEFT
+			e1.pressed = true
+			e1.global_position = Vector2(1100, 120)
+			main._panel_drag(e1, sh, null)
+			var e2 := InputEventMouseMotion.new()
+			e2.global_position = Vector2(1100, 160)
+			main._panel_drag(e2, sh, null)
+			var e3 := InputEventMouseMotion.new()
+			e3.global_position = target
+			main._panel_drag(e3, sh, null)
+			print("DRAG dest under ghost: ", main.board.ghost.get("dest") if main.board.ghost != null else "none", " want ", mv.dest)])
+		a.append(["wait", 6])
+		a.append(["shot", "52_dragging"])
+		a.append(["call", func():
+			var e4 := InputEventMouseButton.new()
+			e4.button_index = MOUSE_BUTTON_LEFT
+			e4.pressed = false
+			e4.global_position = main.board.get_canvas_transform() * main.board.ghost.p
+			var sh = SHRules._find(Game.G.ships, func(x): return SHRules.eq(x.id, Game.sel.id))
+			main._panel_drag(e4, sh, null)])
+		a.append(["wait", 6])
+		a.append(["shot", "53_dropped"])
+		return a
 	if plan == "totitle":
 		a.append(["call", func(): main.show_menu("pause")])
 		a.append(["wait", 5])

@@ -348,7 +348,8 @@ func refresh() -> void:
 	for o in E.buildOptions(G, "earth"):
 		if o.why == "in service": continue
 		var h := UIK.hbox(r4[1])
-		_counter(G.f, o.kind + "|" + o.u.n, 40, h)
+		var pic := _counter(G.f, o.kind + "|" + o.u.n, 40, h)
+		if main != null: main.info_on_click(pic, G.f, o.kind + "|" + o.u.n)
 		var l := UIK.rich(h, "[b]%s[/b] [color=#a3a7b2]%s[/color]\n%s = %s%s" % [o.u.n, o.kind, UIK.res_bb(o.cost), E.earthCostTxt(G, o.cost), (" · [color=#e0508f]%s[/color]" % o.why) if o.why != null else ""], 13)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UIK.button(h, "Build", func(): main.buy_unit(o, "earth", false), not bp or o.why != null or G.cash < E.earthCash(G, o.cost))
@@ -363,7 +364,8 @@ func refresh() -> void:
 	if cvs.size() or yards.size():
 		for s in cvs:
 			var h := UIK.hbox(r5[0])
-			_counter(G.f, s.img + "|back" if SHRules.t(s.res) else s.img, 40, h)
+			var cpic := _counter(G.f, s.img + "|back" if SHRules.t(s.res) else s.img, 40, h)
+			if main != null: main.info_on_click(cpic, G.f, s.img, s)
 			var l := UIK.rich(h, "[b]%s[/b] CV-%d · %s%s%s%s" % [s.name, s.sz, E.locName(s.loc), " · reserved" if SHRules.t(s.res) else "", (" · %d damage" % s.dmg) if SHRules.t(s.dmg) else "", (" · cargo " + UIK.res_bb(s.cargo)) if E.sum(s.cargo) else ""], 13)
 			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			if bp:
