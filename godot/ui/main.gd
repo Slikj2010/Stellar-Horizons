@@ -1974,6 +1974,24 @@ func show_menu(mode: String) -> void:
 	fboard.visible = false
 	ttree.visible = false
 	UIK.clear(menu_box)
+	if mode == "to_title" and Game.G != null:
+		title.visible = false
+		menu.visible = true
+		modal.visible = false
+		UIK.clear(menu_box)
+		UIK.title(menu_box, "Return to the main menu?", 26)
+		UIK.para(menu_box, "Your campaign (%s, %d) can be saved to the autosave slot first, so you can load it again from the title screen." % [D.FAC[Game.G.f].n, int(Game.G.y)], UIK.DIM, 14, 460)
+		var col := UIK.vbox(menu_box, 8)
+		var go := func(save: bool):
+			if save: Game.autosave()
+			Game.G = null
+			Game.sel = null
+			Game.pad = null
+			show_menu("title")
+		for it in [["Save and return to the main menu", func(): go.call(true)], ["Return without saving", func(): go.call(false)], ["Cancel", func(): show_menu("pause")]]:
+			var b := UIK.button(col, it[0], it[1])
+			b.custom_minimum_size = Vector2(320, 40)
+		return
 	if mode == "start" or mode == "pause": _menu_from = mode
 	_mp_mode = mode if mode in ["multi", "mp_host", "mp_join", "mp_lobby"] else ""
 	match mode:
@@ -1995,7 +2013,7 @@ func show_menu(mode: String) -> void:
 		for it in [["Resume", func(): _close_menu()], ["Save game", func(): show_menu("save")], ["Load game", func(): show_menu("load")],
 				["Settings", func(): show_menu("settings")], ["Fleet hangar (3D models)", func(): hangar.open(Game.G.f)], ["Developer console", func():
 					_close_menu()
-					dev.open()], ["New campaign", func(): show_menu("start")], ["Quit", func(): Game.quit()]]:
+					dev.open()], ["New campaign", func(): show_menu("start")], ["Main menu", func(): show_menu("to_title")], ["Quit", func(): Game.quit()]]:
 			var b := UIK.button(col, it[0], it[1], it[0] == "Load game" and not Game.any_slot())
 			b.custom_minimum_size = Vector2(260, 40)
 		return

@@ -260,6 +260,24 @@ func _plan(plan: String, f: String, bots: bool) -> Array:
 			Game.select({"t": "world", "k": "mar"})])
 		a.append(["wait", 10])
 		a.append(["shot", "91_worldsel"])
+	if plan == "totitle":
+		a.append(["call", func(): main.show_menu("pause")])
+		a.append(["wait", 5])
+		a.append(["shot", "60_pause"])
+		a.append(["call", func(): main.show_menu("to_title")])
+		a.append(["wait", 5])
+		a.append(["shot", "61_confirm"])
+		a.append(["call", func():
+			Game.autosave()
+			Game.G = null
+			Game.sel = null
+			main.show_menu("title")])
+		a.append(["wait", 20])
+		a.append(["shot", "62_title"])
+		a.append(["call", func(): main.show_menu("start")])
+		a.append(["wait", 5])
+		a.append(["shot", "63_start"])
+		return a
 	if plan == "moons":
 		a.append(["call", func(): main.toggle_3d()])
 		a.append(["wait", 10])
